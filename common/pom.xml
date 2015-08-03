@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.magnet.mmx</groupId>
+    <artifactId>mmx-client-root</artifactId>
+    <version>1.2.3</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <packaging>jar</packaging>
+  <artifactId>mmx-client-common-api</artifactId>
+
+  <name>Magnet Messaging Client Common APIs</name>
+  <description>${project.name}</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.magnet.mmx</groupId>
+      <artifactId>mmx-common-api</artifactId>
+      <version>${project.version}</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.magnet.mmx.ext</groupId>
+      <artifactId>mmx-smack-core</artifactId>
+      <version>4.0.7</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.magnet.mmx.ext</groupId>
+      <artifactId>mmx-smack-tcp</artifactId>
+      <version>4.0.7</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.magnet.mmx.ext</groupId>
+      <artifactId>mmx-smack-extensions</artifactId>
+      <version>4.0.7</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.3</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>net.sf.kxml</groupId>
+      <artifactId>kxml2</artifactId>
+      <version>2.3.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.11</version>
+      <scope>test</scope>
+    </dependency>
+      <dependency>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-log4j12</artifactId>
+          <version>1.7.7</version>
+          <scope>test</scope>
+          <!-- excluded since a different version
+          gets included by the code monkey dependency -->
+          <exclusions>
+              <exclusion>
+                  <groupId>log4j</groupId>
+                  <artifactId>log4j</artifactId>
+              </exclusion>
+          </exclusions>
+      </dependency>
+  </dependencies>
+
+</project>

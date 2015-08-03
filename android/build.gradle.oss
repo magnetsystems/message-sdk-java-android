@@ -1,0 +1,298 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:1.1.3'
+    }
+}
+
+repositories {
+    jcenter()
+    mavenLocal()
+
+    mavenCentral()
+
+    maven { url "https://repo.magnet.com/artifactory/public" }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'maven'
+
+archivesBaseName = 'magnet-mmx-client-android'
+version = "1.2.3"
+group = "com.magnet.mmx"
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.1'
+}
+
+configurations {
+    provided
+    jaxDoclet
+}
+
+sourceSets {
+    main {
+        compileClasspath += configurations.provided
+        runtimeClasspath += configurations.provided
+    }
+    // this is for the test to compile if it needs jars from provided scope
+    test {
+        compileClasspath += configurations.provided
+        runtimeClasspath += configurations.provided
+    }
+}
+
+dependencies {
+    compile 'com.google.code.gson:gson:2.3'
+
+     // this gets resolved from the Android SDK install of google play services
+     // and doesn't work on Jenkins currently.
+    compile 'com.google.android.gms:play-services-base:6.5.+'
+    compile 'com.google.android.gms:play-services-location:6.5.+'
+
+    compile 'com.android.support:support-v4:19.1.0'
+    compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7'
+    compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
+
+    // for javadoc generation
+    jaxDoclet 'com.google.doclava:doclava:1.0.+'
+
+}
+
+android {
+    compileSdkVersion 19
+    buildToolsVersion "22.0.1"
+
+    defaultConfig {
+        minSdkVersion 16
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        debug {
+   	    testCoverageEnabled true
+	       }
+    }
+
+    sourceSets {
+        main {
+            //      aidl.srcDirs         = ['src']
+            //      resources.srcDirs    = ['src']
+            //      renderscript.srcDirs = ['src']
+            java.srcDirs = ['src/main/java', '../../common/src/main/java', '../common/src/main/java']
+
+        }
+        // this is the default, don't need to set it
+        // androidTest.setRoot('src/androidTest')
+    }
+    lintOptions {
+        abortOnError false
+    }
+}
+
+task eclipseClean(type: Delete) {
+    delete 'gen'
+    delete 'bin'
+    delete 'src/androidTest/gen'
+    delete 'src/androidTest/bin'
+}
+
+clean.dependsOn eclipseClean
+
+def javadocSource = [sourceSets.main.allJava, '../common/src/main/java', '../../common/src/main/java']
+
+task androidJavadocs(type: Javadoc) {
+    println "generating JAVADOCS task:"
+    println System.getenv('JAVA_HOME')
+    source = javadocSource
+    destinationDir = reporting.file("$projectDir/build/docs")
+    title = null
+    options.docletpath = configurations.jaxDoclet.files.asType(List)
+    options.doclet = "com.google.doclava.Doclava"
+    ext.androidJar = "${System.env.ANDROID_HOME}/platforms/${android.compileSdkVersion}/android.jar"
+    ext.googlePlayServicesJar = "${System.env.ANDROID_HOME}/extras/google/google_play_services/libproject/google-play-services_lib/libs/google-play-services.jar"
+    ext.androidSupportV4Jar = "${System.env.ANDROID_HOME}/extras/android/support/v4/android-support-v4.jar"
+    classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath
+
+    options {
+        doclet "com.google.doclava.Doclava"
+        addStringOption "hdf project.name", "Magnet Messaging SDK for Android"
+//        addStringOption "templatedir", "$projectDir" //for pointing to the template when we have one
+        addStringOption "federate android", "http://d.android.com/reference"
+        addStringOption "federationxml android", "http://doclava.googlecode.com/svn/static/api/android-10.xml"
+        addStringOption 'XDignore.symbol.file', '-quiet'
+    }
+
+// ADD PUBLIC APIS for JavaDoc here
+    include '**/AbstractMMXListener.java'
+    include '**/MMXClient.java'
+    include '**/MMXClientConfig.java'
+    include '**/FileBasedClientConfig.java'
+    include '**/OverrideFileBasedClientConfig.java'
+    include '**/MMXException.java'
+    include '**/Options.java'
+    include '**/MMXid.java'
+    include '**/MMXPayload.java'
+    include '**/MMXErrorMessage.java'
+    include '**/MMXMessage.java'
+    include '**/MMXMessageStatus.java'
+    include '**/MMXStatus.java'
+    include '**/TopicOptions.java'
+    include '**/TopicAction.java'
+    include '**/MMXError.java'
+    include '**/MMXGlobalTopic.java'
+    include '**/MMXVisibleTopic.java'
+    include '**/MMXTopicId.java'
+    include '**/MMXTopic.java'
+    include '**/MMXTopicInfo.java'
+    include '**/MMXTopicOptions.java'
+    include '**/MMXTopicSearchResult.java'
+    include '**/MMXSubscription.java'
+    include '**/TopicSummary.java'
+    include '**/TopicNotFoundException.java'
+    include '**/TopicPermissionException.java'
+    include '**/TopicExistsException.java'
+    include '**/MMXPubSubManager.java'
+    include '**/MMXAccountManager.java'
+    include '**/MMXDeviceManager.java'
+    include '**/MMXMessageManager.java'
+    include '**/TypeMapper.java'
+    include '**/DevTags.java'
+    include '**/DevList.java'
+    include '**/UserQuery.java'
+    include '**/UserTags.java'
+    include '**/DisposableTextFile.java'
+    include '**/DisposableBinFile.java'
+    include '**/DisposableFile.java'
+    include '**/SearchAction.java'
+    include '**/OSType.java'
+    include '**/PushType.java'
+    include '**/UserInfo.java'
+    include '**/DeviceInfo.java'
+}
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+task androidJavadocsZip(type: Zip, dependsOn: androidJavadocs) {
+    classifier = 'javadoc'
+    from "$projectDir/build/docs"
+}
+
+task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
+    classifier = 'javadoc'
+    from "$projectDir/build/docs"
+}
+
+task makeZips {
+
+    doLast {
+        file("$projectDir/build/libproject/${version}").delete()
+        file("$projectDir/build/libproject/${version}").mkdirs()
+        copy {
+            from "$projectDir/build/intermediates/bundles"
+            into "$projectDir/build/libproject/${version}"
+        }
+        List configs = ["debug", "release"]
+        for (String config : configs) {
+
+            // make libs directory for all required jars
+            file("$projectDir/build/libproject/${version}/$config/libs").mkdir()
+
+            // make src directory for ant builds
+            file("$projectDir/build/libproject/${version}/$config/src").mkdir()
+
+            // copy runtime dependencies
+            copy {
+                from configurations.runtime
+                into "$projectDir/build/libproject/${version}/$config/libs"
+                exclude 'play-services**'
+                exclude 'support-v4**'
+            }
+
+            copy {
+                from "$projectDir/build.xml", "$projectDir/project.properties.lib"
+                into "$projectDir/build/libproject/${version}/$config"
+            }
+            file("$projectDir/build/libproject/${version}/$config/project.properties.lib").renameTo("$projectDir/build/libproject/${version}/$config/project.properties");
+
+        }
+
+        copy {
+            from "$projectDir/build/intermediates/bundles/debug/"
+            into "$projectDir/build/libproject/${version}/debug/libs/"
+            include("classes.jar")
+            rename("classes.jar", "${archivesBaseName}-${version}-debug.jar")
+        }
+
+        copy {
+            from "$projectDir/build/intermediates/bundles/release/"
+            into "$projectDir/build/libproject/${version}/release/libs"
+            include("classes.jar")
+            rename("classes.jar", "${archivesBaseName}-${version}.jar")
+        }
+
+        file("$projectDir/build/libproject/${version}/debug/classes.jar").delete()
+
+        file("$projectDir/build/libproject/${version}/release/classes.jar").delete()
+
+        makeLibZipDebug.execute()
+        makeLibZipRelease.execute()
+    }
+}
+
+task makeLibZipDebug(type: Zip) {
+    from "$project.buildDir/libproject/${version}/debug"
+    includeEmptyDirs true
+    classifier "debug"
+    baseName "${archivesBaseName}"
+    into "magnetlib/magnetlib-${version}"
+}
+
+task makeLibZipRelease(type: Zip) {
+    from "$project.buildDir/libproject/${version}/release"
+    includeEmptyDirs true
+    classifier ""
+    baseName "${archivesBaseName}"
+    into "magnetlib/magnetlib-${version}"
+}
+
+assemble.dependsOn makeZips
+
+// always add the test under src/androidTest for running on Android device or emulator
+configurations {
+    deployerJars
+}
+
+dependencies {
+    deployerJars "org.apache.maven.wagon:wagon-http:2.6"
+}
+
+def debugJarfile = file("$projectDir/build/libproject/${version}/debug/libs/${archivesBaseName}-${version}-debug.jar")
+def releaseJarfile = file("$projectDir/build/libproject/${version}/release/libs/${archivesBaseName}-${version}.jar")
+def debugZipfile = file("$projectDir/build/distributions/${archivesBaseName}-${version}-debug.zip")
+def releaseZipfile = file("${projectDir}/build/distributions/${archivesBaseName}-${version}.zip")
+def sdkAarfile = file("${projectDir}/build/outputs/aar/${archivesBaseName}-${version}.aar")
+
+artifacts {
+    archives sdkAarfile
+}
+
+def homeDir = System.getenv('HOME')
+
+task uploadLocal(type: Upload) {
+  configuration = configurations.archives
+  repositories {
+     mavenDeployer {
+       repository(url: mavenLocal().url)
+     }
+   }
+}
+
+
+

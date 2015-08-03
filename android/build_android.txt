@@ -1,0 +1,18 @@
+Build Instructions for Magnet Message SDK for Android
+=====================================================
+For latest information on how to get setup for Android builds , refer to http://developer.android.com/sdk/index.html
+
+Build environment:
+- Android Studio
+- Java 1.7 SDK
+- Linux or Mac OSX Yosemite
+- Gradle 2.2.1
+- Android SDK 19, build tools version ”22.0.1"
+
+
+% cd message-java/client/android
+% ./gradlew clean build
+
+# upload Android aar library to local maven repository for building Android messaging apps locally
+% ./gradlew uploadLocal
+

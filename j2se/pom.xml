@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.magnet.mmx</groupId>
+    <artifactId>mmx-client-root</artifactId>
+    <version>1.2.3</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <packaging>jar</packaging>
+  <artifactId>mmx-client-java</artifactId>
+
+  <name>Magnet Messaging Java APIs</name>
+  <description>${project.name}</description>
+  <dependencies>
+    <dependency>
+      <groupId>com.magnet.mmx</groupId>
+      <artifactId>mmx-client-common-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>com.magnet.mmx.ext</groupId>
+      <artifactId>mmx-smack-core</artifactId>
+      <version>4.0.7</version>
+    </dependency>
+    <dependency>
+      <groupId>com.magnet.mmx.ext</groupId>
+      <artifactId>mmx-smack-tcp</artifactId>
+      <version>4.0.7</version>
+    </dependency>
+    <dependency>
+      <groupId>com.magnet.mmx.ext</groupId>
+      <artifactId>mmx-smack-extensions</artifactId>
+      <version>4.0.7</version>
+    </dependency>
+  </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.magnet.mmx.j2se.app.TestApp</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.7</version>
+                <configuration>
+                    <docletArtifact>
+                        <groupId>com.google.doclava</groupId>
+                        <artifactId>doclava</artifactId>
+                        <version>1.0.5</version>
+                    </docletArtifact>
+                    <doclet>com.google.doclava.Doclava</doclet>
+                    <!--
+                      | bootclasspath required by Sun's JVM
+                    -->
+                    <bootclasspath>${sun.boot.class.path}</bootclasspath>
+                    <additionalparam>
+                        -quiet
+                        -federate JDK http://download.oracle.com/javase/6/docs/api/index.html?
+                        -federationxml JDK http://doclava.googlecode.com/svn/static/api/openjdk-6.xml
+                        -hdf project.name "${project.name}"
+                        -d ${project.build.directory}/apidocs
+                        <!--The following has no effect-->
+                        <!---subpackages com.magnet.mmx.j2se.client-->
+                        <!---exclude com.magnet.mmx.j2se.app.*-->
+                    </additionalparam>
+                    <useStandardDocletOptions>false</useStandardDocletOptions>
+                    <!--
+                      | Apple's JVM sometimes requires more memory
+                    -->
+                    <additionalJOption>-J-Xmx1024m</additionalJOption>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

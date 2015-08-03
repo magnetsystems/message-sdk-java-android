@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.magnet.mmx</groupId>
+    <artifactId>mmx-client-root</artifactId>
+    <version>1.2.3</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <packaging>jar</packaging>
+  <artifactId>mmx-client-android</artifactId>
+
+  <name>Magnet Messaging Client -- Android APIs</name>
+  <description>${project.name}</description>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.7</source>
+          <target>1.7</target>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.fortasoft</groupId>
+        <artifactId>gradle-maven-plugin</artifactId>
+        <version>1.0.7</version>
+        <configuration>
+          <tasks>
+            <!-- this would effectively call "gradle doSomething" -->
+            <task>clean</task>
+            <task>build</task>
+            <task>uploadLocal</task>
+          </tasks>
+          <gradleVersion>2.2</gradleVersion>
+          <args>
+              <arg>--refresh-dependencies</arg>
+          </args>
+        </configuration>
+        <executions>
+          <execution>
+            <!-- You can bind this to any phase you like -->
+            <phase>compile</phase>
+            <goals>
+              <!-- goal must be "invoke" -->
+              <goal>invoke</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

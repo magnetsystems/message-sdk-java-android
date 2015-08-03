@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.magnet.mmx">
+
+    <!-- NEEDED BY MMX SDK START -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+
+    <!--permission android:name="foo.bar.permission.C2D_MESSAGE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="foo.bar.permission.C2D_MESSAGE" /-->
+    <!-- NEEDED BY MMX SDK END -->
+
+    <application >
+        <meta-data android:name="com.google.android.gms.version"
+        android:value="@integer/google_play_services_version" />
+
+        <!-- NEEDED BY MMX SDK START -->
+        <!--receiver
+            android:name="com.magnet.mmx.client.MMXGcmBroadcastReceiver"
+            android:permission="com.google.android.c2dm.permission.SEND" >
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+                <category android:name="foo.bar" />
+            </intent-filter>
+        </receiver-->
+        <receiver
+            android:name="com.magnet.mmx.client.MMXWakeupReceiver"
+            android:exported="false">
+        </receiver>
+        <service android:name="com.magnet.mmx.client.MMXWakeupIntentService" />
+        <!-- NEEDED BY MMX SDK END -->
+
+    </application>
+
+</manifest>
