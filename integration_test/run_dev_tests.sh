@@ -130,8 +130,8 @@ if [ "${TESTANDROID}" = "android" ]; then
   fi
   eval "$adb_command"
 
-  pushd "../client/android"
-  run_android_test="./gradlew clean connectedCheck build"
+  pushd "../android"
+  run_android_test="./gradlew clean build connectedCheck"
   eval "$run_android_test"
   status=$?
   popd
