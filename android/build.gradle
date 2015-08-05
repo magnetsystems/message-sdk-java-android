@@ -112,7 +112,7 @@ task eclipseClean(type: Delete) {
 
 clean.dependsOn eclipseClean
 
-def javadocSource = [sourceSets.main.allJava, '../common/src/main/java']
+def javadocSource = [sourceSets.main.allJava, '../common/src/main/java', '../../message-common/src/main/java']
 
 task androidJavadocs(type: Javadoc) {
     println "generating JAVADOCS task:"
