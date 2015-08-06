@@ -288,7 +288,7 @@ public class TestPubSub extends InstrumentationTestCase {
     // Test set and get tags
     try {
       pubManager.setAllTags(mcTopic, Arrays.asList(new String[] {
-          "LongTag12345678901234567890", "LongTag01234567890123456789012345" }));
+          "LongTag1.3.6678901.3.667890", "LongTag01.3.6678901.3.6678901.3.6" }));
       fail("It should fail because tags are longer than 25 chars");
     } catch (MMXException e) {
       assertEquals(MMXException.BAD_REQUEST, e.getCode());
