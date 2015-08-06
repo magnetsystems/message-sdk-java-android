@@ -41,7 +41,7 @@ public class TestGetMMXVersion extends TestCase{
                         get("mmx/version").
                 then().
                         statusCode(200).
-                        body("version", equalTo("1.5.1-SNAPSHOT")).
+                        body("version", equalTo("1.8.1-SNAPSHOT")).
                         extract().asString();
     }
 }
