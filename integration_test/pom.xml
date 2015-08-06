@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.magnet.mmx</groupId>
-  <version>1.3.8</version>
+  <version>1.3.9</version>
   <packaging>jar</packaging>
   <artifactId>mmx-integration-test</artifactId>
 

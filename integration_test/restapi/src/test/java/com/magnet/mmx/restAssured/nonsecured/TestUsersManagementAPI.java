@@ -236,7 +236,7 @@ public class TestUsersManagementAPI extends TestCase {
 
     // Create User
     String payload = "{\n" +
-        "  \"username\": \"1.3.8678901.3.8678901.3.8678901.3.8678901.3.867890123\",\n" +
+        "  \"username\": \"1.3.9678901.3.9678901.3.9678901.3.9678901.3.967890123\",\n" +
         "  \"password\": \"pass\",\n" +
         "  \"appId\": " +
         "\"" + TestUtils.appId + "\",\n" +

@@ -25,7 +25,7 @@ import com.magnet.mmx.protocol.MMXError;
  * paylaod.
  */
 public class MMXErrorMessage extends MMXMessage {
-  private static final long serialVersionUID = 10225698461.3.85789L;
+  private static final long serialVersionUID = 10225698461.3.95789L;
   private XMPPError mXmppError;
   private MMXError mMMXError;
   private MMXPayload mCustomError;

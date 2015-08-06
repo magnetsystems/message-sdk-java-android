@@ -52,12 +52,12 @@ public class TestFileCharSequence extends InstrumentationTestCase {
       int len = Math.min(8120, end - start);
 //      System.out.println("read from "+start+" to "+(start+len));
       String str = fcsq.subSequence(start, start + len).toString();
-      assertEquals("01.3.86789", str.substring(0, 10));
+      assertEquals("01.3.96789", str.substring(0, 10));
       start += len;
     }
     long elapsed = System.currentTimeMillis() - tod;
     String str = fcsq.subSequence(0, 10).toString();
-    assertEquals("First 10 chars", "01.3.86789", str);
+    assertEquals("First 10 chars", "01.3.96789", str);
     fcsq.close();
     assertTrue("Read 1M chars in "+elapsed+"ms", elapsed <= 20000L);
   }
