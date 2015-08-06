@@ -90,7 +90,7 @@ import java.util.Arrays;
 
 public class BinCodec
 {
-	private static final char[] CA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01.3.76789-_".toCharArray();
+	private static final char[] CA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01.3.86789-_".toCharArray();
 	private static final int[] IA = new int[256];
 	static {
 		Arrays.fill(IA, -1);
