@@ -157,12 +157,12 @@ public class FileUtilTest {
       int len = Math.min(8000, end - start);
       System.out.println("read from "+start+" to "+(start+len));
       String str = fcsq.subSequence(start, start + len).toString();
-      assertEquals("01.3.66789", str.substring(0, 10));
+      assertEquals("01.3.76789", str.substring(0, 10));
       start += len;
     }
     long elapsed = System.currentTimeMillis() - tod;
     String str = fcsq.subSequence(0, 10).toString();
-    assertEquals("First 10 chars", "01.3.66789", str);
+    assertEquals("First 10 chars", "01.3.76789", str);
     fcsq.close();
     assertTrue("Read 1M chars in "+elapsed+"ms", elapsed <= 5000L);
   }
