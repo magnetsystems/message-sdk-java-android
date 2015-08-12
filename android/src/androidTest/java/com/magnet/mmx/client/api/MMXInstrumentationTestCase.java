@@ -3,6 +3,7 @@ package com.magnet.mmx.client.api;
 import android.content.Context;
 import android.test.InstrumentationTestCase;
 
+import com.magnet.mmx.client.ClientTestConfigImpl;
 import com.magnet.mmx.client.common.Log;
 
 
@@ -29,7 +30,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected final void setUp() throws Exception {
     Log.setLoggable(null, Log.VERBOSE);
     mContext = this.getInstrumentation().getTargetContext();
-    MagnetMessage.init(mContext, com.magnet.mmx.test.R.raw.test);
+    MagnetMessage.init(mContext, new ClientTestConfigImpl(mContext));
     postSetUp();
   }
 

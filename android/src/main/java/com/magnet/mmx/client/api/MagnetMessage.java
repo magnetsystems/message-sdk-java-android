@@ -3,7 +3,9 @@ package com.magnet.mmx.client.api;
 import android.content.Context;
 
 import com.magnet.mmx.client.AbstractMMXListener;
+import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
+import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.common.*;
 import com.magnet.mmx.protocol.MMXTopic;
 
@@ -33,9 +35,25 @@ public final class MagnetMessage {
     public boolean onMessageReceived(MMXMessage message);
   }
 
+  /**
+   * The listener interface used by the asynchronous calls.
+   *
+   * @param <T> The parameter type with which the onSuccess callback will be invoked
+   */
   public interface OnFinishedListener<T> {
+    /**
+     * Invoked if the operation succeeded
+     *
+     * @param result the result of the operation
+     */
     void onSuccess(T result);
 
+    /**
+     * Invoked if the operation failed
+     * 
+     * @param code the failure code
+     * @param ex the exception, null if no exception
+     */
     void onFailure(FailureCode code, Exception ex);
   }
 
@@ -66,9 +84,9 @@ public final class MagnetMessage {
     }
   };
 
-  private MagnetMessage(Context context, int configResId) {
+  private MagnetMessage(Context context, MMXClientConfig config) {
     mContext = context.getApplicationContext();
-    mClient = MMXClient.getInstance(context, configResId);
+    mClient = MMXClient.getInstance(context, config);
   }
 
   private void start(final OnFinishedListener<Void> listener) {
@@ -146,8 +164,18 @@ public final class MagnetMessage {
    * @param configResId the R.raw. resource id containing the configuration
    */
   public static synchronized void init(Context context, int configResId) {
+    init(context, new FileBasedClientConfig(context, configResId));
+  }
+
+  /**
+   * This init method can be used for testing purposes.
+   *
+   * @param context the Android context
+   * @param config the MMXClientConfig
+   */
+  static synchronized void init(Context context, MMXClientConfig config) {
     if (sInstance == null) {
-      sInstance = new MagnetMessage(context, configResId);
+      sInstance = new MagnetMessage(context, config);
     }
   }
 
