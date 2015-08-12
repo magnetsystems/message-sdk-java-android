@@ -14,7 +14,12 @@ import java.util.LinkedList;
  * The main entry point for Magnet Message.
  */
 public final class MagnetMessage {
-  public enum FailureCode {DEVICE_ERROR, SERVER_ERROR, EXCEPTION}
+  public enum FailureCode {
+    DEVICE_ERROR,
+    DEVICE_CONNECTION_FAILED,
+    SERVER_AUTH_FAILED,
+    SERVER_BAD_STATUS,
+    SERVER_EXCEPTION}
   /**
    * The listener interface for handling incoming messages.
    */
@@ -29,9 +34,9 @@ public final class MagnetMessage {
   }
 
   public interface OnFinishedListener<T> {
-    public void onSuccess(T result);
+    void onSuccess(T result);
 
-    public void onFailure(FailureCode code, Exception ex);
+    void onFailure(FailureCode code, Exception ex);
   }
 
   private static final String TAG = MagnetMessage.class.getSimpleName();
@@ -47,7 +52,7 @@ public final class MagnetMessage {
   private AbstractMMXListener mGlobalListener = new AbstractMMXListener() {
     @Override
     public void handleMessageReceived(MMXClient mmxClient, com.magnet.mmx.client.common.MMXMessage mmxMessage, String receiptId) {
-
+      notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage));
     }
 
     @Override
@@ -57,37 +62,130 @@ public final class MagnetMessage {
 
     @Override
     public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, com.magnet.mmx.client.common.MMXMessage mmxMessage) {
-
-    }
-
-    @Override
-    public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
-      Log.d(TAG, "onConnectionEvent(): Event received: " + connectionEvent);
-      super.onConnectionEvent(mmxClient, connectionEvent);
+      notifyMessageReceived(MMXMessage.fromMMXMessage(mmxTopic, mmxMessage));
     }
   };
 
   private MagnetMessage(Context context, int configResId) {
     mContext = context.getApplicationContext();
     mClient = MMXClient.getInstance(context, configResId);
-    mClient.connectAnonymous(mGlobalListener, new MMXClient.ConnectionOptions());
+  }
+
+  private void start(final OnFinishedListener<Void> listener) {
+    if (!mClient.isConnected()) {
+      if (listener != null) {
+        mGlobalListener.registerListener(new MMXClient.MMXListener() {
+          public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
+            Boolean result = null;
+            FailureCode failureCode = null;
+            switch (event) {
+              case CONNECTED:
+                result = Boolean.TRUE;
+                break;
+              case CONNECTION_FAILED:
+                result = Boolean.FALSE;
+                failureCode = FailureCode.DEVICE_CONNECTION_FAILED;
+                break;
+              case AUTHENTICATION_FAILURE:
+                result = Boolean.FALSE;
+                failureCode = FailureCode.SERVER_AUTH_FAILED;
+                break;
+              case DISCONNECTED:
+                result = Boolean.FALSE;
+                failureCode = FailureCode.DEVICE_CONNECTION_FAILED;
+                break;
+            }
+            if (result != null) {
+              if (result) {
+                listener.onSuccess(null);
+              } else {
+                listener.onFailure(failureCode, null);
+              }
+              mGlobalListener.unregisterListener(this);
+            }
+          }
+
+          public void onMessageReceived(MMXClient client, com.magnet.mmx.client.common.MMXMessage message, String receiptId) {
+          }
+
+          public void onSendFailed(MMXClient client, String messageId) {
+          }
+
+          public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
+          }
+
+          public void onPubsubItemReceived(MMXClient client, MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
+          }
+
+          public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
+          }
+        });
+      }
+      mClient.connectAnonymous(mGlobalListener, new MMXClient.ConnectionOptions());
+    } else {
+      if (listener != null) {
+        listener.onSuccess(null);
+      }
+    }
+  }
+
+  private void stop(OnFinishedListener<Void> listener) {
+    if (mClient.isConnected()) {
+      mClient.disconnect();
+    } else {
+      if (listener != null) {
+        listener.onSuccess(null);
+      }
+    }
   }
 
   /**
-   * Starts this MagnetMessage session.
+   * Init the MagnetMessage API.
    *
    * @param context the Android context
    * @param configResId the R.raw. resource id containing the configuration
    */
-  public synchronized static void startSession(Context context, int configResId) {
+  public static synchronized void init(Context context, int configResId) {
     if (sInstance == null) {
       sInstance = new MagnetMessage(context, configResId);
     }
   }
 
-  private synchronized static void checkSessionState() {
+  /**
+   * Starts this MagnetMessage session.
+   */
+  public static synchronized void startSession(OnFinishedListener<Void> listener) {
+    checkState();
+    sInstance.start(listener);
+  }
+
+  /**
+   * Ends this MagnetMessage session.
+   */
+  public static synchronized void endSession(OnFinishedListener<Void> listener) {
+    checkState();
+    sInstance.stop(listener);
+  }
+
+  /**
+   * Retrieves the current user for this session.  This may return
+   * null if the session is not yet started.
+   *
+   * @return the current user, null if session is not yet started
+   */
+  public static synchronized MMXid getCurrentUser() {
+    checkState();
+    try {
+      return sInstance.mClient.getClientId();
+    } catch (MMXException e) {
+      Log.e(TAG, "getCurrentUser(): caught exception", e);
+      return null;
+    }
+  }
+
+  private synchronized static void checkState() {
     if (sInstance == null) {
-      throw new IllegalStateException("MagnetMessage.startSession() must be called prior to invoking" +
+      throw new IllegalStateException("MagnetMessage.init() must be called prior to invoking" +
               " any subsequent methods.  This call should most likely be placed in the Application.onCreate()" +
               " implementation.");
     }
@@ -101,7 +199,7 @@ public final class MagnetMessage {
    * @return true if newly registered, false otherwise (if listener was already registered)
    */
   public static boolean registerListener(OnMessageReceivedListener listener) {
-    checkSessionState();
+    checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
     }
@@ -119,7 +217,7 @@ public final class MagnetMessage {
    * @return true if the listener was unregistered successfully, false if the listener was NOT known
    */
   public static boolean unregisterListener(OnMessageReceivedListener listener) {
-    checkSessionState();
+    checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
     }
@@ -129,8 +227,11 @@ public final class MagnetMessage {
   }
 
   private static void notifyMessageReceived(MMXMessage message) {
-    checkSessionState();
+    checkState();
     synchronized (sInstance.mListeners) {
+      if (sInstance.mListeners.isEmpty()) {
+        throw new IllegalStateException("Message dropped because there were no listeners registered.");
+      }
       Iterator<OnMessageReceivedListener> listeners = sInstance.mListeners.descendingIterator();
       while (listeners.hasNext()) {
         OnMessageReceivedListener listener = listeners.next();
@@ -146,23 +247,32 @@ public final class MagnetMessage {
     }
   }
 
+  /**
+   * Helper method to retrieve the Android context.
+   *
+   * @return the android application context
+   */
   static synchronized Context getContext() {
-    checkSessionState();
+    checkState();
     return sInstance.mContext;
   }
 
+  /**
+   * Helper method to retrieve the MMXClient instance.
+   *
+   * @return the MMXClient instance
+   */
   static synchronized MMXClient getMMXClient() {
-    checkSessionState();
+    checkState();
     return sInstance.mClient;
   }
 
+  /**
+   * Retrieves the global MMXListener.
+   *
+   * @return the global MMXListener
+   */
   static synchronized AbstractMMXListener getGlobalListener() {
     return sInstance.mGlobalListener;
-  }
-
-  static void connectWithCredentials(String username, byte[] password) {
-    checkSessionState();
-    sInstance.mClient.connectWithCredentials(username, password,
-            sInstance.mGlobalListener, new MMXClient.ConnectionOptions());
   }
 }

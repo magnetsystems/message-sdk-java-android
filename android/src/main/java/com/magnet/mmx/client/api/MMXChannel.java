@@ -5,7 +5,6 @@ import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -13,6 +12,91 @@ import java.util.Set;
  * The MMXChannel class representing the Topic/Feed/PubSub model.
  */
 public class MMXChannel {
+  public static final class Builder {
+    private MMXChannel mChannel;
+
+    public Builder() {
+      mChannel = null;
+    }
+
+    /**
+     * Set the name of this channel
+     *
+     * @param name the name
+     * @return this Builder object
+     */
+    public Builder name(String name) {
+      mChannel.name(name);
+      return this;
+    }
+
+    /**
+     * Set the summary of this channel
+     *
+     * @param summary the summary
+     * @return this Builder object
+     */
+    public Builder summary(String summary) {
+      mChannel.summary(summary);
+      return this;
+    }
+
+    /**
+     * Set the owner for this channel
+     *
+     * @param owner the owner
+     * @return this Builder object
+     */
+    Builder owner(MMXid owner) {
+      mChannel.owner(owner);
+      return this;
+    }
+
+    /**
+     * Set the number of messages for this channel
+     *
+     * @param numberOfMessages the number of messages
+     * @return this Builder object
+     */
+    Builder numberOfMessages(Integer numberOfMessages) {
+      mChannel.numberOfMessages(numberOfMessages);
+      return this;
+    }
+
+    /**
+     * Set the last active time for this channel
+     *
+     * @param lastTimeActive the last active time
+     * @return this Builder object
+     */
+    Builder lastTimeActive(Date lastTimeActive) {
+      mChannel.lastTimeActive(lastTimeActive);
+      return this;
+    }
+
+    /**
+     * Set the tags for this channel
+     *
+     * @param tags the tags
+     * @return this Builder object
+     */
+    Builder tags(Set<String> tags) {
+      mChannel.tags(tags);
+      return this;
+    }
+
+    /**
+     * Set the subscribed flag for this channel
+     *
+     * @param subscribed the subscribed flag
+     * @return this Builder object
+     */
+    Builder subscribed(Boolean subscribed) {
+      mChannel.subscribed(subscribed);
+      return this;
+    }
+  }
+
   public static class QueryResult {
     public final int totalCount;
     public final List<MMXChannel> channels;
@@ -50,7 +134,7 @@ public class MMXChannel {
   }
 
   /**
-   * The name fo this channel
+   * The name of this channel
    *
    * @return the name
    */
@@ -159,20 +243,6 @@ public class MMXChannel {
   }
 
   /**
-   * Adds a tag to the current set of tags
-   *
-   * @param tag the tag
-   * @return this MMXChannel object
-   */
-  public synchronized MMXChannel addTag(String tag) {
-    if (mTags == null) {
-      mTags = new HashSet<String>();
-    }
-    mTags.add(tag);
-    return this;
-  }
-
-  /**
    * Set the subscribed flag for this channel
    *
    * @param subscribed the subscribed flag
@@ -246,7 +316,7 @@ public class MMXChannel {
    * @param name the name
    * @param listener the listener for the query results
    */
-  public static void queryByName(String name,
+  public static void findByName(String name,
                                  MagnetMessage.OnFinishedListener<QueryResult> listener) {
     throw new RuntimeException("Not yet implemented");
   }
@@ -257,14 +327,18 @@ public class MMXChannel {
    * @param tags the tags to match
    * @param listener the listener for the query results
    */
-  public static void queryByTags(Set<String> tags,
+  public static void findByTags(Set<String> tags,
                                  MagnetMessage.OnFinishedListener<QueryResult> listener) {
     throw new RuntimeException("Not yet implemented");
 
   }
 
-  static MMXChannel fromTopic(MMXTopic topic) {
-    throw new RuntimeException("Not yet implemented");
+  static MMXChannel fromMMXTopic(MMXTopic topic) {
+    if (topic == null) {
+      return null;
+    }
+    return new MMXChannel()
+            .name(topic.getName())
+            .owner(new MMXid(topic.getUserId()));
   }
-
 }

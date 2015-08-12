@@ -12,6 +12,50 @@ import com.magnet.mmx.protocol.MMXTopic;
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
+  public static final class Builder {
+    private MMXUser mUser;
+
+    public Builder() {
+      mUser = new MMXUser();
+    }
+
+    /**
+     * Set the username for this user object
+     *
+     * @param username the username
+     * @return this Builder object
+     */
+    public Builder username(String username) {
+      mUser.username(username);
+      return this;
+    }
+
+    /**
+     * Set the display name for this MMXUser
+     *
+     * @param displayName the display name
+     * @return this Builder object
+     */
+    public Builder displayName(String displayName) {
+      mUser.displayName(displayName);
+      return this;
+    }
+
+    /**
+     * Set the email for this MMXUser
+     *
+     * @param email the email
+     * @return this Builder object
+     */
+    public Builder email(String email) {
+      mUser.email(email);
+      return this;
+    }
+
+    public MMXUser build() {
+      return mUser;
+    }
+  }
   private String mUsername;
   private String mDisplayName;
   private String mEmail;
@@ -19,7 +63,7 @@ public class MMXUser {
   /**
    * Default constructor
    */
-  public MMXUser() {
+  private MMXUser() {
 
   }
 
@@ -29,7 +73,7 @@ public class MMXUser {
    * @param username the username
    * @return this MMXUser object
    */
-  public MMXUser username(String username) {
+  MMXUser username(String username) {
     mUsername = username;
     return this;
   }
@@ -49,7 +93,7 @@ public class MMXUser {
    * @param displayName the display name
    * @return this MMXUser object
    */
-  public MMXUser displayName(String displayName) {
+  MMXUser displayName(String displayName) {
     mDisplayName = displayName;
     return this;
   }
@@ -69,7 +113,7 @@ public class MMXUser {
    * @param email the email
    * @return this MMXUser object
    */
-  public MMXUser email(String email) {
+  MMXUser email(String email) {
     mEmail = email;
     return this;
   }
@@ -96,13 +140,14 @@ public class MMXUser {
     MMXAccountManager.Account account = new MMXAccountManager.Account()
             .username(user.getUsername())
             .email(user.getEmail())
-            .displayName(user.getDisplayName());
+            .displayName(user.getDisplayName())
+            .password(password);
     MMXStatus status = client.getAccountManager().createAccount(account);
     if (status.getCode() == MMXStatus.SUCCESS) {
       listener.onSuccess(Boolean.TRUE);
     } else {
       Log.e(TAG, "register() calling onFailure because of MMXStatus: " + status);
-      listener.onFailure(MagnetMessage.FailureCode.SERVER_ERROR, null);
+      listener.onFailure(MagnetMessage.FailureCode.SERVER_BAD_STATUS, null);
     }
   }
 
@@ -113,10 +158,26 @@ public class MMXUser {
    * @param password the password
    */
   public static void login(String username, byte[] password,
-                           final MagnetMessage.OnFinishedListener<Boolean> listener) {
+                           final MagnetMessage.OnFinishedListener<Void> listener) {
     MagnetMessage.getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
-        
+        Log.d(TAG, "login() received connection event: " + event);
+        boolean unregisterListener = false;
+        switch (event) {
+          case AUTHENTICATION_FAILURE:
+            listener.onFailure(MagnetMessage.FailureCode.SERVER_AUTH_FAILED, null);
+            unregisterListener = true;
+            break;
+          case CONNECTED:
+            listener.onSuccess(null);
+          case CONNECTION_FAILED:
+            listener.onFailure(MagnetMessage.FailureCode.DEVICE_CONNECTION_FAILED, null);
+            unregisterListener = true;
+            break;
+        }
+        if (unregisterListener) {
+          MagnetMessage.getGlobalListener().unregisterListener(this);
+        }
       }
 
       public void onMessageReceived(MMXClient client, MMXMessage message, String receiptId) {
@@ -139,14 +200,56 @@ public class MMXUser {
 
       }
     });
-    MagnetMessage.connectWithCredentials(username, password);
+    MagnetMessage.getMMXClient().connectWithCredentials(username, password, MagnetMessage.getGlobalListener(),
+            new MMXClient.ConnectionOptions().setAutoCreate(true));
   }
 
   /**
    * Logout of the current session.
    */
-  public static void logout() {
+  public static void logout(final MagnetMessage.OnFinishedListener<Void> listener) {
+    MagnetMessage.getGlobalListener().registerListener(new MMXClient.MMXListener() {
+      public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
+        Log.d(TAG, "logout() received connection event: " + event);
+        boolean unregisterListener = false;
+        switch (event) {
+          case AUTHENTICATION_FAILURE:
+            listener.onFailure(MagnetMessage.FailureCode.SERVER_AUTH_FAILED, null);
+            unregisterListener = true;
+            break;
+          case CONNECTED:
+            listener.onSuccess(null);
+          case CONNECTION_FAILED:
+            listener.onFailure(MagnetMessage.FailureCode.DEVICE_CONNECTION_FAILED, null);
+            unregisterListener = true;
+            break;
+        }
+        if (unregisterListener) {
+          MagnetMessage.getGlobalListener().unregisterListener(this);
+        }
+      }
 
+      public void onMessageReceived(MMXClient client, MMXMessage message, String receiptId) {
+
+      }
+
+      public void onSendFailed(MMXClient client, String messageId) {
+
+      }
+
+      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
+
+      }
+
+      public void onPubsubItemReceived(MMXClient client, MMXTopic topic, MMXMessage message) {
+
+      }
+
+      public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
+
+      }
+    });
+    MagnetMessage.getMMXClient().goAnonymous();
   }
 
   /**
@@ -154,12 +257,14 @@ public class MMXUser {
    *
    * @param newPassword the new password
    */
-  public static void changePassword(byte[] newPassword) {
+  public static void changePassword(byte[] newPassword,
+                                    final MagnetMessage.OnFinishedListener<Void> listener) {
     MMXClient client = MagnetMessage.getMMXClient();
     try {
       client.getAccountManager().changePassword(new String(newPassword));
+      listener.onSuccess(null);
     } catch (MMXException e) {
-      e.printStackTrace();
+      listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, e);
     }
   }
 }

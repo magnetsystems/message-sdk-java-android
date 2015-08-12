@@ -1,27 +1,29 @@
 package com.magnet.mmx.client.api;
 
-import android.content.Context;
-import android.test.InstrumentationTestCase;
+public class MagnetMessageTest extends MMXInstrumentationTestCase {
+  private static final String TAG = MagnetMessageTest.class.getSimpleName();
 
-import com.magnet.mmx.client.common.Log;
-
-public class MagnetMessageTest extends InstrumentationTestCase {
-  private Context mContext;
-
-  @Override
-  protected void setUp() throws Exception {
-    Log.setLoggable(null, Log.VERBOSE);
-    mContext = this.getInstrumentation().getTargetContext();
-  }
-
-  public void testStartSession() {
-    MagnetMessage.startSession(mContext, com.magnet.mmx.test.R.raw.test);
-    synchronized (this) {
+  public void testStartEndSession() {
+    final MagnetMessage.OnFinishedListener<Void> sessionListener = getSessionListener();
+    MagnetMessage.startSession(sessionListener);
+    synchronized (sessionListener) {
       try {
-        this.wait(10000);
+        sessionListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
+    assertTrue(MagnetMessage.getMMXClient().isConnected());
+    MagnetMessage.endSession(sessionListener);
+    synchronized (sessionListener) {
+      try {
+        sessionListener.wait(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertFalse(MagnetMessage.getMMXClient().isConnected());
   }
+
+
 }
