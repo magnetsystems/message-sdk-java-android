@@ -6,12 +6,24 @@ import com.magnet.mmx.client.common.*;
 import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.SearchAction;
+import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.protocol.UserQuery;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * The MMXUser class
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
+  private static MMXUser sCurrentUser = null;
+
+  /**
+   * The builder for the MMXUser class
+   */
   public static final class Builder {
     private MMXUser mUser;
 
@@ -52,10 +64,30 @@ public class MMXUser {
       return this;
     }
 
+    /**
+     * Returns the MMXUser class
+     *
+     * @return the MMXUser
+     */
     public MMXUser build() {
       return mUser;
     }
   }
+
+  /**
+   * The result object returned by the "find" methods
+   */
+  public static class FindResult {
+    public final int totalCount;
+    public final List<MMXUser> users;
+
+    private FindResult(int totalCount, List<MMXUser> users) {
+      this.totalCount = totalCount;
+      this.users = Collections.unmodifiableList(users);
+    }
+  }
+
+
   private String mUsername;
   private String mDisplayName;
   private String mEmail;
@@ -169,6 +201,16 @@ public class MMXUser {
             unregisterListener = true;
             break;
           case CONNECTED:
+            try {
+              UserInfo info = client.getAccountManager().getUserInfo();
+              sCurrentUser = new MMXUser.Builder()
+                      .email(info.getEmail())
+                      .username(info.getUserId())
+                      .displayName(info.getDisplayName())
+                      .build();
+            } catch (MMXException ex) {
+              Log.e(TAG, "login(): login succeeded but unable to retrieve user info", ex);
+            }
             listener.onSuccess(null);
             unregisterListener = true;
             break;
@@ -202,8 +244,9 @@ public class MMXUser {
 
       }
     });
+    sCurrentUser = null;
     MagnetMessage.getMMXClient().connectWithCredentials(username, password, MagnetMessage.getGlobalListener(),
-            new MMXClient.ConnectionOptions().setAutoCreate(true));
+            new MMXClient.ConnectionOptions().setAutoCreate(false));
   }
 
   /**
@@ -251,7 +294,18 @@ public class MMXUser {
 
       }
     });
+    sCurrentUser = null;
     MagnetMessage.getMMXClient().goAnonymous();
+  }
+
+  /**
+   * Retrieves the current user for this session.  This may return
+   * null if there is no logged-in user.
+   *
+   * @return the current user, null there is no logged-in user
+   */
+  public static MMXUser getCurrentUser() {
+    return sCurrentUser;
   }
 
   /**
@@ -267,6 +321,34 @@ public class MMXUser {
       listener.onSuccess(null);
     } catch (MMXException e) {
       listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, e);
+    }
+  }
+
+  /**
+   * Finds users whose display name starts with the specified text
+   *
+   * @param startsWith the search string
+   * @param limit the maximum number of users to return
+   * @return the result, null if the results are unavailable
+   */
+  public static FindResult findByName(String startsWith, int limit) {
+    MMXClient client = MagnetMessage.getMMXClient();
+    try {
+      UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
+      UserQuery.Response response = client.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
+      List<UserInfo> userInfos = response.getUsers();
+      ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
+      for (UserInfo userInfo : userInfos) {
+        resultList.add(new MMXUser.Builder()
+                .username(userInfo.getUserId())
+                .displayName(userInfo.getDisplayName())
+                .email(userInfo.getEmail())
+                .build());
+      }
+      return new FindResult(response.getTotalCount(), resultList);
+    } catch (MMXException e) {
+      Log.e(TAG, "findByName(): failed because of exception", e);
+      return null;
     }
   }
 }

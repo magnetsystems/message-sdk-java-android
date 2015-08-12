@@ -61,6 +61,7 @@ public final class MagnetMessage {
   private Context mContext = null;
   private MMXClient mClient = null;
   private static MagnetMessage sInstance = null;
+
   /**
    * The listeners will be added in order (most recent at end)
    * They should be called in order from most recently registered (from the end)
@@ -193,22 +194,6 @@ public final class MagnetMessage {
   public static synchronized void endSession(OnFinishedListener<Void> listener) {
     checkState();
     sInstance.stop(listener);
-  }
-
-  /**
-   * Retrieves the current user for this session.  This may return
-   * null if the session is not yet started.
-   *
-   * @return the current user, null if session is not yet started
-   */
-  public static synchronized MMXid getCurrentUser() {
-    checkState();
-    try {
-      return sInstance.mClient.getClientId();
-    } catch (MMXException e) {
-      Log.e(TAG, "getCurrentUser(): caught exception", e);
-      return null;
-    }
   }
 
   private synchronized static void checkState() {

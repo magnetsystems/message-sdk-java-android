@@ -18,6 +18,10 @@ import java.util.Set;
  * The message class
  */
 public class MMXMessage {
+
+  /**
+   * The builder for the MMXMessage class
+   */
   public static final class Builder {
     private MMXMessage mMessage;
 
@@ -98,6 +102,11 @@ public class MMXMessage {
       return this;
     }
 
+    /**
+     * Builds the MMXMessage
+     *
+     * @return the MMXMessage
+     */
     public MMXMessage build() {
       return mMessage;
     }
@@ -291,6 +300,13 @@ public class MMXMessage {
     }
   }
 
+  /**
+   * Reply to the sender of the current message with the specified content
+   *
+   * @param replyContent the content to include in the reply
+   * @param listener onSuccess will return the message id of the reply message
+   * @return the message id
+   */
   public String reply(Map<String, Object> replyContent,
                       MagnetMessage.OnFinishedListener<String> listener) {
     if (mTimestamp == null) {
@@ -300,6 +316,13 @@ public class MMXMessage {
     return reply.send(listener);
   }
 
+  /**
+   * Reply to all of the recipients with the specified content
+   *
+   * @param replyContent the content to include in the reply
+   * @param listener onSuccess will returh the message id of the reply message
+   * @return the message id
+   */
   public String replyAll(Map<String, Object> replyContent,
                          MagnetMessage.OnFinishedListener<String> listener) {
     if (mTimestamp == null) {

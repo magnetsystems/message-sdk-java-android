@@ -137,6 +137,7 @@ task androidJavadocs(type: Javadoc) {
     }
 
 // ADD PUBLIC APIS for JavaDoc here
+    include '**/client/api/*'
     include '**/AbstractMMXListener.java'
     include '**/MMXClient.java'
     include '**/MMXClientConfig.java'
