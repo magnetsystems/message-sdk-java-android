@@ -278,7 +278,8 @@ public class MMXMessage {
       try {
         MMXid[] recipientsArray = new MMXid[mRecipients.size()];
         mRecipients.toArray(recipientsArray);
-        String messageId = client.getMessageManager().sendPayload(recipientsArray, payload, new Options());
+        String messageId = client.getMessageManager().sendPayload(recipientsArray, payload,
+                new Options());
         //TODO:  Delay this until the server ack is received
         listener.onSuccess(messageId);
         return messageId;

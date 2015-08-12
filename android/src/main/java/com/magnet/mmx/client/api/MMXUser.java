@@ -170,6 +170,8 @@ public class MMXUser {
             break;
           case CONNECTED:
             listener.onSuccess(null);
+            unregisterListener = true;
+            break;
           case CONNECTION_FAILED:
             listener.onFailure(MagnetMessage.FailureCode.DEVICE_CONNECTION_FAILED, null);
             unregisterListener = true;
