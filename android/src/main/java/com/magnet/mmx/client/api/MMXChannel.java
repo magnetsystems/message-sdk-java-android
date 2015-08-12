@@ -30,7 +30,6 @@ public class MMXChannel {
   private Date mLastTimeActive;
   private Set<String> mTags;
   private Boolean mSubscribed;
-  private Boolean isPublicChannel = false;
 
   /**
    * Default constructor
@@ -67,14 +66,6 @@ public class MMXChannel {
    */
   public MMXChannel summary(String summary) {
     this.mSummary = summary;
-    return this;
-  }
-
-  /**
-   * Set flag to indicate that the channel is public. All channels are private by default.
-   */
-  public MMXChannel publicChannel(boolean isPublicChannel) {
-    this.isPublicChannel = isPublicChannel;
     return this;
   }
 
