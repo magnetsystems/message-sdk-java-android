@@ -22,9 +22,13 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MagnetMessage.getMMXClient().isConnected());
+    String suffix = String.valueOf(System.currentTimeMillis());
+    String username = USERNAME_PREFIX + suffix;
+    String displayName = DISPLAY_NAME_PREFIX + suffix;
+    registerUser(username, displayName, suffix, PASSWORD);
 
     //login with credentials
-    MMXUser.login("testuser", "test".getBytes(), sessionListener);
+    MMXUser.login(username, PASSWORD, sessionListener);
     synchronized (sessionListener) {
       try {
         sessionListener.wait(10000);
@@ -49,7 +53,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     MagnetMessage.registerListener(messageListener);
 
     HashSet< MMXid > recipients = new HashSet<MMXid>();
-    recipients.add(new MMXid("testuser"));
+    recipients.add(new MMXid(username));
 
     HashMap<String, Object> content = new HashMap<String, Object>();
     content.put("foo", "bar");
