@@ -1,13 +1,14 @@
 package com.magnet.mmx.client.api;
 
 import com.magnet.mmx.client.MMXClient;
-import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,7 +34,7 @@ public class MMXMessage {
      * Set the message id of the MMXMessage object.
      *
      * @param id the message id
-     * @return this builder object
+     * @return this Builder instance
      */
     MMXMessage.Builder id(String id) {
       mMessage.id(id);
@@ -44,7 +45,7 @@ public class MMXMessage {
      * Set timestamp for the MMXMessage (sent time).
      *
      * @param timestamp the timestamp
-     * @return this MMXMessage object
+     * @return this Builder instance
      */
     MMXMessage.Builder timestamp(Date timestamp) {
       mMessage.timestamp(timestamp);
@@ -55,9 +56,9 @@ public class MMXMessage {
      * Set the sender for the MMXMessage.
      *
      * @param sender the sender
-     * @return this MMXMessage object
+     * @return this Builder instance
      */
-    MMXMessage.Builder sender(MMXid sender) {
+    MMXMessage.Builder sender(String sender) {
       mMessage.sender(sender);
       return this;
     }
@@ -66,7 +67,7 @@ public class MMXMessage {
      * Set the channel for the MMXMessage
      *
      * @param channel the channel
-     * @return this MMXMessage object
+     * @return this Builder instance
      */
     public MMXMessage.Builder channel(MMXChannel channel) {
       if (mMessage.getRecipients().size() > 0) {
@@ -80,9 +81,9 @@ public class MMXMessage {
      * Set the set of recipients for the MMXMssage
      *
      * @param recipients the recipients
-     * @return this MMXMessage object
+     * @return this Builder instance
      */
-    public MMXMessage.Builder recipients(Set<MMXid> recipients) {
+    public MMXMessage.Builder recipients(Set<String> recipients) {
       if (mMessage.getChannel() != null) {
         throw new IllegalArgumentException("Cannot set both the recipients and channel in a message.");
       }
@@ -95,10 +96,21 @@ public class MMXMessage {
      * NOTE:  The values in the map will be flattened to their toString() representations.
      *
      * @param content the content
-     * @return this MMXMessage instance
+     * @return this Builder instance
      */
-    public MMXMessage.Builder content(Map<String, Object> content) {
+    public MMXMessage.Builder content(Map<String, String> content) {
       mMessage.content(content);
+      return this;
+    }
+
+    /**
+     * Sets the receiptId for this MMXMessage
+     *
+     * @param receiptId the receiptId
+     * @return this Builder instance
+     */
+    MMXMessage.Builder receiptId(String receiptId) {
+      mMessage.mReceiptId = receiptId;
       return this;
     }
 
@@ -114,10 +126,11 @@ public class MMXMessage {
 
   private String mId;
   private Date mTimestamp;
-  private MMXid mSender;
+  private String mSender;
   private MMXChannel mChannel;
-  private Set<MMXid> mRecipients = new HashSet<MMXid>();
-  private Map<String, Object> mContent = new HashMap<String, Object>();
+  private Set<String> mRecipients = new HashSet<String>();
+  private Map<String, String> mContent = new HashMap<String, String>();
+  private String mReceiptId;
 
   /**
    * Default constructor
@@ -174,7 +187,7 @@ public class MMXMessage {
    * @param sender the sender
    * @return this MMXMessage object
    */
-  MMXMessage sender(MMXid sender) {
+  MMXMessage sender(String sender) {
     mSender = sender;
     return this;
   }
@@ -185,7 +198,7 @@ public class MMXMessage {
    *
    * @return the sender
    */
-  public MMXid getSender() {
+  public String getSender() {
     return mSender;
   }
 
@@ -215,7 +228,7 @@ public class MMXMessage {
    * @param recipients the recipients
    * @return this MMXMessage object
    */
-  MMXMessage recipients(Set<MMXid> recipients) {
+  MMXMessage recipients(Set<String> recipients) {
     mRecipients = recipients;
     return this;
   }
@@ -225,30 +238,48 @@ public class MMXMessage {
    *
    * @return the recipients
    */
-  public Set<MMXid> getRecipients() {
+  public Set<String> getRecipients() {
     return mRecipients;
   }
 
   /**
    * Sets the content for this message
-   * NOTE:  The values in the map will be flattened to their toString() representations.
    *
    * @param content the content
    * @return this MMXMessage instance
    */
-  MMXMessage content(Map<String, Object> content) {
+  MMXMessage content(Map<String, String> content) {
     mContent = content;
     return this;
   }
 
   /**
    * The content for this message
-   * NOTE:  The values in the map will be flattened to their toString() representations.
    *
    * @return the content
    */
-  public Map<String, Object> getContent() {
+  public Map<String, String> getContent() {
     return mContent;
+  }
+
+  /**
+   * Sets the receiptId for this MMXMessage
+   *
+   * @param receiptId the receiptId
+   * @return this MMXMessage instance
+   */
+  MMXMessage receiptId(String receiptId) {
+    mReceiptId = receiptId;
+    return this;
+  }
+
+  /**
+   * The receiptId for this message
+   *
+   * @return the receipt id
+   */
+  String getReceiptId() {
+    return mReceiptId;
   }
 
   /**
@@ -260,44 +291,66 @@ public class MMXMessage {
    *
    * @param listener the listener for this method call
    */
-  public String send(MagnetMessage.OnFinishedListener<String> listener) {
+  public String send(final MMX.OnFinishedListener<String> listener) {
     //validate message
     if (mChannel != null && mRecipients.size() > 0) {
       throw new IllegalArgumentException("Cannot send to both a channel and recipients");
     } else if (mChannel == null && mRecipients.size() == 0) {
       throw new IllegalArgumentException("Unable to send.  No channel and no recipients");
     }
-
-    MMXClient client = MagnetMessage.getMMXClient();
-    MMXPayload payload = new MMXPayload("");
-    for (Map.Entry<String, Object> entry : mContent.entrySet()) {
-      payload.setMetaData(entry.getKey(), entry.getValue().toString());
+    final String messageId = null;//TODO:  FIX ME
+    final MMXPayload payload = new MMXPayload("");
+    for (Map.Entry<String, String> entry : mContent.entrySet()) {
+      payload.setMetaData(entry.getKey(), entry.getValue());
     }
+    MMXTask<String> task;
     if (mChannel != null) {
-      try {
-        String publishedId = client.getPubSubManager().publish(new MMXGlobalTopic(mChannel.getName()), payload);
-        //TODO:  Delay this until the server ack is received
-        listener.onSuccess(publishedId);
-        return publishedId;
-      } catch (MMXException e) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, e);
-        return null;
-      }
-    } else {
-      try {
-        MMXid[] recipientsArray = new MMXid[mRecipients.size()];
-        mRecipients.toArray(recipientsArray);
-        String messageId = client.getMessageManager().sendPayload(recipientsArray, payload,
-                new Options());
-        //TODO:  Delay this until the server ack is received
-        listener.onSuccess(messageId);
-        return messageId;
-      } catch (MMXException e) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, e);
-        return null;
+      task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
+        @Override
+        public String doRun(MMXClient mmxClient) throws Throwable {
+          String publishedId = mmxClient.getPubSubManager().publish(new MMXGlobalTopic(mChannel.getName()), payload);
+          //TODO:  Delay this until the server ack is received
+          return publishedId;
+        }
 
-      }
+        @Override
+        public void onException(Throwable exception) {
+          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        }
+
+        @Override
+        public void onResult(String result) {
+          listener.onSuccess(result);
+        }
+      };
+    } else {
+      task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
+        @Override
+        public String doRun(MMXClient mmxClient) throws Throwable {
+          MMXid[] recipientsArray = new MMXid[mRecipients.size()];
+          int index = 0;
+          for (String recipient : mRecipients) {
+            recipientsArray[index++] = new MMXid(recipient);
+          }
+          String messageId = mmxClient.getMessageManager().sendPayload(recipientsArray, payload,
+                  new Options().enableReceipt(true));
+          //TODO:  Delay this until the server ack is received
+          return messageId;
+        }
+
+        @Override
+        public void onException(Throwable exception) {
+          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        }
+
+        @Override
+        public void onResult(String result) {
+          listener.onSuccess(result);
+        }
+      };
     }
+    task.execute();
+    return messageId;
   }
 
   /**
@@ -307,8 +360,8 @@ public class MMXMessage {
    * @param listener onSuccess will return the message id of the reply message
    * @return the message id
    */
-  public String reply(Map<String, Object> replyContent,
-                      MagnetMessage.OnFinishedListener<String> listener) {
+  public String reply(Map<String, String> replyContent,
+                      MMX.OnFinishedListener<String> listener) {
     if (mTimestamp == null) {
       throw new IllegalStateException("Cannot reply on an outgoing message.");
     }
@@ -323,8 +376,8 @@ public class MMXMessage {
    * @param listener onSuccess will returh the message id of the reply message
    * @return the message id
    */
-  public String replyAll(Map<String, Object> replyContent,
-                         MagnetMessage.OnFinishedListener<String> listener) {
+  public String replyAll(Map<String, String> replyContent,
+                         MMX.OnFinishedListener<String> listener) {
     if (mTimestamp == null) {
       throw new IllegalStateException("Cannot reply on an outgoing message.");
     }
@@ -332,34 +385,59 @@ public class MMXMessage {
     return reply.send(listener);
   }
 
-
   /**
    * Build a reply message.
    *
    * @param isReplyAll reply to other recipients in addition to the sender
    * @return a new MMXMessage instance for the reply
    */
-  private MMXMessage buildReply(Map<String, Object> content, boolean isReplyAll) {
-    try {
-      MMXid me = MagnetMessage.getMMXClient().getClientId();
-      HashSet<MMXid> replyRecipients = new HashSet<MMXid>();
-      replyRecipients.add(mSender);
-      if (isReplyAll) {
-        for (MMXid recipient : mRecipients) {
-          if (!recipient.equalsTo(me)) {
-            //remove myself from the recipients
-            //this applies to instances of me (including other devices)
-            replyRecipients.add(recipient);
-          }
+  private MMXMessage buildReply(Map<String, String> content, boolean isReplyAll) {
+    String me = MMX.getCurrentUser().getUsername();
+    HashSet<String> replyRecipients = new HashSet<String>();
+    replyRecipients.add(mSender);
+    if (isReplyAll) {
+      for (String recipient : mRecipients) {
+        if (!recipient.equalsIgnoreCase(me)) {
+          //remove myself from the recipients
+          //this applies to instances of me (including other devices)
+          replyRecipients.add(recipient);
         }
       }
-      return new MMXMessage()
-              .channel(mChannel)
-              .recipients(replyRecipients)
-              .content(content);
-    } catch (MMXException e) {
-      throw new RuntimeException(e);
     }
+    return new MMXMessage()
+            .channel(mChannel)
+            .recipients(replyRecipients)
+            .content(content);
+  }
+
+  /**
+   * Acknowledge this message.  This will invoke
+   *
+   * @param listener the listener for this call
+   * @see MMX.OnFinishedListener
+   */
+  public final void acknowledge(final MMX.OnFinishedListener<Void> listener) {
+    if (mReceiptId == null) {
+      throw new IllegalArgumentException("Cannot acknowledge() this message: " + mId);
+    }
+    MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Void doRun(MMXClient mmxClient) throws Throwable {
+        MMX.getMMXClient().getMessageManager().sendReceipt(mReceiptId);
+        return null;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(Void result) {
+        listener.onSuccess(null);
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -369,23 +447,23 @@ public class MMXMessage {
    * @return a new object of this type
    */
   static MMXMessage fromMMXMessage(MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
-    HashSet<MMXid> recipients = new HashSet<MMXid>();
-    recipients.add(message.getTo());
+    HashSet<String> recipients = new HashSet<String>();
+    recipients.add(message.getTo().getUserId());
     MMXid[] otherRecipients = message.getReplyAll();
     if (otherRecipients != null) {
       //TODO: message.getReplyAll() may return null.  It should probably return a zero-length array.
       for (MMXid otherRecipient : otherRecipients) {
-        recipients.add(otherRecipient);
+        recipients.add(otherRecipient.getUserId());
       }
     }
-    HashMap<String, Object> content = new HashMap<String, Object>();
+    HashMap<String, String> content = new HashMap<String, String>();
     for (Map.Entry<String,String> entry : message.getPayload().getAllMetaData().entrySet()) {
       content.put(entry.getKey(), entry.getValue());
     }
 
     MMXMessage newMessage = new MMXMessage();
     return newMessage
-            .sender(message.getFrom())
+            .sender(message.getFrom().getUserId())
             .id(message.getId())
             .channel(MMXChannel.fromMMXTopic(topic))
             .timestamp(message.getPayload().getSentTime())

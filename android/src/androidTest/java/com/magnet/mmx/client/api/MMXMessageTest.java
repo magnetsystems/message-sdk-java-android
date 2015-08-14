@@ -11,37 +11,27 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXMessageTest.class.getSimpleName();
 
   public void testSendMessage() {
-    final MagnetMessage.OnFinishedListener<Void> sessionListener = getSessionListener();
-    //start the session
-    MagnetMessage.startSession(sessionListener);
-    synchronized (sessionListener) {
-      try {
-        sessionListener.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(MagnetMessage.getMMXClient().isConnected());
+    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
     registerUser(username, displayName, suffix, PASSWORD);
 
     //login with credentials
-    MMXUser.login(username, PASSWORD, sessionListener);
-    synchronized (sessionListener) {
+    MMX.login(username, PASSWORD, loginLogoutListener);
+    synchronized (loginLogoutListener) {
       try {
-        sessionListener.wait(10000);
+        loginLogoutListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
-    assertTrue(MagnetMessage.getMMXClient().isConnected());
+    assertTrue(MMX.getMMXClient().isConnected());
     final HashMap<String, Object> receivedContent = new HashMap<String, Object>();
-    MagnetMessage.OnMessageReceivedListener messageListener = new MagnetMessage.OnMessageReceivedListener() {
+    MMX.OnMessageReceivedListener messageListener = new MMX.OnMessageReceivedListener() {
       public boolean onMessageReceived(MMXMessage message) {
         Log.d(TAG, "onMessageReceived(): " + message.getId());
-        for (Map.Entry<String, Object> entry : message.getContent().entrySet()) {
+        for (Map.Entry<String, String> entry : message.getContent().entrySet()) {
           receivedContent.put(entry.getKey(), entry.getValue());
         }
         synchronized (this) {
@@ -49,24 +39,29 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         }
         return false;
       }
+
+      public boolean onMessageAcknowledgementReceived(MMXid from, String messageId) {
+        return false;
+      }
     };
-    MagnetMessage.registerListener(messageListener);
+    MMX.registerListener(messageListener);
 
-    HashSet< MMXid > recipients = new HashSet<MMXid>();
-    recipients.add(new MMXid(username));
+    HashSet<String> recipients = new HashSet<String>();
+    recipients.add(username);
 
-    HashMap<String, Object> content = new HashMap<String, Object>();
+    HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
     MMXMessage message = new MMXMessage.Builder()
             .recipients(recipients)
             .content(content)
             .build();
-    final String messageId = message.send(new MagnetMessage.OnFinishedListener<String>() {
+    final String messageId = message.send(new MMX.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         assertNotNull(result);
       }
 
-      public void onFailure(MagnetMessage.FailureCode code, Throwable ex) {
+      public void onFailure(MMX.FailureCode code, Throwable ex) {
+        Log.e(TAG, "testSendMessage(): failureCode=" + code, ex);
         fail();
       }
     });
@@ -77,18 +72,18 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         e.printStackTrace();
       }
     }
-    assertNotNull(messageId);
+    //assertNotNull(messageId);
     assertEquals("bar", receivedContent.get("foo"));
 
-    MagnetMessage.unregisterListener(messageListener);
-    MagnetMessage.endSession(sessionListener);
-    synchronized (sessionListener) {
+    MMX.unregisterListener(messageListener);
+    MMX.logout(loginLogoutListener);
+    synchronized (loginLogoutListener) {
       try {
-        sessionListener.wait(10000);
+        loginLogoutListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
-    assertFalse(MagnetMessage.getMMXClient().isConnected());
+    assertFalse(MMX.getMMXClient().isConnected());
   }
 }

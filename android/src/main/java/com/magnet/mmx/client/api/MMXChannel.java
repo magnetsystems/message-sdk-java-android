@@ -8,7 +8,6 @@ import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
@@ -64,7 +63,7 @@ public class MMXChannel {
      * @param owner the owner
      * @return this Builder object
      */
-    Builder owner(MMXid owner) {
+    Builder owner(String owner) {
       mChannel.owner(owner);
       return this;
     }
@@ -123,11 +122,11 @@ public class MMXChannel {
     }
   }
 
-  public static class QueryResult {
+  public static class FindResult {
     public final int totalCount;
     public final List<MMXChannel> channels;
 
-    private QueryResult(int totalCount, List<MMXChannel> channels) {
+    private FindResult(int totalCount, List<MMXChannel> channels) {
       this.totalCount = totalCount;
       this.channels = Collections.unmodifiableList(channels);
     }
@@ -135,7 +134,7 @@ public class MMXChannel {
 
   private String mName;
   private String mSummary;
-  private MMXid mOwner;
+  private String mOwner;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private Set<String> mTags;
@@ -194,7 +193,7 @@ public class MMXChannel {
    * @param owner the owner
    * @return this MMXChannel object
    */
-  MMXChannel owner(MMXid owner) {
+  MMXChannel owner(String owner) {
     mOwner = owner;
     return this;
   }
@@ -204,7 +203,7 @@ public class MMXChannel {
    *
    * @return the owner, null if not yet retrieved
    */
-  public MMXid getOwner() {
+  public String getOwner() {
     return mOwner;
   }
 
@@ -293,8 +292,8 @@ public class MMXChannel {
    *
    * @param listener the listner for the newly created channel
    */
-  public void create(final MagnetMessage.OnFinishedListener<MMXChannel> listener) {
-    MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+  public void create(final MMX.OnFinishedListener<MMXChannel> listener) {
+    MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
@@ -305,7 +304,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, new Exception(exception));
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, new Exception(exception));
       }
 
       @Override
@@ -321,8 +320,8 @@ public class MMXChannel {
    *
    * @param listener the listener for success or failure
    */
-  public void delete(final MagnetMessage.OnFinishedListener<Void> listener) {
-    MagnetMessage.MMXStatusTask task = new MagnetMessage.MMXStatusTask(listener) {
+  public void delete(final MMX.OnFinishedListener<Void> listener) {
+    MMX.MMXStatusTask task = new MMX.MMXStatusTask(listener) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
@@ -337,8 +336,8 @@ public class MMXChannel {
    *
    * @param listener the listener for the subscription id
    */
-  public void subscribe(final MagnetMessage.OnFinishedListener<String> listener) {
-    MMXTask<String> task = new MMXTask<String>(MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+  public void subscribe(final MMX.OnFinishedListener<String> listener) {
+    MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public String doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
@@ -347,7 +346,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
 
       @Override
@@ -363,8 +362,8 @@ public class MMXChannel {
    *
    * @param listener the listener for success or failure
    */
-  public void unsubscribe(final MagnetMessage.OnFinishedListener<Boolean> listener) {
-    MMXTask<Boolean> task = new MMXTask<Boolean>(MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+  public void unsubscribe(final MMX.OnFinishedListener<Boolean> listener) {
+    MMXTask<Boolean> task = new MMXTask<Boolean>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Boolean doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
@@ -374,7 +373,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
 
       @Override
@@ -392,8 +391,8 @@ public class MMXChannel {
    * @param listener the listener for the message id
    * @return the message id for this published message
    */
-  public String publish(Map<String, Object> messageContent,
-                      final MagnetMessage.OnFinishedListener<String> listener) {
+  public String publish(Map<String, String> messageContent,
+                      final MMX.OnFinishedListener<String> listener) {
     MMXMessage message = new MMXMessage.Builder()
             .channel(this)
             .content(messageContent)
@@ -409,28 +408,28 @@ public class MMXChannel {
    * @param listener the listener for the query results
    */
   public static void findByName(final String startsWith, final int limit,
-                                final MagnetMessage.OnFinishedListener<QueryResult> listener) {
-    MMXTask<QueryResult> task = new MMXTask<QueryResult>(
-            MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+                                final MMX.OnFinishedListener<FindResult> listener) {
+    MMXTask<FindResult> task = new MMXTask<FindResult>(
+            MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public QueryResult doRun(MMXClient mmxClient) throws Throwable {
+      public FindResult doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
         List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
-        return new QueryResult(searchResult.getTotal(), channels);
+        return new FindResult(searchResult.getTotal(), channels);
       }
 
       @Override
-      public void onResult(QueryResult result) {
+      public void onResult(FindResult result) {
         //build the query result
         listener.onSuccess(result);
       }
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
     };
     task.execute();
@@ -443,28 +442,28 @@ public class MMXChannel {
    * @param listener the listener for the query results
    */
   public static void findByTags(final Set<String> tags, final int limit,
-                                final MagnetMessage.OnFinishedListener<QueryResult> listener) {
-    MMXTask<QueryResult> task = new MMXTask<QueryResult>(
-            MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+                                final MMX.OnFinishedListener<FindResult> listener) {
+    MMXTask<FindResult> task = new MMXTask<FindResult>(
+            MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public QueryResult doRun(MMXClient mmxClient) throws Throwable {
+      public FindResult doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
         List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
-        return new QueryResult(searchResult.getTotal(), channels);
+        return new FindResult(searchResult.getTotal(), channels);
       }
 
       @Override
-      public void onResult(QueryResult result) {
+      public void onResult(FindResult result) {
         //build the query result
         listener.onSuccess(result);
       }
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
     };
     task.execute();
@@ -476,12 +475,12 @@ public class MMXChannel {
     }
     return new MMXChannel()
             .name(topic.getName())
-            .owner(new MMXid(topic.getUserId()));
+            .owner(topic.getUserId());
   }
 
 
   private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos) throws MMXException {
-    MMXPubSubManager psm = MagnetMessage.getMMXClient().getPubSubManager();
+    MMXPubSubManager psm = MMX.getMMXClient().getPubSubManager();
 
     //get subscriptions
     List<MMXSubscription> subscriptions = psm.listAllSubscriptions();
@@ -513,7 +512,7 @@ public class MMXChannel {
                       .lastTimeActive(summary.getLastPubTime())
                       .name(topic.getName())
                       .numberOfMessages(summary.getCount())
-                      .owner(info.getCreator())
+                      .owner(info.getCreator().getUserId())
                       .subscribed(subMap.containsKey(topic))
                       .summary(info.getDescription())
                       .tags(tags)

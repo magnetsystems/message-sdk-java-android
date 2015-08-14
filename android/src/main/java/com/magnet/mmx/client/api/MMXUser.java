@@ -2,24 +2,23 @@ package com.magnet.mmx.client.api;
 
 import com.magnet.mmx.client.MMXAccountManager;
 import com.magnet.mmx.client.MMXClient;
-import com.magnet.mmx.client.common.*;
-import com.magnet.mmx.client.common.MMXMessage;
+import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.protocol.MMXStatus;
-import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The MMXUser class
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
-  private static MMXUser sCurrentUser = null;
 
   /**
    * The builder for the MMXUser class
@@ -79,11 +78,11 @@ public class MMXUser {
    */
   public static class FindResult {
     public final int totalCount;
-    public final List<MMXUser> users;
+    public final Set<MMXUser> users;
 
-    private FindResult(int totalCount, List<MMXUser> users) {
+    private FindResult(int totalCount, Set<MMXUser> users) {
       this.totalCount = totalCount;
-      this.users = Collections.unmodifiableList(users);
+      this.users = Collections.unmodifiableSet(users);
     }
   }
 
@@ -162,150 +161,44 @@ public class MMXUser {
   /**
    * Register a user with the specified username and password
    *
-   * @param user the user to register
    * @param password the password
    * @param listener the listener, true for success, false otherwise
    */
-  public static void register(MMXUser user, byte[] password,
-                              MagnetMessage.OnFinishedListener<Boolean> listener) {
-    MMXClient client = MagnetMessage.getMMXClient();
-    MMXAccountManager.Account account = new MMXAccountManager.Account()
-            .username(user.getUsername())
-            .email(user.getEmail())
-            .displayName(user.getDisplayName())
-            .password(password);
-    MMXStatus status = client.getAccountManager().createAccount(account);
-    if (status.getCode() == MMXStatus.SUCCESS) {
-      listener.onSuccess(Boolean.TRUE);
+  public void register(final byte[] password,
+                       final MMX.OnFinishedListener<Void> listener) {
+    final boolean isConnected = MMX.getMMXClient().isConnected();
+    final MMX.MMXStatusTask createAccountTask =
+            new MMX.MMXStatusTask(listener) {
+      @Override
+      public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
+        try {
+          MMXAccountManager.Account account = new MMXAccountManager.Account()
+                  .username(getUsername())
+                  .email(getEmail())
+                  .displayName(getDisplayName())
+                  .password(password);
+          return mmxClient.getAccountManager().createAccount(account);
+        } finally {
+          if (!isConnected) {
+            MMX.logout(null);
+          }
+        }
+      }
+    };
+
+    if (!isConnected) {
+      MMX.loginAnonymous(new MMX.OnFinishedListener<Void>() {
+        public void onSuccess(Void result) {
+          createAccountTask.execute();
+        }
+
+        public void onFailure(MMX.FailureCode code, Throwable ex) {
+          listener.onFailure(code, ex);
+        }
+      });
     } else {
-      Log.e(TAG, "register() calling onFailure because of MMXStatus: " + status);
-      listener.onFailure(MagnetMessage.FailureCode.SERVER_BAD_STATUS, null);
+      createAccountTask.execute();
     }
-  }
-
-  /**
-   * Authenticate the current session with the specified username and password
-   *
-   * @param username the username
-   * @param password the password
-   */
-  public static void login(String username, byte[] password,
-                           final MagnetMessage.OnFinishedListener<Void> listener) {
-    MagnetMessage.getGlobalListener().registerListener(new MMXClient.MMXListener() {
-      public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
-        Log.d(TAG, "login() received connection event: " + event);
-        boolean unregisterListener = false;
-        switch (event) {
-          case AUTHENTICATION_FAILURE:
-            listener.onFailure(MagnetMessage.FailureCode.SERVER_AUTH_FAILED, null);
-            unregisterListener = true;
-            break;
-          case CONNECTED:
-            try {
-              UserInfo info = client.getAccountManager().getUserInfo();
-              sCurrentUser = new MMXUser.Builder()
-                      .email(info.getEmail())
-                      .username(info.getUserId())
-                      .displayName(info.getDisplayName())
-                      .build();
-            } catch (MMXException ex) {
-              Log.e(TAG, "login(): login succeeded but unable to retrieve user info", ex);
-            }
-            listener.onSuccess(null);
-            unregisterListener = true;
-            break;
-          case CONNECTION_FAILED:
-            listener.onFailure(MagnetMessage.FailureCode.DEVICE_CONNECTION_FAILED, null);
-            unregisterListener = true;
-            break;
-        }
-        if (unregisterListener) {
-          MagnetMessage.getGlobalListener().unregisterListener(this);
-        }
-      }
-
-      public void onMessageReceived(MMXClient client, MMXMessage message, String receiptId) {
-
-      }
-
-      public void onSendFailed(MMXClient client, String messageId) {
-
-      }
-
-      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
-
-      }
-
-      public void onPubsubItemReceived(MMXClient client, MMXTopic topic, MMXMessage message) {
-
-      }
-
-      public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
-
-      }
-    });
-    sCurrentUser = null;
-    MagnetMessage.getMMXClient().connectWithCredentials(username, password, MagnetMessage.getGlobalListener(),
-            new MMXClient.ConnectionOptions().setAutoCreate(false));
-  }
-
-  /**
-   * Logout of the current session.
-   */
-  public static void logout(final MagnetMessage.OnFinishedListener<Void> listener) {
-    MagnetMessage.getGlobalListener().registerListener(new MMXClient.MMXListener() {
-      public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
-        Log.d(TAG, "logout() received connection event: " + event);
-        boolean unregisterListener = false;
-        switch (event) {
-          case AUTHENTICATION_FAILURE:
-            listener.onFailure(MagnetMessage.FailureCode.SERVER_AUTH_FAILED, null);
-            unregisterListener = true;
-            break;
-          case CONNECTED:
-            listener.onSuccess(null);
-          case CONNECTION_FAILED:
-            listener.onFailure(MagnetMessage.FailureCode.DEVICE_CONNECTION_FAILED, null);
-            unregisterListener = true;
-            break;
-        }
-        if (unregisterListener) {
-          MagnetMessage.getGlobalListener().unregisterListener(this);
-        }
-      }
-
-      public void onMessageReceived(MMXClient client, MMXMessage message, String receiptId) {
-
-      }
-
-      public void onSendFailed(MMXClient client, String messageId) {
-
-      }
-
-      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
-
-      }
-
-      public void onPubsubItemReceived(MMXClient client, MMXTopic topic, MMXMessage message) {
-
-      }
-
-      public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
-
-      }
-    });
-    sCurrentUser = null;
-    MagnetMessage.getMMXClient().goAnonymous();
-  }
-
-  /**
-   * Retrieves the current user for this session.  This may return
-   * null if there is no logged-in user.
-   *
-   * @return the current user, null there is no logged-in user
-   */
-  public static MMXUser getCurrentUser() {
-    return sCurrentUser;
   }
 
   /**
@@ -313,15 +206,30 @@ public class MMXUser {
    *
    * @param newPassword the new password
    */
-  public static void changePassword(byte[] newPassword,
-                                    final MagnetMessage.OnFinishedListener<Void> listener) {
-    MMXClient client = MagnetMessage.getMMXClient();
-    try {
-      client.getAccountManager().changePassword(new String(newPassword));
-      listener.onSuccess(null);
-    } catch (MMXException e) {
-      listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, e);
-    }
+  public void changePassword(final byte[] newPassword,
+                             final MMX.OnFinishedListener<Void> listener) {
+    MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Void doRun(MMXClient mmxClient) throws Throwable {
+        mmxClient.getAccountManager().changePassword(new String(newPassword));
+        return null;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        }
+      }
+
+      @Override
+      public void onResult(Void result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -329,26 +237,41 @@ public class MMXUser {
    *
    * @param startsWith the search string
    * @param limit the maximum number of users to return
-   * @return the result, null if the results are unavailable
+   * @param listener listener for success or failure
    */
-  public static FindResult findByName(String startsWith, int limit) {
-    MMXClient client = MagnetMessage.getMMXClient();
-    try {
-      UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
-      UserQuery.Response response = client.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
-      List<UserInfo> userInfos = response.getUsers();
-      ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
-      for (UserInfo userInfo : userInfos) {
-        resultList.add(new MMXUser.Builder()
-                .username(userInfo.getUserId())
-                .displayName(userInfo.getDisplayName())
-                .email(userInfo.getEmail())
-                .build());
+  public static void findByName(final String startsWith, final int limit,
+                                      final MMX.OnFinishedListener<FindResult> listener) {
+    MMXTask<FindResult> task = new MMXTask<FindResult>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public FindResult doRun(MMXClient mmxClient) throws Throwable {
+        UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
+        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
+        List<UserInfo> userInfos = response.getUsers();
+        ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
+        for (UserInfo userInfo : userInfos) {
+          resultList.add(new MMXUser.Builder()
+                  .username(userInfo.getUserId())
+                  .displayName(userInfo.getDisplayName())
+                  .email(userInfo.getEmail())
+                  .build());
+        }
+        return new FindResult(response.getTotalCount(), new HashSet<MMXUser>(resultList));
       }
-      return new FindResult(response.getTotalCount(), resultList);
-    } catch (MMXException e) {
-      Log.e(TAG, "findByName(): failed because of exception", e);
-      return null;
-    }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        }
+      }
+
+      @Override
+      public void onResult(FindResult result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    task.execute();
   }
 }

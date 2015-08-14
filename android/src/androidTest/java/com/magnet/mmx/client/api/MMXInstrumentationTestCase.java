@@ -6,6 +6,8 @@ import android.test.InstrumentationTestCase;
 import com.magnet.mmx.client.ClientTestConfigImpl;
 import com.magnet.mmx.client.common.Log;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
   private static final String TAG = MMXInstrumentationTestCase.class.getSimpleName();
@@ -14,15 +16,15 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected static final byte[] PASSWORD = "test".getBytes();
   protected static final String DISPLAY_NAME_PREFIX = "MMX TestUser";
 
-  private final MagnetMessage.OnFinishedListener<Void> mSessionListener =
-          new MagnetMessage.OnFinishedListener<Void>() {
+  private final MMX.OnFinishedListener<Void> mLoginLogoutListener =
+          new MMX.OnFinishedListener<Void>() {
             public void onSuccess(Void result) {
               synchronized (this) {
                 this.notify();
               }
             }
 
-            public void onFailure(MagnetMessage.FailureCode code, Throwable ex) {
+            public void onFailure(MMX.FailureCode code, Throwable ex) {
               synchronized (this) {
                 this.notify();
               }
@@ -33,7 +35,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected final void setUp() throws Exception {
     Log.setLoggable(null, Log.VERBOSE);
     mContext = this.getInstrumentation().getTargetContext();
-    MagnetMessage.init(mContext, new ClientTestConfigImpl(mContext));
+    MMX.init(mContext, new ClientTestConfigImpl(mContext));
     postSetUp();
   }
 
@@ -45,8 +47,8 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
 
   }
 
-  protected MagnetMessage.OnFinishedListener<Void> getSessionListener() {
-    return mSessionListener;
+  protected MMX.OnFinishedListener<Void> getLoginLogoutListener() {
+    return mLoginLogoutListener;
   }
 
   protected Context getContext() {
@@ -60,17 +62,19 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
             .username(username)
             .build();
 
+    final AtomicBoolean success = new AtomicBoolean(false);
     //setup the listener for the registration call
-    final MagnetMessage.OnFinishedListener<Boolean> listener =
-            new MagnetMessage.OnFinishedListener<Boolean>() {
-              public void onSuccess(Boolean result) {
+    final MMX.OnFinishedListener<Void> listener =
+            new MMX.OnFinishedListener<Void>() {
+              public void onSuccess(Void result) {
                 Log.d(TAG, "onSuccess: result=" + result);
+                success.set(true);
                 synchronized (this) {
                   this.notify();
                 }
               }
 
-              public void onFailure(MagnetMessage.FailureCode code, Throwable ex) {
+              public void onFailure(MMX.FailureCode code, Throwable ex) {
                 Log.e(TAG, "onFailure(): code=" + code, ex);
                 synchronized (this) {
                   this.notify();
@@ -79,13 +83,14 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
             };
 
     //Register the user.  This may fail
-    MMXUser.register(user, password, listener);
+    user.register(password, listener);
     synchronized (listener) {
       try {
         listener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
+      assertTrue(success.get());
     }
 
   }
