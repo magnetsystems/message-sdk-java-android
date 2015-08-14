@@ -1,11 +1,28 @@
 package com.magnet.mmx.client.api;
 
+import com.magnet.mmx.client.MMXClient;
+import com.magnet.mmx.client.MMXPubSubManager;
+import com.magnet.mmx.client.MMXTask;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXGlobalTopic;
+import com.magnet.mmx.client.common.MMXSubscription;
+import com.magnet.mmx.client.common.MMXTopicInfo;
+import com.magnet.mmx.client.common.MMXTopicSearchResult;
 import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXTopicOptions;
+import com.magnet.mmx.protocol.SearchAction;
+import com.magnet.mmx.protocol.TopicAction;
+import com.magnet.mmx.protocol.TopicSummary;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -95,6 +112,15 @@ public class MMXChannel {
       mChannel.subscribed(subscribed);
       return this;
     }
+
+    /**
+     * Build the channel object
+     *
+     * @return the channel
+     */
+    public MMXChannel build() {
+      return mChannel;
+    }
   }
 
   public static class QueryResult {
@@ -118,7 +144,7 @@ public class MMXChannel {
   /**
    * Default constructor
    */
-  public MMXChannel() {
+  private MMXChannel() {
 
   }
 
@@ -128,7 +154,7 @@ public class MMXChannel {
    * @param name the name
    * @return this MMXChannel object
    */
-  public MMXChannel name(String name) {
+  MMXChannel name(String name) {
     this.mName = name;
     return this;
   }
@@ -148,7 +174,7 @@ public class MMXChannel {
    * @param summary the summary
    * @return this MMXChannel object
    */
-  public MMXChannel summary(String summary) {
+  MMXChannel summary(String summary) {
     this.mSummary = summary;
     return this;
   }
@@ -228,7 +254,7 @@ public class MMXChannel {
    * @param tags the tags
    * @return this MMXChannel object
    */
-  public MMXChannel tags(Set<String> tags) {
+  MMXChannel tags(Set<String> tags) {
     mTags = tags;
     return this;
   }
@@ -267,8 +293,27 @@ public class MMXChannel {
    *
    * @param listener the listner for the newly created channel
    */
-  public void create(MagnetMessage.OnFinishedListener<MMXChannel> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public void create(final MagnetMessage.OnFinishedListener<MMXChannel> listener) {
+    MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+      @Override
+      public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        MMXTopicOptions options = new MMXTopicOptions()
+                .setDescription(mSummary);
+        return psm.createTopic(new MMXGlobalTopic(mName), options);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, new Exception(exception));
+      }
+
+      @Override
+      public void onResult(MMXTopic result) {
+        listener.onSuccess(MMXChannel.fromMMXTopic(result));
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -276,8 +321,15 @@ public class MMXChannel {
    *
    * @param listener the listener for success or failure
    */
-  public void delete(MagnetMessage.OnFinishedListener<Boolean> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public void delete(final MagnetMessage.OnFinishedListener<Void> listener) {
+    MagnetMessage.MMXStatusTask task = new MagnetMessage.MMXStatusTask(listener) {
+      @Override
+      public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.deleteTopic(new MMXGlobalTopic(mName));
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -285,8 +337,25 @@ public class MMXChannel {
    *
    * @param listener the listener for the subscription id
    */
-  public void subscribe(MagnetMessage.OnFinishedListener<String> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public void subscribe(final MagnetMessage.OnFinishedListener<String> listener) {
+    MMXTask<String> task = new MMXTask<String>(MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+      @Override
+      public String doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.subscribe(new MMXGlobalTopic(mName), false);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(String result) {
+        listener.onSuccess(result);
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -294,31 +363,77 @@ public class MMXChannel {
    *
    * @param listener the listener for success or failure
    */
-  public void unsubscribe(MagnetMessage.OnFinishedListener<Boolean> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public void unsubscribe(final MagnetMessage.OnFinishedListener<Boolean> listener) {
+    MMXTask<Boolean> task = new MMXTask<Boolean>(MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+      @Override
+      public Boolean doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        //unsubscribe from all devices
+        return psm.unsubscribe(new MMXGlobalTopic(mName), null);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(Boolean result) {
+        listener.onSuccess(result);
+      }
+    };
+    task.execute();
   }
 
   /**
-   * Publishes a message to this channel.  If this channel does not exist, it will
-   * be created first.
+   * Publishes a message to this channel.
    *
-   * @param message the message to publish
+   * @param messageContent the message content to publish
    * @param listener the listener for the message id
+   * @return the message id for this published message
    */
-  public void publish(MMXMessage message,
-                      MagnetMessage.OnFinishedListener<String> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public String publish(Map<String, Object> messageContent,
+                      final MagnetMessage.OnFinishedListener<String> listener) {
+    MMXMessage message = new MMXMessage.Builder()
+            .channel(this)
+            .content(messageContent)
+            .build();
+    return message.send(listener);
   }
 
   /**
-   * Query for exact match of the specified name
+   * Find the channel that starts with the specified text.
    *
-   * @param name the name
+   * @param startsWith the search string
+   * @param limit the maximum number of results to return
    * @param listener the listener for the query results
    */
-  public static void findByName(String name,
-                                 MagnetMessage.OnFinishedListener<QueryResult> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public static void findByName(final String startsWith, final int limit,
+                                final MagnetMessage.OnFinishedListener<QueryResult> listener) {
+    MMXTask<QueryResult> task = new MMXTask<QueryResult>(
+            MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+      @Override
+      public QueryResult doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        TopicAction.TopicSearch search = new TopicAction.TopicSearch()
+                .setTopicName(startsWith, SearchAction.Match.PREFIX);
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
+        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
+        return new QueryResult(searchResult.getTotal(), channels);
+      }
+
+      @Override
+      public void onResult(QueryResult result) {
+        //build the query result
+        listener.onSuccess(result);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -327,10 +442,32 @@ public class MMXChannel {
    * @param tags the tags to match
    * @param listener the listener for the query results
    */
-  public static void findByTags(Set<String> tags,
-                                 MagnetMessage.OnFinishedListener<QueryResult> listener) {
-    throw new RuntimeException("Not yet implemented");
+  public static void findByTags(final Set<String> tags, final int limit,
+                                final MagnetMessage.OnFinishedListener<QueryResult> listener) {
+    MMXTask<QueryResult> task = new MMXTask<QueryResult>(
+            MagnetMessage.getMMXClient(), MagnetMessage.getHandler()) {
+      @Override
+      public QueryResult doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        TopicAction.TopicSearch search = new TopicAction.TopicSearch()
+                .setTags(new ArrayList<String>(tags));
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
+        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
+        return new QueryResult(searchResult.getTotal(), channels);
+      }
 
+      @Override
+      public void onResult(QueryResult result) {
+        //build the query result
+        listener.onSuccess(result);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+      }
+    };
+    task.execute();
   }
 
   static MMXChannel fromMMXTopic(MMXTopic topic) {
@@ -340,5 +477,49 @@ public class MMXChannel {
     return new MMXChannel()
             .name(topic.getName())
             .owner(new MMXid(topic.getUserId()));
+  }
+
+
+  private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos) throws MMXException {
+    MMXPubSubManager psm = MagnetMessage.getMMXClient().getPubSubManager();
+
+    //get subscriptions
+    List<MMXSubscription> subscriptions = psm.listAllSubscriptions();
+    HashMap<MMXTopic, MMXSubscription> subMap = new HashMap<MMXTopic, MMXSubscription>();
+    for (MMXSubscription subscription : subscriptions) {
+      subMap.put(subscription.getTopic(), subscription);
+    }
+
+    //get topic summaries
+    HashMap<MMXTopic, MMXTopicInfo> topicInfoMap = new HashMap<MMXTopic, MMXTopicInfo>();
+    ArrayList<MMXTopic> topics = new ArrayList<MMXTopic>(topicInfos.size());
+    for (MMXTopicInfo info : topicInfos) {
+      MMXTopic topic = info.getTopic();
+      topics.add(topic);
+      topicInfoMap.put(topic, info);
+    }
+    List<TopicSummary> summaries = psm.getTopicSummary(topics, null, null);
+
+    ArrayList<MMXChannel> channels = new ArrayList<MMXChannel>();
+    for (TopicSummary summary : summaries) {
+      MMXTopic topic = summary.getTopicNode();
+      MMXTopicInfo info = topicInfoMap.get(topic);
+
+      //get tags -- //TODO: Fix this...  THIS CAN BE EXPENSIVE
+      TopicAction.TopicTags topicTags = psm.getAllTags(topic);
+      HashSet<String> tags = topicTags.getTags() != null ?
+              new HashSet<String>(topicTags.getTags()) : null;
+      channels.add(new MMXChannel.Builder()
+                      .lastTimeActive(summary.getLastPubTime())
+                      .name(topic.getName())
+                      .numberOfMessages(summary.getCount())
+                      .owner(info.getCreator())
+                      .subscribed(subMap.containsKey(topic))
+                      .summary(info.getDescription())
+                      .tags(tags)
+                      .build()
+      );
+    }
+    return channels;
   }
 }

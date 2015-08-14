@@ -1,12 +1,16 @@
 package com.magnet.mmx.client.api;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.HandlerThread;
 
 import com.magnet.mmx.client.AbstractMMXListener;
 import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
+import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.*;
+import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Iterator;
@@ -21,7 +25,8 @@ public final class MagnetMessage {
     DEVICE_CONNECTION_FAILED,
     SERVER_AUTH_FAILED,
     SERVER_BAD_STATUS,
-    SERVER_EXCEPTION}
+    SERVER_EXCEPTION
+  }
   /**
    * The listener interface for handling incoming messages.
    */
@@ -54,12 +59,14 @@ public final class MagnetMessage {
      * @param code the failure code
      * @param ex the exception, null if no exception
      */
-    void onFailure(FailureCode code, Exception ex);
+    void onFailure(FailureCode code, Throwable ex);
   }
 
   private static final String TAG = MagnetMessage.class.getSimpleName();
   private Context mContext = null;
   private MMXClient mClient = null;
+  private HandlerThread mHandlerThread = null;
+  private Handler mHandler = null;
   private static MagnetMessage sInstance = null;
 
   /**
@@ -88,6 +95,9 @@ public final class MagnetMessage {
   private MagnetMessage(Context context, MMXClientConfig config) {
     mContext = context.getApplicationContext();
     mClient = MMXClient.getInstance(context, config);
+    mHandlerThread = new HandlerThread("MagnetMessage");
+    mHandlerThread.start();
+    mHandler = new Handler(mHandlerThread.getLooper());
   }
 
   private void start(final OnFinishedListener<Void> listener) {
@@ -271,6 +281,17 @@ public final class MagnetMessage {
   }
 
   /**
+   * Helper method to retrieve the background thread Handler for
+   * MagnetMessage.
+
+   * @return the handler
+   */
+  static synchronized Handler getHandler() {
+    checkState();
+    return sInstance.mHandler;
+  }
+
+  /**
    * Helper method to retrieve the MMXClient instance.
    *
    * @return the MMXClient instance
@@ -287,5 +308,36 @@ public final class MagnetMessage {
    */
   static synchronized AbstractMMXListener getGlobalListener() {
     return sInstance.mGlobalListener;
+  }
+
+  abstract static class MMXStatusTask extends MMXTask<MMXStatus> {
+    private final OnFinishedListener<Void> mListener;
+
+    MMXStatusTask(OnFinishedListener<Void> listener) {
+      super(getMMXClient(), getHandler());
+      mListener = listener;
+    }
+
+    @Override
+    public abstract MMXStatus doRun(MMXClient mmxClient) throws Throwable;
+
+    @Override
+    public final void onException(Throwable exception) {
+      if (mListener != null) {
+        mListener.onFailure(MagnetMessage.FailureCode.SERVER_EXCEPTION, exception);
+      }
+    }
+
+    @Override
+    public final void onResult(MMXStatus result) {
+      if (mListener != null) {
+        if (result.getCode() == MMXStatus.SUCCESS) {
+          mListener.onSuccess(null);
+        } else {
+          mListener.onFailure(MagnetMessage.FailureCode.SERVER_BAD_STATUS, new Exception(result.toString()));
+        }
+      }
+    }
+
   }
 }

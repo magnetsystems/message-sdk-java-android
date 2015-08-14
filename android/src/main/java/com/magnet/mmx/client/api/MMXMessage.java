@@ -97,7 +97,7 @@ public class MMXMessage {
      * @param content the content
      * @return this MMXMessage instance
      */
-    public MMXMessage.Builder content(HashMap<String, Object> content) {
+    public MMXMessage.Builder content(Map<String, Object> content) {
       mMessage.content(content);
       return this;
     }

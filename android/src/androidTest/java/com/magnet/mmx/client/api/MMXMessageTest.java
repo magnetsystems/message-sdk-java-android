@@ -66,7 +66,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         assertNotNull(result);
       }
 
-      public void onFailure(MagnetMessage.FailureCode code, Exception ex) {
+      public void onFailure(MagnetMessage.FailureCode code, Throwable ex) {
         fail();
       }
     });

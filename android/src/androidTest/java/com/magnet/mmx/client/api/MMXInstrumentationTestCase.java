@@ -22,7 +22,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
               }
             }
 
-            public void onFailure(MagnetMessage.FailureCode code, Exception ex) {
+            public void onFailure(MagnetMessage.FailureCode code, Throwable ex) {
               synchronized (this) {
                 this.notify();
               }
@@ -70,7 +70,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
                 }
               }
 
-              public void onFailure(MagnetMessage.FailureCode code, Exception ex) {
+              public void onFailure(MagnetMessage.FailureCode code, Throwable ex) {
                 Log.e(TAG, "onFailure(): code=" + code, ex);
                 synchronized (this) {
                   this.notify();
