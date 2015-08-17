@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client;
 
+import android.os.Handler;
 import android.util.Log;
 
 import com.magnet.mmx.client.common.MMXErrorMessage;
@@ -234,11 +235,23 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * @param listener the listener to unregister
    */
   public final void unregisterListener(MMXClient.MMXListener listener) {
-    synchronized (mListeners) {
-      for (int i=mListeners.size(); --i >= 0;) {
-        if (mListeners.get(i) == listener) {
-          mListeners.remove(i);
-          break;
+    Handler handler = new Handler();
+    handler.post(new UnregisterListenerRunnable(listener));
+  }
+
+  private class UnregisterListenerRunnable implements Runnable {
+    private MMXClient.MMXListener mUnregisterListener = null;
+    UnregisterListenerRunnable(MMXClient.MMXListener listener) {
+      mUnregisterListener = listener;
+    }
+
+    public void run() {
+      synchronized (mListeners) {
+        for (int i=mListeners.size(); --i >= 0;) {
+          if (mListeners.get(i) == mUnregisterListener) {
+            mListeners.remove(i);
+            break;
+          }
         }
       }
     }

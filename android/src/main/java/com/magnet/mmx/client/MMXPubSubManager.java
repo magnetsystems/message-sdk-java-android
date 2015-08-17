@@ -280,6 +280,31 @@ public final class MMXPubSubManager extends MMXManager {
   }
 
   /**
+   * Publish a payload to a topic. The topic must be existing and be created
+   * with {@link com.magnet.mmx.protocol.TopicAction.PublisherType#anyone} or
+   * {@link com.magnet.mmx.protocol.TopicAction.PublisherType#subscribers} for
+   * non-owner; otherwise, TopicPermissionException will be thrown.
+   *
+   * If the MMXClient is not connected, the publishing of this payload will
+   * be queued and published upon the next successful connection.
+   *
+   * NOTE: Use this method if the id is pre-generated
+   *
+   * @param messageId the messageId to use for this message
+   * @param topic a topic object
+   * @param payload a non-null application specific payload
+   * @return a published item identifier
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   */
+  public String publish(String messageId, MMXTopic topic, MMXPayload payload)
+          throws TopicNotFoundException, TopicPermissionException, MMXException {
+    checkDestroyed();
+    return mPubSubManager.publish(messageId, topic, payload);
+  }
+
+  /**
    * @hide
    * Publish an item to a topic under the current user name-space with
    * auto-creation.  If the topic does not exist, it will be created with the

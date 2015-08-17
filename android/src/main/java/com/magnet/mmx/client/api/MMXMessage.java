@@ -8,7 +8,6 @@ import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -298,7 +297,7 @@ public class MMXMessage {
     } else if (mChannel == null && mRecipients.size() == 0) {
       throw new IllegalArgumentException("Unable to send.  No channel and no recipients");
     }
-    final String messageId = null;//TODO:  FIX ME
+    final String generatedMessageId = MMX.getMMXClient().generateMessageId();
     final MMXPayload payload = new MMXPayload("");
     for (Map.Entry<String, String> entry : mContent.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
@@ -308,8 +307,11 @@ public class MMXMessage {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
-          String publishedId = mmxClient.getPubSubManager().publish(new MMXGlobalTopic(mChannel.getName()), payload);
+          String publishedId = mmxClient.getPubSubManager().publish(generatedMessageId, new MMXGlobalTopic(mChannel.getName()), payload);
           //TODO:  Delay this until the server ack is received
+          if (!generatedMessageId.equals(publishedId)) {
+            throw new RuntimeException("SDK Error: The returned published message id does not match the generated message id.");
+          }
           return publishedId;
         }
 
@@ -332,9 +334,12 @@ public class MMXMessage {
           for (String recipient : mRecipients) {
             recipientsArray[index++] = new MMXid(recipient);
           }
-          String messageId = mmxClient.getMessageManager().sendPayload(recipientsArray, payload,
+          String messageId = mmxClient.getMessageManager().sendPayload(generatedMessageId, recipientsArray, payload,
                   new Options().enableReceipt(true));
           //TODO:  Delay this until the server ack is received
+          if (!generatedMessageId.equals(messageId)) {
+            throw new RuntimeException("SDK Error:  The returned message id does not match the generated message id");
+          }
           return messageId;
         }
 
@@ -350,7 +355,7 @@ public class MMXMessage {
       };
     }
     task.execute();
-    return messageId;
+    return generatedMessageId;
   }
 
   /**

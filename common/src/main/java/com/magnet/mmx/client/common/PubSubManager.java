@@ -201,13 +201,32 @@ public class PubSubManager {
    */
   public String publish(MMXTopic topic, MMXPayload payload)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
+    return publish(null, topic, payload);
+  }
+
+  /**
+   * Publish a payload to a topic. The topic must be existing and be created
+   * with {@link PublisherType#anyone} or {@link PublisherType#subscribers} for
+   * non-owner; otherwise, TopicPermissionException will be thrown.
+   * @param messageId the message id for the published message
+   * @param topic A topic object.
+   * @param payload A non-null application specific payload.
+   * @return A published item ID.
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   * @see {@link com.magnet.mmx.protocol.Headers#Headers()}
+   * @see {@link MMXMessageListener#onItemReceived(MMXMessage, MMXTopicId)}
+   */
+  public String publish(String messageId, MMXTopic topic, MMXPayload payload)
+          throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
     String topicPath = TopicHelper.normalizePath(topic.getName());
     String realTopic = (topic.getUserId() != null) ?
-        makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
-    return publishToTopic(null, realTopic, topicPath, payload);
+            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
+    return publishToTopic(messageId, realTopic, topicPath, payload);
   }
 
   /**

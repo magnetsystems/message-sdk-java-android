@@ -128,7 +128,7 @@ public final class MMXMessageManager extends MMXManager {
       if (Log.isLoggable(TAG, Log.VERBOSE)) {
         Log.v(TAG, "sendPayload(): Connected.  Sending message: " + messageId);
       }
-      sendPayload(messageId, recipients, payload, options);
+      sendPayloadHelper(messageId, recipients, payload, options);
     } else {
       //save it to be delivered later.
       if (Log.isLoggable(TAG, Log.VERBOSE)) {
@@ -142,7 +142,50 @@ public final class MMXMessageManager extends MMXManager {
     return messageId;
   }
 
-  void sendPayload(final String messageId, final MMXid[] recipients,
+  /**
+   * Sends a payload using the messaging system.  If the MMXClient is not connected,
+   * the sending of this payload will be queued and sent upon the next successful connection.
+   * If the message could not be queued, this method will return null.  Otherwise, it returns a
+   * generated ID for this message to be later used when handling delivery
+   * receipts (if enabled.)
+   *
+   * NOTE:  Use this method if the id is pre-generated
+   *
+   * @param messageId the message id to use
+   * @param recipients multiple recipients
+   * @param payload an application payload
+   * @param options the send options for this message
+   * @return the generated message id of the resulting message
+   * @throws MMXException Empty recipients or invalid payload size
+   */
+  public String sendPayload(final String messageId, final MMXid[] recipients, final MMXPayload payload,
+                            final Options options) throws MMXException {
+    checkDestroyed();
+    if (recipients == null || recipients.length == 0) {
+      throw new MMXException("Recipient cannot be empty", MMXException.BAD_REQUEST);
+    }
+    mMessageManager.validatePayload(payload);
+
+    MMXClient client = getMMXClient();
+    if (client.isConnected()) {
+      if (Log.isLoggable(TAG, Log.VERBOSE)) {
+        Log.v(TAG, "sendPayload(): Connected.  Sending message: " + messageId);
+      }
+      sendPayloadHelper(messageId, recipients, payload, options);
+    } else {
+      //save it to be delivered later.
+      if (Log.isLoggable(TAG, Log.VERBOSE)) {
+        Log.v(TAG, "sendPayload(): NOT connected.  Storing message to be sent when connected: " + messageId);
+      }
+      MMXQueue.Item.Message item = new MMXQueue.Item.Message(messageId, payload);
+      item.setDestination(GlobalAddress.convertDestination(GlobalAddress.Type.USER, recipients));
+      item.setOptions(options);
+      client.getQueue().addItem(item);
+    }
+    return messageId;
+  }
+
+  void sendPayloadHelper(final String messageId, final MMXid[] recipients,
                    final MMXPayload payload, final Options options) {
     checkDestroyed();
     getHandler().post(new Runnable() {

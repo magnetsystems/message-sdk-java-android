@@ -55,9 +55,10 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
             .recipients(recipients)
             .content(content)
             .build();
+    final StringBuffer resultSb = new StringBuffer();
     final String messageId = message.send(new MMX.OnFinishedListener<String>() {
       public void onSuccess(String result) {
-        assertNotNull(result);
+        resultSb.append(result);
       }
 
       public void onFailure(MMX.FailureCode code, Throwable ex) {
@@ -72,7 +73,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         e.printStackTrace();
       }
     }
-    //assertNotNull(messageId);
+    assertEquals(resultSb.toString(), messageId);
     assertEquals("bar", receivedContent.get("foo"));
 
     MMX.unregisterListener(messageListener);

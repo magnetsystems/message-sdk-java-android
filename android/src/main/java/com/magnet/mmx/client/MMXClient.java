@@ -1009,7 +1009,7 @@ public final class MMXClient {
             mMMXListener.onConnectionEvent(MMXClient.this, event);
           } catch (Exception ex) {
             Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                "the callback", ex);
+                    "the callback", ex);
           }
         }
       });
@@ -1100,6 +1100,18 @@ public final class MMXClient {
       Log.d(TAG, "initClient(): starting.");
     }
     SmackAndroid.init(mContext);
+  }
+
+  /**
+   * Generates a message id
+   *
+   * @return a generated message id, null if the connection is unavailable
+   */
+  public String generateMessageId() {
+    if (mConnection != null) {
+      return mConnection.genId();
+    }
+    return null;
   }
 
   private void registerDeviceWithServer() {
