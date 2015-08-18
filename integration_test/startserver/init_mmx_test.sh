@@ -27,7 +27,7 @@ bin_dir="$sandbox_dir/bin"
 conf_dir="$sandbox_dir/conf"
 
 external_build_dir=
-local_build_dir="$curdir/../../tools/mmx-server-zip/target"
+local_build_dir="$curdir/../../../message-server/tools/mmx-server-zip/target"
 
 if [ -z "$MMX_MYSQL_USR" ] ; then
     MMX_MYSQL_USR=root

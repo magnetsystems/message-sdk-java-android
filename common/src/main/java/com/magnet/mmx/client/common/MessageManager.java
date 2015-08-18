@@ -178,10 +178,10 @@ public class MessageManager {
           }
         }
 
-        // A message payload is received (partially or completely) along with an
-        // optional delivery receipt request.
-        if (listener != null && (orgMsgId == null || msg.getPayload() != null
-            || msg.getPayload().getAllMetaData() != null)) {
+        // A mmx stanza is received (partially or completely) along with an
+        // optional delivery receipt request.  We don't support a delivery
+        // receipt request without mmx stanza yet.
+        if (listener != null && msg.getPayload() != null) {
           if (msg.assemble(mCon.getContext())) {
 //            // The message is from off-line storage.
 //            DelayInfo delay = packet.getExtension("delay", "urn:xmpp:delay");
@@ -200,7 +200,7 @@ public class MessageManager {
           }
         }
       } catch (Throwable e) {
-        e.printStackTrace();
+        Log.e(TAG, xmppmsg.toString(), e);
       }
     }
   };
