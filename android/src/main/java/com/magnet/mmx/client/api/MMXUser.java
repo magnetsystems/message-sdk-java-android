@@ -165,12 +165,14 @@ public class MMXUser {
             port = 5220;//default NON-SSL port
           }
           URL url = new URL("http", config.getHost(), port, "/mmxmgmt/api/v1/users");
+          Log.d(TAG, "register(): connecting to " + url.toString());
           conn = (HttpURLConnection) url.openConnection();
         } else {
           if (port < 0) {
             port = 5221;//default SSL port
           }
           URL url = new URL("https", config.getHost(), port, "/mmxmgmt/api/v1/users");
+          Log.d(TAG, "register(): connecting to " + url.toString());
           conn = (HttpsURLConnection) url.openConnection();
           if (config.getSecurityLevel() == MMXClient.SecurityLevel.RELAXED) {
             HttpsURLConnection sConn = (HttpsURLConnection) conn;

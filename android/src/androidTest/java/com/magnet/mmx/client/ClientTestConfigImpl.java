@@ -107,7 +107,7 @@ public class ClientTestConfigImpl implements MMXClientConfig {
 
   public int getRESTPort() {
     if (mFileConfig != null) {
-      return mFileConfig.getPort();
+      return mFileConfig.getRESTPort();
     }
     return TEST_REST_PORT;
   }
