@@ -453,18 +453,22 @@ public class MMXMessage {
    */
   static MMXMessage fromMMXMessage(MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
     HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    MMXUser receiver = MMX.getCurrentUser()
-            ;
-    recipients.add(receiver);
-    MMXid[] otherRecipients = message.getReplyAll();
-    if (otherRecipients != null) {
+    if (topic == null) {
       //this is normal message.  getReplyAll() returns null for pubsub messages
-      for (MMXid otherRecipient : otherRecipients) {
-        MMXUser recipient = new MMXUser.Builder()
-                .username(otherRecipient.getUserId())
-                .displayName(null) //// FIXME: 8/17/15
-                .build();
-        recipients.add(recipient);
+      MMXUser receiver = new MMXUser.Builder()
+              .username(message.getTo().getUserId())
+              .displayName(null) //// FIXME: 8/18/15
+              .build();
+      recipients.add(receiver);
+      MMXid[] otherRecipients = message.getReplyAll();
+      if (otherRecipients != null) {
+        for (MMXid otherRecipient : otherRecipients) {
+          MMXUser recipient = new MMXUser.Builder()
+                  .username(otherRecipient.getUserId())
+                  .displayName(null) //// FIXME: 8/17/15
+                  .build();
+          recipients.add(recipient);
+        }
       }
     }
     HashMap<String, String> content = new HashMap<String, String>();
