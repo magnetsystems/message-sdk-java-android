@@ -3,7 +3,6 @@ package com.magnet.mmx.client.api;
 import com.magnet.mmx.client.common.MMXid;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -98,7 +97,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         e.printStackTrace();
       }
     }
-    assertEquals(findResult.intValue(), 1);
+    assertEquals(1, findResult.intValue());
 
     //subscribe
     final AtomicBoolean subResult = new AtomicBoolean(false);
@@ -128,7 +127,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
     //setup message listener to receive published message
     final StringBuffer barBuffer = new StringBuffer();
-    final MMX.OnMessageReceivedListener messageListener = new MMX.OnMessageReceivedListener() {
+    final MMX.EventListener messageListener = new MMX.EventListener() {
       @Override
       public boolean onMessageReceived(MMXMessage message) {
         String bar = message.getContent().get("foo");
@@ -176,32 +175,65 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(id, pubId.toString());
     assertEquals("bar", barBuffer.toString());
 
+// COMMENTING THIS OUT BECAUSE IT MAY TAKE UP TO A MINUTE FOR THE PUBLISHED MESSAGE TO SHOW UP ON FETCH
     //test basic fetch
-    final AtomicInteger fetchCount = new AtomicInteger(0);
-    channel.getItems(null, null, 100, true, new MMX.OnFinishedListener<List<MMXMessage>>() {
+//    final AtomicInteger fetchCount = new AtomicInteger(0);
+//    channel.getItems(null, null, 100, true, new MMX.OnFinishedListener<List<MMXMessage>>() {
+//      @Override
+//      public void onSuccess(List<MMXMessage> result) {
+//        fetchCount.set(result.size());
+//        synchronized (fetchCount) {
+//          fetchCount.notify();
+//        }
+//      }
+//
+//      @Override
+//      public void onFailure(MMX.FailureCode code, Throwable ex) {
+//        synchronized (fetchCount) {
+//          fetchCount.notify();
+//        }
+//      }
+//    });
+//    synchronized (fetchCount) {
+//      try {
+//        fetchCount.wait(10000);
+//      } catch (InterruptedException e) {
+//        e.printStackTrace();
+//      }
+//    }
+//    assertEquals(1, fetchCount.get());
+
+    //get topic again
+    final AtomicInteger itemCount = new AtomicInteger(0);
+    final AtomicInteger channelCount = new AtomicInteger(0);
+    MMXChannel.findByName(channelName, 100, new MMX.OnFinishedListener<MMXChannel.FindResult>() {
       @Override
-      public void onSuccess(List<MMXMessage> result) {
-        fetchCount.set(result.size());
-        synchronized (fetchCount) {
-          fetchCount.notify();
+      public void onSuccess(MMXChannel.FindResult result) {
+        channelCount.set(result.totalCount);
+        if (result.channels.size() > 0) {
+          itemCount.set(result.channels.get(0).getNumberOfMessages());
+        }
+        synchronized (channelCount) {
+          channelCount.notify();
         }
       }
 
       @Override
       public void onFailure(MMX.FailureCode code, Throwable ex) {
-        synchronized (fetchCount) {
-          fetchCount.notify();
+        synchronized (channelCount) {
+          channelCount.notify();
         }
       }
     });
-    synchronized (fetchCount) {
+    synchronized (channelCount) {
       try {
-        fetchCount.wait(10000);
+        channelCount.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
-    assertEquals(1, fetchCount.get());
+    assertEquals(1, channelCount.intValue());
+    assertEquals(1, itemCount.intValue());
 
     //unsubscribe
     final AtomicBoolean unsubResult = new AtomicBoolean(false);

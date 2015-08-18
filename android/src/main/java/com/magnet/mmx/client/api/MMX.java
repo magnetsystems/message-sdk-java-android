@@ -31,7 +31,7 @@ public final class MMX {
   /**
    * The listener interface for handling incoming messages and message acknowledgements.
    */
-  public interface OnMessageReceivedListener {
+  public interface EventListener {
     /**
      * Invoked when incoming message is received.
      *
@@ -84,7 +84,7 @@ public final class MMX {
    * The listeners will be added in order (most recent at end)
    * They should be called in order from most recently registered (from the end)
    */
-  private final LinkedList<OnMessageReceivedListener> mListeners = new LinkedList<OnMessageReceivedListener>();
+  private final LinkedList<EventListener> mListeners = new LinkedList<EventListener>();
 
   private AbstractMMXListener mGlobalListener = new AbstractMMXListener() {
     @Override
@@ -368,7 +368,7 @@ public final class MMX {
    * @param listener the listener to register
    * @return true if newly registered, false otherwise (if listener was already registered)
    */
-  public static boolean registerListener(OnMessageReceivedListener listener) {
+  public static boolean registerListener(EventListener listener) {
     checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
@@ -386,7 +386,7 @@ public final class MMX {
    * @param listener the listener to unregister
    * @return true if the listener was unregistered successfully, false if the listener was NOT known
    */
-  public static boolean unregisterListener(OnMessageReceivedListener listener) {
+  public static boolean unregisterListener(EventListener listener) {
     checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
@@ -402,9 +402,9 @@ public final class MMX {
       if (sInstance.mListeners.isEmpty()) {
         throw new IllegalStateException("Message dropped because there were no listeners registered.");
       }
-      Iterator<OnMessageReceivedListener> listeners = sInstance.mListeners.descendingIterator();
+      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
       while (listeners.hasNext()) {
-        OnMessageReceivedListener listener = listeners.next();
+        EventListener listener = listeners.next();
         try {
           if (listener.onMessageReceived(message)) {
             //listener returning true means consume the message
@@ -422,9 +422,9 @@ public final class MMX {
       if (sInstance.mListeners.isEmpty()) {
         throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
       }
-      Iterator<OnMessageReceivedListener> listeners = sInstance.mListeners.descendingIterator();
+      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
       while (listeners.hasNext()) {
-        OnMessageReceivedListener listener = listeners.next();
+        EventListener listener = listeners.next();
         try {
           if (listener.onMessageAcknowledgementReceived(from, originalMessageId)) {
             //listener returning true means consume the message

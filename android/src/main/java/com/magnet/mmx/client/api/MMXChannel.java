@@ -489,7 +489,7 @@ public class MMXChannel {
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
-        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
+        List<MMXChannel> channels = fromTopicInfos(searchResult.getResults());
         return new FindResult(searchResult.getTotal(), channels);
       }
 
