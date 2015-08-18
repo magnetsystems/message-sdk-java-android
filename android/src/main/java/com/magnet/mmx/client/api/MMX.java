@@ -179,16 +179,10 @@ public final class MMX {
             unregisterListener = true;
             break;
           case CONNECTED:
-            try {
-              //// FIXME: 8/17/15 MOVE THIS TO MMXClient on successful login and call MMXConnection.setDisplayName
-              UserInfo info = client.getAccountManager().getUserInfo();
-              sInstance.mCurrentUser = new MMXUser.Builder()
-                      .username(info.getUserId())
-                      .displayName(info.getDisplayName())
-                      .build();
-            } catch (MMXException ex) {
-              Log.e(TAG, "login(): login succeeded but unable to retrieve user info", ex);
-            }
+            sInstance.mCurrentUser = new MMXUser.Builder()
+                    .username(client.getCurrentUserInfo().getUserId())
+                    .displayName(client.getCurrentUserInfo().getDisplayName())
+                    .build();
             listener.onSuccess(null);
             unregisterListener = true;
             break;
@@ -350,6 +344,7 @@ public final class MMX {
    * @return the current user, null there is no logged-in user
    */
   public static MMXUser getCurrentUser() {
+
     return sInstance.mCurrentUser;
   }
 

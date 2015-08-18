@@ -44,6 +44,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.OSType;
 import com.magnet.mmx.protocol.PushType;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.DefaultEncryptor;
 
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
@@ -311,6 +312,7 @@ public final class MMXClient {
   private final Handler mMessagingHandler;
   private ConnectionInfo mConnectionInfo = null;
   private PersistentQueue mQueue = null;
+  private UserInfo mUserInfo = null;
 
   //managers
   private HashMap<Class, MMXManager> mManagers = new HashMap<Class, MMXManager>();
@@ -539,6 +541,10 @@ public final class MMXClient {
       throw new MMXException("Not connecting to MMX server");
     }
     return mConnection.getXID();
+  }
+
+  public UserInfo getCurrentUserInfo() {
+    return mUserInfo;
   }
 
   /**
@@ -874,6 +880,7 @@ public final class MMXClient {
             mConnection.disconnect();
           }
           mConnection.destroy();
+          mUserInfo = null;
           mConnection = new MMXConnection(mMMXContext, getQueue(), mSettings);
           mConnection.setMessageListener(mMessageListener);
 
@@ -1233,6 +1240,13 @@ public final class MMXClient {
     public void onAuthenticated(MMXid user) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onAuthenticated() begin");
+      }
+
+      try {
+        mUserInfo = getAccountManager().getUserInfo();
+        //FIXME:  Set the display name for this connection
+      } catch (MMXException e) {
+        Log.e(TAG, "onAuthenticated(): unable to load userInfo", e);
       }
       registerDeviceWithServer();
     }
