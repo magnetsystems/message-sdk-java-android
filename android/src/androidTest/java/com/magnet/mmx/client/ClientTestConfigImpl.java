@@ -26,8 +26,8 @@ public class ClientTestConfigImpl implements MMXClientConfig {
 
   public static final String TEST_HOST_NAME = "dev-mmx-002.magneteng.com";
   public static final int TEST_PORT = 5222;
-  public static final int TEST_REST_PORT = 5220;
-  public static final MMXClient.SecurityLevel TEST_SECURITY_LEVEL = MMXClient.SecurityLevel.NONE;
+  public static final int TEST_REST_PORT = 5221;
+  public static final MMXClient.SecurityLevel TEST_SECURITY_LEVEL = MMXClient.SecurityLevel.RELAXED;
   private static final String APP_ID = "kcyidhkopml";
   private static final String API_KEY = "fe940713-8be4-4c2c-8ec3-3e1ac5b71f1e";
   private static final String GCM_SENDERID = null;

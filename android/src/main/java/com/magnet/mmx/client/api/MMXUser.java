@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLHandshakeException;
 
 /**
  * The MMXUser class
@@ -169,8 +170,9 @@ public class MMXUser {
           URL url = new URL("https", config.getHost(), port, "/mmxmgmt/api/v1/users");
           conn = (HttpsURLConnection) url.openConnection();
           if (config.getSecurityLevel() == MMXClient.SecurityLevel.RELAXED) {
-            ((HttpsURLConnection)conn).setHostnameVerifier(MMX.getMMXClient().getNaiveHostnameVerifier());
-            ((HttpsURLConnection)conn).setSSLSocketFactory(MMX.getMMXClient().getNaiveSSLContext().getSocketFactory());
+            HttpsURLConnection sConn = (HttpsURLConnection) conn;
+            sConn.setHostnameVerifier(MMX.getMMXClient().getNaiveHostnameVerifier());
+            sConn.setSSLSocketFactory(MMX.getMMXClient().getNaiveSSLContext().getSocketFactory());
           }
         }
         conn.setReadTimeout(10000);
@@ -199,7 +201,13 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        Log.d(TAG, "register(): exception caught", exception);
+        if (exception != null && exception instanceof SSLHandshakeException) {
+          Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
+                  "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
+                  "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
+        } else {
+          Log.d(TAG, "register(): exception caught", exception);
+        }
         listener.onFailure(MMX.FailureCode.DEVICE_ERROR, exception);
       }
 
