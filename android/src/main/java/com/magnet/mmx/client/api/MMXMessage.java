@@ -453,10 +453,8 @@ public class MMXMessage {
    */
   static MMXMessage fromMMXMessage(MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
     HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    MMXUser receiver = new MMXUser.Builder()
-            .username(message.getTo().getUserId())
-            .displayName(null) //// FIXME: 8/17/15
-            .build();
+    MMXUser receiver = MMX.getCurrentUser()
+            ;
     recipients.add(receiver);
     MMXid[] otherRecipients = message.getReplyAll();
     if (otherRecipients != null) {

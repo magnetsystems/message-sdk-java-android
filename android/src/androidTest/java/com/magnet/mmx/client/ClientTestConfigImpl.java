@@ -23,27 +23,17 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 
 public class ClientTestConfigImpl implements MMXClientConfig {
-  // this comes from seed_citest01.sql
-  public static final String TEST_HOST_NAME = "192.168.101.130";
+
+  public static final String TEST_HOST_NAME = "dev-mmx-002.magneteng.com";
   public static final int TEST_PORT = 5222;
   public static final int TEST_REST_PORT = 5220;
   public static final MMXClient.SecurityLevel TEST_SECURITY_LEVEL = MMXClient.SecurityLevel.NONE;
-  private static final String APP_ID = "kbridgjulsw";
-  private static final String API_KEY = "a4c18500-adb8-4bae-a8f8-55d0c4419961";
-
-  // edit as needed for your own mmx server
-//  public static final String TEST_HOST_NAME = "192.168.101.158";
-//  public static final String TEST_HOST_NAME = "10.0.2.2";
-
-//  private static final String APP_ID = "i1qv5rgkiqs";
-//  private static final String API_KEY = "67c1d536-be10-4531-8a04-4ec17e0354cd";
-
-
-  private static final String GCM_SENDERID = "599981932022";
-  private static final String SERVER_USERID = "app1-148ce57da48%19867695-960c-4f67-9cbd-88d0bbae3fe1";
-//  private static final String GUEST_SECRET = "4e411f595c41047a179f57d8d47a45b9a5596b4269fb5bc07fed09c1497b4f257c0ebfff32413cd1";
-  private static final String GUEST_SECRET = "foobar";
-  private static final String SERVICE_NAME = "mmx";
+  private static final String APP_ID = "kcyidhkopml";
+  private static final String API_KEY = "fe940713-8be4-4c2c-8ec3-3e1ac5b71f1e";
+  private static final String GCM_SENDERID = null;
+  private static final String SERVER_USERID = "foobar";
+  private static final String GUEST_SECRET = "de953ec8-b6cd-458d-88e1-49b2acad4f89";
+  private static final String SERVICE_NAME = "dev-mmx-002";
 
   private FileBasedClientConfig mFileConfig = null;
   private static final String MMX_CONFIG_OVERRIDE_FILENAME = "mmx-debug.properties";

@@ -124,7 +124,18 @@ public final class MMX {
   }
 
   /**
-   * Init the MagnetMessage API.
+   * Init the MMX API.  This init() method configures MMX using a
+   * properties file located in the application's raw resources directory.
+   *
+   * <pre>
+   *   Location:
+   *     $APPLICATION_HOME/app/src/main/res/raw/myconfig.properties
+   *
+   *   Resource ID:
+   *     R.raw.myconfig
+   * </pre>
+   *
+   * NOTE:  init() will only execute once; subsequent calls are no-op
    *
    * @param context the Android context
    * @param configResId the R.raw. resource id containing the configuration
@@ -136,12 +147,16 @@ public final class MMX {
   /**
    * This init method can be used for testing purposes.
    *
+   * NOTE:  init() will only execute once; subsequent calls are no-op
+   *
    * @param context the Android context
    * @param config the MMXClientConfig
    */
   static synchronized void init(Context context, MMXClientConfig config) {
     if (sInstance == null) {
       sInstance = new MMX(context, config);
+    } else {
+      Log.w(TAG, "MMX.init():  MMX has already been initialized.  Ignoring this call.");
     }
   }
 

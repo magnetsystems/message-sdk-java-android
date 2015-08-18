@@ -3,6 +3,7 @@ package com.magnet.mmx.client.api;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;
+import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXSubscription;
@@ -28,11 +29,13 @@ import java.util.Set;
  * The MMXChannel class representing the Topic/Feed/PubSub model.
  */
 public class MMXChannel {
+  private static final String TAG = MMXChannel.class.getSimpleName();
+
   public static final class Builder {
     private MMXChannel mChannel;
 
     public Builder() {
-      mChannel = null;
+      mChannel = new MMXChannel();
     }
 
     /**
@@ -58,13 +61,13 @@ public class MMXChannel {
     }
 
     /**
-     * Set the owner for this channel
+     * Set the owner's username for this channel
      *
-     * @param owner the owner
+     * @param ownerUsername the owner username
      * @return this Builder object
      */
-    Builder owner(String owner) {
-      mChannel.owner(owner);
+    Builder ownerUsername(String ownerUsername) {
+      mChannel.ownerUsername(ownerUsername);
       return this;
     }
 
@@ -87,17 +90,6 @@ public class MMXChannel {
      */
     Builder lastTimeActive(Date lastTimeActive) {
       mChannel.lastTimeActive(lastTimeActive);
-      return this;
-    }
-
-    /**
-     * Set the tags for this channel
-     *
-     * @param tags the tags
-     * @return this Builder object
-     */
-    Builder tags(Set<String> tags) {
-      mChannel.tags(tags);
       return this;
     }
 
@@ -134,10 +126,9 @@ public class MMXChannel {
 
   private String mName;
   private String mSummary;
-  private String mOwner;
+  private String mOwnerUsername;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
-  private Set<String> mTags;
   private Boolean mSubscribed;
 
   /**
@@ -190,11 +181,11 @@ public class MMXChannel {
   /**
    * Set the owner for this channel
    *
-   * @param owner the owner
+   * @param ownerUsername the owner username
    * @return this MMXChannel object
    */
-  MMXChannel owner(String owner) {
-    mOwner = owner;
+  MMXChannel ownerUsername(String ownerUsername) {
+    mOwnerUsername = ownerUsername;
     return this;
   }
 
@@ -204,7 +195,7 @@ public class MMXChannel {
    * @return the owner, null if not yet retrieved
    */
   public String getOwner() {
-    return mOwner;
+    return mOwnerUsername;
   }
 
   /**
@@ -248,23 +239,104 @@ public class MMXChannel {
   }
 
   /**
-   * Set the tags for this channel
+   * The tags for this channel.
    *
-   * @param tags the tags
-   * @return this MMXChannel object
+   * @param listener the success/failure listener for this call
    */
-  MMXChannel tags(Set<String> tags) {
-    mTags = tags;
-    return this;
+  public void getTags(final MMX.OnFinishedListener<HashSet<String>> listener) {
+    MMXTask<HashSet<String>> task = new MMXTask<HashSet<String>>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public HashSet<String> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        TopicAction.TopicTags topicTags = psm.getAllTags(getMMXTopic());
+        return topicTags.getTags() != null ?
+                new HashSet<String>(topicTags.getTags()) : null;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(HashSet<String> result) {
+        listener.onSuccess(result);
+      }
+    };
+    task.execute();
   }
 
   /**
-   * The tags for this channel
+   * Set the tags for this channel.
    *
-   * @return the tags, null if not yet retrieved
+   * @param tags the tags for this channel or null to remove all tags
+   * @param listener the success/failure listener for this call
    */
-  public Set<String> getTags() {
-    return mTags;
+  public void setTags(final HashSet<String> tags, final MMX.OnFinishedListener<Void> listener) {
+    MMXTask<MMXStatus> task = new MMXTask<MMXStatus>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.setAllTags(getMMXTopic(), tags != null ? new ArrayList<String>(tags) : null);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(MMXStatus result) {
+        if (result.getCode() == MMXStatus.SUCCESS) {
+          listener.onSuccess(null);
+        } else {
+          Log.e(TAG, "setTags(): received bad status from server: " + result);
+          listener.onFailure(MMX.FailureCode.SERVER_BAD_STATUS, null);
+        }
+
+      }
+    };
+    task.execute();
+  }
+
+  private MMXTopic getMMXTopic() {
+    //TODO: handle private topics
+    return new MMXGlobalTopic(getName());
+  }
+
+  public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
+                       final MMX.OnFinishedListener<List<MMXMessage>> listener) {
+    final MMXTopic topic = getMMXTopic();
+    MMXTask<List<com.magnet.mmx.client.common.MMXMessage>> task =
+            new MMXTask<List<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public List<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.getItems(topic, new TopicAction.FetchOptions()
+                .setSince(startDate)
+                .setUntil(endDate)
+                .setMaxItems(limit)
+                .setAscending(ascending));
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(List<com.magnet.mmx.client.common.MMXMessage> result) {
+        ArrayList<MMXMessage> resultList = new ArrayList<MMXMessage>();
+        if (result != null && result.size() > 0) {
+          //convert MMXMessages
+          for (com.magnet.mmx.client.common.MMXMessage message : result) {
+            resultList.add(MMXMessage.fromMMXMessage(getMMXTopic(), message));
+          }
+        }
+        listener.onSuccess(resultList);
+      }
+    };
+    task.execute();
   }
 
   /**
@@ -299,7 +371,7 @@ public class MMXChannel {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
                 .setDescription(mSummary);
-        return psm.createTopic(new MMXGlobalTopic(mName), options);
+        return psm.createTopic(getMMXTopic(), options);
       }
 
       @Override
@@ -325,7 +397,7 @@ public class MMXChannel {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        return psm.deleteTopic(new MMXGlobalTopic(mName));
+        return psm.deleteTopic(getMMXTopic());
       }
     };
     task.execute();
@@ -341,7 +413,7 @@ public class MMXChannel {
       @Override
       public String doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        return psm.subscribe(new MMXGlobalTopic(mName), false);
+        return psm.subscribe(getMMXTopic(), false);
       }
 
       @Override
@@ -368,7 +440,7 @@ public class MMXChannel {
       public Boolean doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         //unsubscribe from all devices
-        return psm.unsubscribe(new MMXGlobalTopic(mName), null);
+        return psm.unsubscribe(getMMXTopic(), null);
       }
 
       @Override
@@ -475,7 +547,7 @@ public class MMXChannel {
     }
     return new MMXChannel()
             .name(topic.getName())
-            .owner(topic.getUserId());
+            .ownerUsername(topic.getUserId());
   }
 
 
@@ -504,18 +576,13 @@ public class MMXChannel {
       MMXTopic topic = summary.getTopicNode();
       MMXTopicInfo info = topicInfoMap.get(topic);
 
-      //get tags -- //TODO: Fix this...  THIS CAN BE EXPENSIVE
-      TopicAction.TopicTags topicTags = psm.getAllTags(topic);
-      HashSet<String> tags = topicTags.getTags() != null ?
-              new HashSet<String>(topicTags.getTags()) : null;
       channels.add(new MMXChannel.Builder()
                       .lastTimeActive(summary.getLastPubTime())
                       .name(topic.getName())
                       .numberOfMessages(summary.getCount())
-                      .owner(info.getCreator().getUserId())
+                      .ownerUsername(info.getCreator().getUserId())
                       .subscribed(subMap.containsKey(topic))
                       .summary(info.getDescription())
-                      .tags(tags)
                       .build()
       );
     }
