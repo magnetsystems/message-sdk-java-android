@@ -24,11 +24,12 @@ import java.io.FileNotFoundException;
 
 public class ClientTestConfigImpl implements MMXClientConfig {
   // this comes from seed_citest01.sql
-  public static final String TEST_HOST_NAME = "citest01.magneteng.com";
+  public static final String TEST_HOST_NAME = "192.168.101.130";
   public static final int TEST_PORT = 5222;
+  public static final int TEST_REST_PORT = 5220;
   public static final MMXClient.SecurityLevel TEST_SECURITY_LEVEL = MMXClient.SecurityLevel.NONE;
-  private static final String APP_ID = "i1sfpss5cmw";
-  private static final String API_KEY = "c9bcd6b9-1e16-434d-a8d3-74d7c52d34d3";
+  private static final String APP_ID = "kbridgjulsw";
+  private static final String API_KEY = "a4c18500-adb8-4bae-a8f8-55d0c4419961";
 
   // edit as needed for your own mmx server
 //  public static final String TEST_HOST_NAME = "192.168.101.158";
@@ -112,6 +113,13 @@ public class ClientTestConfigImpl implements MMXClientConfig {
       return mFileConfig.getPort();
     }
     return TEST_PORT;
+  }
+
+  public int getRESTPort() {
+    if (mFileConfig != null) {
+      return mFileConfig.getPort();
+    }
+    return TEST_REST_PORT;
   }
 
   public String getDomainName() {

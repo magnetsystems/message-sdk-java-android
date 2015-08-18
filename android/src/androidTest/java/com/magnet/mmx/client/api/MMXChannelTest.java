@@ -5,6 +5,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
   public void testCreate() {
 
+
+
   }
 
   public void testDelete() {

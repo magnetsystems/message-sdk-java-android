@@ -117,6 +117,12 @@ public final class MMX {
     mHandler = new Handler(mHandlerThread.getLooper());
   }
 
+  @Override
+  protected void finalize() throws Throwable {
+    mHandlerThread.quit();
+    super.finalize();
+  }
+
   /**
    * Init the MagnetMessage API.
    *
@@ -159,9 +165,9 @@ public final class MMX {
             break;
           case CONNECTED:
             try {
+              //// FIXME: 8/17/15 MOVE THIS TO MMXClient on successful login and call MMXConnection.setDisplayName
               UserInfo info = client.getAccountManager().getUserInfo();
               sInstance.mCurrentUser = new MMXUser.Builder()
-                      .email(info.getEmail())
                       .username(info.getUserId())
                       .displayName(info.getDisplayName())
                       .build();
@@ -212,6 +218,7 @@ public final class MMX {
   /**
    * Start sending/receiving messages as an anonymous user.
    *
+   * @deprecated
    * @param listener listener for success or failure
    */
   static void loginAnonymous(final MMX.OnFinishedListener<Void> listener) {
@@ -483,6 +490,5 @@ public final class MMX {
         }
       }
     }
-
   }
 }

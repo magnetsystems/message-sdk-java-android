@@ -26,6 +26,7 @@ public class OverrideFileBasedClientConfig extends FileBasedClientConfig {
   private static final String SHARED_PREF_NAME = "ConfigOverrides-";
   private static final String PREF_HOST = "host";
   private static final String PREF_PORT = "port";
+  private static final String PREF_REST_PORT = "RESTPort";
   private static final String PREF_SECURITY_LEVEL = "securityLevel";
   private static final String PREF_DOMAIN_NAME = "domainName";
 
@@ -89,6 +90,31 @@ public class OverrideFileBasedClientConfig extends FileBasedClientConfig {
       editor.remove(PREF_PORT);
     } else {
       editor.putInt(PREF_PORT, port);
+    }
+    editor.commit();
+  }
+
+  /**
+   * Returns the REST port value.
+   *
+   * @return the overridden port value or the original one if not overridden.
+   */
+  public int getRESTPort() {
+    int overriddenPort = mOverridesSharedPref.getInt(PREF_REST_PORT, -1);
+    return overriddenPort > 0 ? overriddenPort : super.getRESTPort();
+  }
+
+  /**
+   * Overrides the REST port value for this config.
+   *
+   * @param port the REST port value
+   */
+  public void setRESTPort(int port) {
+    SharedPreferences.Editor editor = mOverridesSharedPref.edit();
+    if (port <= 0) {
+      editor.remove(PREF_REST_PORT);
+    } else {
+      editor.putInt(PREF_REST_PORT, port);
     }
     editor.commit();
   }

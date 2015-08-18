@@ -15,7 +15,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
-    registerUser(username, displayName, suffix, PASSWORD);
+    registerUser(username, displayName, PASSWORD);
 
     //login with credentials
     MMX.login(username, PASSWORD, loginLogoutListener);
@@ -46,8 +46,11 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     };
     MMX.registerListener(messageListener);
 
-    HashSet<String> recipients = new HashSet<String>();
-    recipients.add(username);
+    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+    recipients.add(new MMXUser.Builder()
+            .username(username)
+            .displayName(displayName)
+            .build());
 
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");

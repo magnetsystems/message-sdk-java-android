@@ -2,17 +2,34 @@ package com.magnet.mmx.client.api;
 
 import com.magnet.mmx.client.MMXAccountManager;
 import com.magnet.mmx.client.MMXClient;
+import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.MMXTask;
+import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 
+import org.apache.http.NameValuePair;
+import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import javax.net.ssl.HttpsURLConnection;
 
 /**
  * The MMXUser class
@@ -53,17 +70,6 @@ public class MMXUser {
     }
 
     /**
-     * Set the email for this MMXUser
-     *
-     * @param email the email
-     * @return this Builder object
-     */
-    public Builder email(String email) {
-      mUser.email(email);
-      return this;
-    }
-
-    /**
      * Returns the MMXUser class
      *
      * @return the MMXUser
@@ -89,7 +95,6 @@ public class MMXUser {
 
   private String mUsername;
   private String mDisplayName;
-  private String mEmail;
 
   /**
    * Default constructor
@@ -139,26 +144,6 @@ public class MMXUser {
   }
 
   /**
-   * Set the email for this MMXUser
-   *
-   * @param email the email
-   * @return this MMXUser object
-   */
-  MMXUser email(String email) {
-    mEmail = email;
-    return this;
-  }
-
-  /**
-   * The email address for this user
-   *
-   * @return the email address
-   */
-  public String getEmail() {
-    return mEmail;
-  }
-
-  /**
    * Register a user with the specified username and password
    *
    * @param password the password
@@ -166,39 +151,73 @@ public class MMXUser {
    */
   public void register(final byte[] password,
                        final MMX.OnFinishedListener<Void> listener) {
-    final boolean isConnected = MMX.getMMXClient().isConnected();
-    final MMX.MMXStatusTask createAccountTask =
-            new MMX.MMXStatusTask(listener) {
+    MMXTask<Integer> task = new MMXTask<Integer>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
-        try {
-          MMXAccountManager.Account account = new MMXAccountManager.Account()
-                  .username(getUsername())
-                  .email(getEmail())
-                  .displayName(getDisplayName())
-                  .password(password);
-          return mmxClient.getAccountManager().createAccount(account);
-        } finally {
-          if (!isConnected) {
-            MMX.logout(null);
+      public Integer doRun(MMXClient mmxClient) throws Throwable {
+        Log.d(TAG, "register(): begin");
+        MMXClientConfig config = MMX.getMMXClient().getConnectionInfo().clientConfig;
+        HttpURLConnection conn;
+        int port = 5220;
+        if (config.getRESTPort() > 0) {
+          port = config.getRESTPort();
+        }
+        MMXClient.SecurityLevel sec =  config.getSecurityLevel();
+        if (sec == MMXClient.SecurityLevel.NONE) {
+          URL url = new URL("http", config.getHost(), port, "/mmxmgmt/api/v1/users");
+          conn = (HttpURLConnection) url.openConnection();
+        } else {
+          URL url = new URL("https", config.getHost(), port, "/mmxmgmt/api/v1/users");
+          conn = (HttpsURLConnection) url.openConnection();
+          if (config.getSecurityLevel() == MMXClient.SecurityLevel.RELAXED) {
+            ((HttpsURLConnection)conn).setHostnameVerifier(MMX.getMMXClient().getNaiveHostnameVerifier());
+            ((HttpsURLConnection)conn).setSSLSocketFactory(MMX.getMMXClient().getNaiveSSLContext().getSocketFactory());
           }
+        }
+        conn.setReadTimeout(10000);
+        conn.setConnectTimeout(15000);
+        conn.setRequestMethod("POST");
+        conn.setDoInput(true);
+        conn.setDoOutput(true);
+        conn.addRequestProperty("Content-Type", "application/json");
+        conn.addRequestProperty("X-mmx-app-id", config.getAppId());
+        conn.addRequestProperty("X-mmx-api-key", config.getApiKey());
+
+        JSONObject jsonParam = new JSONObject();
+        jsonParam.put("username", getUsername());
+        jsonParam.put("password", new String(password));
+        jsonParam.put("name", getDisplayName());
+
+        OutputStreamWriter out = new OutputStreamWriter(conn.getOutputStream());
+        out.write(jsonParam.toString());
+        out.close();
+
+        int resultCode = conn.getResponseCode();
+        String resultMessage = conn.getResponseMessage();
+        Log.d(TAG, "registerUser(): resultCode=" + resultCode + ", resultMessage=" + resultMessage);
+        return resultCode;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        Log.d(TAG, "register(): exception caught", exception);
+        listener.onFailure(MMX.FailureCode.DEVICE_ERROR, exception);
+      }
+
+      @Override
+      public void onResult(Integer result) {
+        Log.d(TAG, "register(): result=" + result);
+        switch (result) {
+          case 201:
+            //success
+            listener.onSuccess(null);
+            break;
+          default:
+            listener.onFailure(MMX.FailureCode.SERVER_BAD_STATUS, null);
+            break;
         }
       }
     };
-
-    if (!isConnected) {
-      MMX.loginAnonymous(new MMX.OnFinishedListener<Void>() {
-        public void onSuccess(Void result) {
-          createAccountTask.execute();
-        }
-
-        public void onFailure(MMX.FailureCode code, Throwable ex) {
-          listener.onFailure(code, ex);
-        }
-      });
-    } else {
-      createAccountTask.execute();
-    }
+    task.execute();
   }
 
   /**
@@ -252,7 +271,6 @@ public class MMXUser {
           resultList.add(new MMXUser.Builder()
                   .username(userInfo.getUserId())
                   .displayName(userInfo.getDisplayName())
-                  .email(userInfo.getEmail())
                   .build());
         }
         return new FindResult(response.getTotalCount(), new HashSet<MMXUser>(resultList));
@@ -273,5 +291,27 @@ public class MMXUser {
       }
     };
     task.execute();
+  }
+
+  /**
+   * Implementation of the equals method that checks username equality only (case-insensitive)
+   *
+   * @param o
+   * @return true if equal
+   */
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    MMXUser mmxUser = (MMXUser) o;
+
+    return mUsername.equalsIgnoreCase(mmxUser.mUsername);
+
+  }
+
+  @Override
+  public int hashCode() {
+    return mUsername.hashCode();
   }
 }

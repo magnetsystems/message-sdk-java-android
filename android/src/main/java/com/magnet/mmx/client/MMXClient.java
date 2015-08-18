@@ -1448,7 +1448,7 @@ public final class MMXClient {
     void onWakeupReceived(Context applicationContext, Intent intent);
   }
 
-  private synchronized HostnameVerifier getNaiveHostnameVerifier() {
+  public synchronized HostnameVerifier getNaiveHostnameVerifier() {
     if (mNaiveHostnameVerifier == null) {
       mNaiveHostnameVerifier = new AllowAllHostnameVerifier();
     }
@@ -1480,7 +1480,7 @@ public final class MMXClient {
   private SSLContext mNaiveSslContext = null;
   private HostnameVerifier mNaiveHostnameVerifier = null;
 
-  private synchronized SSLContext getNaiveSSLContext() {
+  public synchronized SSLContext getNaiveSSLContext() {
     if (mNaiveSslContext == null) {
       try {
         TrustManager[] tm = new TrustManager[]{new NaiveTrustManager()};

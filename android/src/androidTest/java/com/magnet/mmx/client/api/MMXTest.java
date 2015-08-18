@@ -8,7 +8,7 @@ public class MMXTest extends MMXInstrumentationTestCase {
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
-    registerUser(username, displayName, suffix, PASSWORD);
+    registerUser(username, displayName, PASSWORD);
 
     //login as this new user
     MMX.login(username, PASSWORD, loginLogoutListener);
@@ -22,7 +22,6 @@ public class MMXTest extends MMXInstrumentationTestCase {
     MMXUser currentUser = MMX.getCurrentUser();
     assertEquals(displayName, currentUser.getDisplayName());
     assertEquals(username, currentUser.getUsername());
-    assertEquals(suffix, currentUser.getEmail());
 
     MMX.logout(loginLogoutListener);
     synchronized (loginLogoutListener) {

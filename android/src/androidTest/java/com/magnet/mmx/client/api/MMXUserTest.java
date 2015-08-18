@@ -10,7 +10,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
-    registerUser(username, displayName, suffix, PASSWORD);
+    registerUser(username, displayName, PASSWORD);
 
     MMX.login(username, PASSWORD, loginLogoutListener);
     synchronized (loginLogoutListener) {

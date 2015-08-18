@@ -71,6 +71,13 @@ public interface MMXClientConfig {
   public int getPort();
 
   /**
+   * The port for the MMX REST APIs
+   *
+   * @return the port number for the REST APIs, -1 if not specified
+   */
+  public int getRESTPort();
+
+  /**
    * The MMX domain name with which the connection will be made.
    *
    * @return the domain name

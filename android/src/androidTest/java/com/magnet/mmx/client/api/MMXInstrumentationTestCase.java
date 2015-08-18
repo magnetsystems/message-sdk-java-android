@@ -55,9 +55,8 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     return mContext;
   }
 
-  protected void registerUser(String username, String displayName, String email, byte[] password) {
+  protected void registerUser(String username, String displayName, byte[] password) {
     MMXUser user = new MMXUser.Builder()
-            .email(email)
             .displayName(displayName)
             .username(username)
             .build();

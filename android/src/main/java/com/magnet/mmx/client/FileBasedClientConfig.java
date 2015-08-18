@@ -52,6 +52,7 @@ public class FileBasedClientConfig implements MMXClientConfig {
   private static final String PROP_ANONYMOUS_SECRET = "anonymousSecret";
   private static final String PROP_HOST = "host";
   private static final String PROP_PORT = "port";
+  private static final String PROP_REST_PORT = "RESTPort";
   private static final String PROP_SECURITY_LEVEL = "securityLevel";
   private static final String PROP_DOMAIN_NAME = "domainName";
 
@@ -151,6 +152,16 @@ public class FileBasedClientConfig implements MMXClientConfig {
    */
   public int getPort() {
     String portString = mProps.getProperty(PROP_PORT);
+    return portString != null ? Integer.valueOf(portString) : -1;
+  }
+
+  /**
+   * The port for the MMX REST APIs
+   *
+   * @return the port number for the REST APIs, -1 if not specified
+   */
+  public int getRESTPort() {
+    String portString = mProps.getProperty(PROP_REST_PORT);
     return portString != null ? Integer.valueOf(portString) : -1;
   }
 
