@@ -29,6 +29,10 @@ public final class MMX {
     REGISTRATION_INVALID_USERNAME,
     REGISTRATION_USER_ALREADY_EXISTS
   }
+
+  public enum LoginReason {
+    DISCONNECTED
+  }
   /**
    * The listener interface for handling incoming messages and message acknowledgements.
    */
@@ -50,6 +54,44 @@ public final class MMX {
      * @return true to consume this message, false for additional listeners to be called
      */
     public boolean onMessageAcknowledgementReceived(MMXid from, String messageId) {
+      //default implementation is a no-op
+      return false;
+    }
+
+    /**
+     * Called when an MMXChannel invitation is received.  The default implementation of this
+     * method is a no-op.
+     *
+     * @param invitation the invitation
+     * @return true to consume this event, false for additional listeners to be called
+     */
+    public boolean onInvitationReceived(MMXChannel.MMXInvite invitation) {
+      //default implementation is a no-op
+      return false;
+    }
+
+    /**
+     * Called when a MMXChannel invitation has been responded to.  The default implementation of this
+     * method is a no-op.
+     *
+     * @param accepted true if accepted, false otherwise
+     * @param text any text that was included in the response
+     * @return true to consume this event, false for additional listeners to be called
+     */
+    public boolean onInvitationResponseReceived(boolean accepted, String text) {
+      //default implementation is a no-op
+      return false;
+    }
+
+    /**
+     * Called when a login is required. The default implementation of this
+     * method is a no-op.
+     *
+     * @param reason the reason why login is required
+     * @return true to consume this event, false for additional listeners to be called
+     * @see #login(String, byte[], OnFinishedListener)
+     */
+    public boolean onLoginRequired(LoginReason reason) {
       //default implementation is a no-op
       return false;
     }
@@ -112,12 +154,22 @@ public final class MMX {
       notifyMessageAcknowledged(recipient, messageId);
       super.onMessageDelivered(mmxClient, recipient, messageId);
     }
+
+    @Override
+    public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
+      switch (connectionEvent) {
+        case DISCONNECTED:
+          notifyLoginRequired(LoginReason.DISCONNECTED);
+          break;
+      }
+      super.onConnectionEvent(mmxClient, connectionEvent);
+    }
   };
 
   private MMX(Context context, MMXClientConfig config) {
     mContext = context.getApplicationContext();
     mClient = MMXClient.getInstance(context, config);
-    mHandlerThread = new HandlerThread("MagnetMessage");
+    mHandlerThread = new HandlerThread("MMX");
     mHandlerThread.start();
     mHandler = new Handler(mHandlerThread.getLooper());
   }
@@ -166,11 +218,37 @@ public final class MMX {
   }
 
   /**
-   * Start sending/receiving messages as the specified user.
+   * Enable or disable incoming messages.  The default state after login is disabled.
+   *
+   * @param enable true to receving incoming message, false otherwise
+   * @throws IllegalStateException if the user is not logged-in
+   * @see #login(String, byte[], OnFinishedListener)
+   */
+  public static void enableIncomingMessages(boolean enable) {
+    try {
+      if (enable) {
+        getMMXClient().resumeDelivery();
+      } else {
+        getMMXClient().suspendDelivery();
+      }
+    } catch (Exception ex) {
+      //This only happens if we are not connected.  suspend is not a problem since we are already disconnected
+      if (enable) {
+        throw new IllegalStateException("Cannot enable incoming messages because not currently " +
+                "connected.  Ensure that login() has been called.");
+      }
+    }
+  }
+
+  /**
+   * Start sending/receiving messages as the specified user.  To receive messages:  1) implement and
+   * register an EventListener, 2) enable incoming messages
    *
    * @param username the username
    * @param password the password
    * @param listener listener for success or failure
+   * @see com.magnet.mmx.client.api.MMX.EventListener
+   * @see #enableIncomingMessages(boolean)
    */
   public static void login(String username, byte[] password,
                            final MMX.OnFinishedListener<Void> listener) {
@@ -226,7 +304,7 @@ public final class MMX {
     });
     sInstance.mCurrentUser = null;
     getMMXClient().connectWithCredentials(username, password, MMX.getGlobalListener(),
-            new MMXClient.ConnectionOptions().setAutoCreate(false));
+            new MMXClient.ConnectionOptions().setAutoCreate(false).setSuspendDelivery(true));
   }
 
   /**
@@ -432,6 +510,23 @@ public final class MMX {
           }
         } catch (Exception ex) {
           Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
+        }
+      }
+    }
+  }
+
+  private static void notifyLoginRequired(LoginReason reason) {
+    synchronized (sInstance.mListeners) {
+      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      while (listeners.hasNext()) {
+        EventListener listener = listeners.next();
+        try {
+          if (listener.onLoginRequired(reason)) {
+            //listener returning true means consume the message
+            break;
+          }
+        } catch (Exception ex) {
+          Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
         }
       }
     }

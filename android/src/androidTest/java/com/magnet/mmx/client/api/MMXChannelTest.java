@@ -29,6 +29,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
+    MMX.enableIncomingMessages(true);
   }
 
   public void tearDown() {
@@ -111,8 +112,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFind(String channelName, int expectedCount) {
     //find
     final AtomicInteger findResult = new AtomicInteger(0);
-    MMXChannel.findByName(channelName, 10, new MMX.OnFinishedListener<MMXChannel.FindResult>() {
-      public void onSuccess(MMXChannel.FindResult result) {
+    MMXChannel.findByName(channelName, 10, new MMX.OnFinishedListener<ListResult<MMXChannel>>() {
+      public void onSuccess(ListResult<MMXChannel> result) {
         findResult.set(result.totalCount);
         synchronized (findResult) {
           findResult.notify();
@@ -227,12 +228,12 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     //get topic again
     final AtomicInteger itemCount = new AtomicInteger(0);
     final AtomicInteger channelCount = new AtomicInteger(0);
-    MMXChannel.findByName(channelName, 100, new MMX.OnFinishedListener<MMXChannel.FindResult>() {
+    MMXChannel.findByName(channelName, 100, new MMX.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
-      public void onSuccess(MMXChannel.FindResult result) {
+      public void onSuccess(ListResult<MMXChannel> result) {
         channelCount.set(result.totalCount);
-        if (result.channels.size() > 0) {
-          itemCount.set(result.channels.get(0).getNumberOfMessages());
+        if (result.items.size() > 0) {
+          itemCount.set(result.items.get(0).getNumberOfMessages());
         }
         synchronized (channelCount) {
           channelCount.notify();

@@ -22,10 +22,10 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     }
     assertTrue(MMX.getMMXClient().isConnected());
     final AtomicInteger totalCount = new AtomicInteger(0);
-    MMX.OnFinishedListener<MMXUser.FindResult> listener =
-            new MMX.OnFinishedListener<MMXUser.FindResult>() {
+    MMX.OnFinishedListener<ListResult<MMXUser>> listener =
+            new MMX.OnFinishedListener<ListResult<MMXUser>>() {
       @Override
-      public void onSuccess(MMXUser.FindResult result) {
+      public void onSuccess(ListResult<MMXUser> result) {
         totalCount.set(result.totalCount);
       }
 

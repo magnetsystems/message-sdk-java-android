@@ -1,34 +1,21 @@
 package com.magnet.mmx.client.api;
 
-import com.magnet.mmx.client.MMXAccountManager;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.util.XIDUtil;
 
-import org.apache.http.NameValuePair;
-import org.apache.http.message.BasicNameValuePair;
-import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLHandshakeException;
@@ -80,20 +67,6 @@ public class MMXUser {
       return mUser;
     }
   }
-
-  /**
-   * The result object returned by the "find" methods
-   */
-  public static class FindResult {
-    public final int totalCount;
-    public final Set<MMXUser> users;
-
-    private FindResult(int totalCount, Set<MMXUser> users) {
-      this.totalCount = totalCount;
-      this.users = Collections.unmodifiableSet(users);
-    }
-  }
-
 
   private String mUsername;
   private String mDisplayName;
@@ -286,10 +259,10 @@ public class MMXUser {
    * @param listener listener for success or failure
    */
   public static void findByName(final String startsWith, final int limit,
-                                      final MMX.OnFinishedListener<FindResult> listener) {
-    MMXTask<FindResult> task = new MMXTask<FindResult>(MMX.getMMXClient(), MMX.getHandler()) {
+                                      final MMX.OnFinishedListener<ListResult<MMXUser>> listener) {
+    MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public FindResult doRun(MMXClient mmxClient) throws Throwable {
+      public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
         UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
         UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
         List<UserInfo> userInfos = response.getUsers();
@@ -300,7 +273,7 @@ public class MMXUser {
                   .displayName(userInfo.getDisplayName())
                   .build());
         }
-        return new FindResult(response.getTotalCount(), new HashSet<MMXUser>(resultList));
+        return new ListResult<MMXUser>(response.getTotalCount(), resultList);
       }
 
       @Override
@@ -311,7 +284,7 @@ public class MMXUser {
       }
 
       @Override
-      public void onResult(FindResult result) {
+      public void onResult(ListResult<MMXUser> result) {
         if (listener != null) {
           listener.onSuccess(result);
         }

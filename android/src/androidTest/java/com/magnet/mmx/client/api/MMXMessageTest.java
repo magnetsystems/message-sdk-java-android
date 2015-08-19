@@ -27,6 +27,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
+    MMX.enableIncomingMessages(true);
     final HashMap<String, Object> receivedContent = new HashMap<String, Object>();
     MMX.EventListener messageListener = new MMX.EventListener() {
       public boolean onMessageReceived(MMXMessage message) {
