@@ -7,6 +7,7 @@ import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
+import com.magnet.mmx.client.common.MMXResult;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
@@ -17,9 +18,9 @@ import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicSummary;
+import com.magnet.mmx.protocol.UserInfo;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -124,26 +125,6 @@ public class MMXChannel {
      */
     public MMXChannel build() {
       return mChannel;
-    }
-  }
-
-  /**
-   * The results of a find operation
-   */
-  public static class FindResult {
-    /**
-     * The total count of results
-     */
-    public final int totalCount;
-
-    /**
-     * The result channels
-     */
-    public final List<MMXChannel> channels;
-
-    private FindResult(int totalCount, List<MMXChannel> channels) {
-      this.totalCount = totalCount;
-      this.channels = Collections.unmodifiableList(channels);
     }
   }
 
@@ -528,34 +509,51 @@ public class MMXChannel {
 
   }
 
+  /**
+   * Sends an invitation to the specified user for this channel.
+   *
+   * @param invitee the invitee
+   * @param invitationText the text to include in the invite
+   * @param listener the listener for success/failure of this operation
+   */
   public void inviteUser(MMXUser invitee, String invitationText, MMX.OnFinishedListener<MMXInvite> listener) {
+
     throw new RuntimeException("NOT YET IMPLEMENTED");
   }
 
   /**
    * Retrieves all the subscribers for this channel.
    *
+   * @param limit the maximum number of subscribers to return
    * @param listener the listener for the subscribers
    */
-  public void getAllSubscribers(final int limit, final MMX.OnFinishedListener<List<MMXUser>> listener) {
-    MMXTask<Void> task = new MMXTask<Void> (MMX.getMMXClient(), MMX.getHandler()) {
+  public void getAllSubscribers(final int limit, final MMX.OnFinishedListener<ListResult<MMXUser>> listener) {
+    MMXTask<MMXResult<List<UserInfo>>> task =
+            new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public Void doRun(MMXClient mmxClient) throws Throwable {
-        return super.doRun(mmxClient);
+      public MMXResult<List<UserInfo>> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.getSubscribers(getMMXTopic(), limit);
       }
 
       @Override
       public void onException(Throwable exception) {
-        super.onException(exception);
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
 
       @Override
-      public void onResult(Void result) {
-        super.onResult(result);
+      public void onResult(MMXResult<List<UserInfo>> result) {
+        ArrayList<MMXUser> users = new ArrayList<MMXUser>();
+        for (UserInfo userInfo : result.getResult()) {
+          users.add(new MMXUser.Builder()
+                  .displayName(userInfo.getDisplayName())
+                  .username(userInfo.getUserId())
+                  .build());
+        }
+        listener.onSuccess(new ListResult<MMXUser>(result.getTotal(), users));
       }
     };
     task.execute();
-    throw new RuntimeException("NOT YET IMPLEMETED");
   }
 
   /**
@@ -566,21 +564,21 @@ public class MMXChannel {
    * @param listener the listener for the query results
    */
   public static void findByName(final String startsWith, final int limit,
-                                final MMX.OnFinishedListener<FindResult> listener) {
-    MMXTask<FindResult> task = new MMXTask<FindResult>(
+                                final MMX.OnFinishedListener<ListResult<MMXChannel>> listener) {
+    MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public FindResult doRun(MMXClient mmxClient) throws Throwable {
+      public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
         List<MMXChannel> channels = fromTopicInfos(searchResult.getResults());
-        return new FindResult(searchResult.getTotal(), channels);
+        return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
 
       @Override
-      public void onResult(FindResult result) {
+      public void onResult(ListResult<MMXChannel> result) {
         //build the query result
         listener.onSuccess(result);
       }
@@ -600,21 +598,21 @@ public class MMXChannel {
    * @param listener the listener for the query results
    */
   public static void findByTags(final Set<String> tags, final int limit,
-                                final MMX.OnFinishedListener<FindResult> listener) {
-    MMXTask<FindResult> task = new MMXTask<FindResult>(
+                                final MMX.OnFinishedListener<ListResult> listener) {
+    MMXTask<ListResult> task = new MMXTask<ListResult>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public FindResult doRun(MMXClient mmxClient) throws Throwable {
+      public ListResult doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
         List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
-        return new FindResult(searchResult.getTotal(), channels);
+        return new ListResult(searchResult.getTotal(), channels);
       }
 
       @Override
-      public void onResult(FindResult result) {
+      public void onResult(ListResult result) {
         //build the query result
         listener.onSuccess(result);
       }

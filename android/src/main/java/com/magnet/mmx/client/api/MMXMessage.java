@@ -2,7 +2,6 @@ package com.magnet.mmx.client.api;
 
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
-import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
