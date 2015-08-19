@@ -53,7 +53,7 @@ public class MMXTopicInfo implements Serializable {
     mCreationDate = topicInfo.getCreationDate();
     mModifiedDate = topicInfo.getModifiedDate();
     mPublisherType = topicInfo.getPublisherType();
-    mCreator = XIDUtil.toXid(topicInfo.getCreator());
+    mCreator = XIDUtil.toXid(topicInfo.getCreator(), null);
     mSubscriptionEnabled = topicInfo.isSubscriptionEnabled();
   }
 

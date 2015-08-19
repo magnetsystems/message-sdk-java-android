@@ -84,8 +84,9 @@ public class MessageManager {
 //      mCon.getContext().log(TAG, "Event processPacket() pkt="+packet.toXML());
       final MMXMessageListener listener = mCon.getMessageListener();
       if (listener != null) {
-        String[] tokens = parsePubSubMsgId(packet.getPacketID());
-        final String from = (tokens == null) ? packet.getFrom() : tokens[1];
+//        String[] tokens = parsePubSubMsgId(packet.getPacketID());
+//        final String from = (tokens == null) ? packet.getFrom() : tokens[1];
+        final String from = packet.getFrom();
         final String to = packet.getTo();
         EventElement event = packet.getExtension("event", PubSubNamespace.EVENT.getXmlns());
         final NodeExtension nodeExt = event.getEvent();
@@ -441,10 +442,9 @@ public class MessageManager {
       msg.addExtension(new DeliveryReceiptRequest());
     }
 
-    // Reliable msg with multiple recipients, save recipients in mmxmeta stanza
-    if ((options == null || !options.isDroppable()) && xids.length > 1) {
-      payload.setTo(to);
-    }
+    // Save recipients (because of display name) in mmxmeta stanza
+    payload.setFrom(mCon.getXID());
+    payload.setTo(to);
 
     msg.addExtension(new MMXPacketExtension(payload));
     // The normal type and an empty body will disable off-line storage for this
@@ -589,15 +589,15 @@ public class MessageManager {
     return result;
   }
 
-  // This is specific to Openfire implementation.  Its pubsub msg ID format is:
-  // nodeID__subscriberBaredJID__uniqeID
-  private static String[] parsePubSubMsgId(String msgId) {
-    if (msgId == null) {
-      return null;
-    }
-    String[] tokens = msgId.split("__");
-    return ((tokens == null) || (tokens.length != 3)) ? null : tokens;
-  }
+//  // This is specific to Openfire implementation.  Its pubsub msg ID format is:
+//  // nodeID__subscriberBaredJID__uniqeID
+//  private static String[] parsePubSubMsgId(String msgId) {
+//    if (msgId == null) {
+//      return null;
+//    }
+//    String[] tokens = msgId.split("__");
+//    return ((tokens == null) || (tokens.length != 3)) ? null : tokens;
+//  }
 
   // Generate a delivery receipt ID based on the sender XID and msg ID.
   static String genReceiptId(String from, String msgId) {

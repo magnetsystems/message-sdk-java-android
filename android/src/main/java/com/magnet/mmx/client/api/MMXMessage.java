@@ -332,7 +332,7 @@ public class MMXMessage {
           MMXid[] recipientsArray = new MMXid[mRecipients.size()];
           int index = 0;
           for (MMXUser recipient : mRecipients) {
-            recipientsArray[index++] = new MMXid(recipient.getUsername());
+            recipientsArray[index++] = new MMXid(recipient.getUsername(), null);
           }
           String messageId = mmxClient.getMessageManager().sendPayload(generatedMessageId, recipientsArray, payload,
                   new Options().enableReceipt(true));
@@ -457,7 +457,7 @@ public class MMXMessage {
       //this is normal message.  getReplyAll() returns null for pubsub messages
       MMXUser receiver = new MMXUser.Builder()
               .username(message.getTo().getUserId())
-              .displayName(null) //// FIXME: 8/18/15
+              .displayName(message.getTo().getDisplayName())
               .build();
       recipients.add(receiver);
       MMXid[] otherRecipients = message.getReplyAll();
@@ -465,7 +465,7 @@ public class MMXMessage {
         for (MMXid otherRecipient : otherRecipients) {
           MMXUser recipient = new MMXUser.Builder()
                   .username(otherRecipient.getUserId())
-                  .displayName(null) //// FIXME: 8/17/15
+                  .displayName(otherRecipient.getDisplayName())
                   .build();
           recipients.add(recipient);
         }
@@ -479,7 +479,7 @@ public class MMXMessage {
     MMXMessage newMessage = new MMXMessage();
     MMXUser sender = new MMXUser.Builder()
             .username(message.getFrom().getUserId())
-            .displayName(null) //// FIXME: 8/17/15
+            .displayName(message.getFrom().getDisplayName())
             .build();
     return newMessage
             .sender(sender)

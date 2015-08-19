@@ -169,9 +169,10 @@ public class XIDUtil {
   /**
    * Convert an MMX ID  (XID) into an end-point object.
    * @param xid A string form of MMX ID.
+   * @param displayName An optional user display name.
    * @return A end-point object, or null if it is malformed.
    */
-  public static MMXid toXid(String xid) {
+  public static MMXid toXid(String xid, String displayName) {
     String node = getReadableNode(xid);
     if (node == null) {
       return null;
@@ -179,7 +180,7 @@ public class XIDUtil {
     String resource = getResource(xid);
     int sep = node.lastIndexOf(Constants.APP_ID_DELIMITER);
     String userId = (sep < 0) ? node : node.substring(0, sep);
-    return new MMXid(userId, resource);
+    return new MMXid(userId, resource, displayName);
   }
 
   /**

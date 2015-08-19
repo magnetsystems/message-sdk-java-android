@@ -205,6 +205,16 @@ public class MMXPayload implements Serializable {
 //  }
 
   /**
+   * Specify the sender with optional display name in the header.
+   * @param xid The current authenticated user with an optional display name.
+   * @return This object.
+   */
+  MMXPayload setFrom(MMXid xid) {
+    mMmxMeta.put(MmxHeaders.FROM, xid);
+    return this;
+  }
+
+  /**
    * Specify the recipients in the header.  The JSON serialization will be
    * performed just before the message is sent, but not in this method.
    * @return This object.
@@ -215,8 +225,17 @@ public class MMXPayload implements Serializable {
   }
 
   /**
+   * Unmarshall the sender from the deserialized JSON object to MMX ID.
+   * @return
+   */
+  MMXid unmarshallFrom() {
+    Map<String, String> map = (Map<String, String>) mMmxMeta.getHeader(
+        MmxHeaders.FROM, null);
+    return MMXid.fromMap(map);
+  }
+
+  /**
    * Unmarshall the recipients from the deserialized JSON object to MMX ID's.
-   * This is not the counter part of {@link #setTo(MMXid[])}.
    * @return
    */
   MMXid[] unmarshallTo() {

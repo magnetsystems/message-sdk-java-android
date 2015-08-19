@@ -32,7 +32,7 @@ public class MMXMessageStatus implements Serializable {
   MMXMessageStatus(MessageStatus status) {
     mState = status.getState();
     if (status.getRecipient() != null) {
-      mRecipient = new MMXid(XIDUtil.getUserId(status.getRecipient()));
+      mRecipient = new MMXid(XIDUtil.getUserId(status.getRecipient()), null);
     }
   }
 

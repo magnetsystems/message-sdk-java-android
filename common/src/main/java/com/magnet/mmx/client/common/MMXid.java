@@ -38,28 +38,44 @@ public class MMXid implements Serializable {
   private String mUserId;
   @SerializedName("devId")
   private String mDeviceId;
+  @SerializedName("displayName")
+  private String mDisplayName;
+
+//  /**
+//   * Construct an identifier for a user without a display name.  The
+//   * <code>userId</code> must be in the un-escaped format and it will be
+//   * converted to lower case.
+//   * @param userId A non-null user ID.
+//   */
+//  public MMXid(String userId) {
+//    this(userId, null, null);
+//  }
 
   /**
-   * Construct an identifier for a user.  The <code>userId</code> must not be
-   * in the escaped format and it will be stored in lower case.
+   * Construct an identifier for a user.  The <code>userId</code> must be
+   * in the un-escaped format and it will be converted to lower case.
    * @param userId A non-null user ID.
+   * @param displayName A display name or null.
    */
-  public MMXid(String userId) {
+  public MMXid(String userId, String displayName) {
+    this(userId, null, displayName);
+  }
+
+  /**
+   * Construct an identifier for an end-point with an optional display name.
+   * The <code>userId</code> must be be in the un-escaped format and it will be
+   * converted to lower case.
+   * @param userId A non-null user ID.
+   * @param deviceId A device ID.
+   * @param displayName A display name or null.
+   */
+  public MMXid(String userId, String deviceId, String displayName) {
     if (userId == null) {
       throw new IllegalArgumentException("User ID cannot be null");
     }
     mUserId = userId.toLowerCase();
-  }
-
-  /**
-   * Construct an identifier for an end-point.  The <code>userId</code> must not
-   * be in the escaped format and it will be stored in lower case.
-   * @param userId A non-null user ID.
-   * @param deviceId A device ID.
-   */
-  public MMXid(String userId, String deviceId) {
-    this(userId);
     mDeviceId = deviceId;
+    mDisplayName = displayName;
   }
 
   /**
@@ -78,6 +94,14 @@ public class MMXid implements Serializable {
    */
   public String getDeviceId() {
     return mDeviceId;
+  }
+
+  /**
+   * Get a user display name.  This property is optional.
+   * @return A user display name, or null.
+   */
+  public String getDisplayName() {
+    return mDisplayName;
   }
 
   /**
@@ -145,7 +169,17 @@ public class MMXid implements Serializable {
    */
   @Override
   public String toString() {
-    return (mDeviceId == null) ? mUserId : (mUserId+'/'+mDeviceId);
+    if (mDeviceId == null && mDisplayName == null) {
+      return mUserId;
+    }
+    StringBuilder sb = new StringBuilder().append(mUserId);
+    if (mDeviceId != null) {
+      sb.append('/').append(mDeviceId);
+    }
+    if (mDisplayName != null) {
+      sb.append('#').append(mDisplayName);
+    }
+    return sb.toString();
   }
 
   /**
@@ -164,11 +198,19 @@ public class MMXid implements Serializable {
    */
   public static MMXid parse(String xid) {
     int slash = xid.indexOf('/');
-    if (slash < 0) {
-      return new MMXid(xid);
+    int hash = xid.indexOf('#');
+    String displayName = (hash < 0) ? null : xid.substring(hash+1);
+    String deviceId = null;
+    String userId;
+    if (slash > 0) {
+      deviceId = (hash < 0) ? xid.substring(slash+1) : xid.substring(slash+1, hash);
+      userId = xid.substring(0, slash);
+    } else if (hash > 0) {
+      userId = xid.substring(0, hash);
     } else {
-      return new MMXid(xid.substring(0, slash), xid.substring(slash+1));
+      userId = xid;
     }
+    return new MMXid(userId, deviceId, displayName);
   }
 
   /**
@@ -182,6 +224,6 @@ public class MMXid implements Serializable {
 
   // Convert a Map into the object.
   static MMXid fromMap(Map<String, String> map) {
-    return new MMXid(map.get("userId"), map.get("devId"));
+    return new MMXid(map.get("userId"), map.get("devId"), map.get("displayName"));
   }
 }

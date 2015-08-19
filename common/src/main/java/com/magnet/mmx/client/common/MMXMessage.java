@@ -50,6 +50,7 @@ public class MMXMessage implements Serializable {
   private MMXPayload mPayload;
   private transient MMXid mFromXid;
   private transient MMXid mToXid;
+  private transient MMXid[] mToXids;
   private transient MMXid[] mReplyAll;
 //  private transient MMXid mReplyTo;
 
@@ -86,7 +87,12 @@ public class MMXMessage implements Serializable {
    */
   public MMXid getFrom() {
     if (mFromXid == null) {
-      mFromXid = XIDUtil.toXid(mFrom);
+      if (mPayload != null) {
+        mFromXid = mPayload.unmarshallFrom();
+      }
+      if (mFromXid == null) {
+        mFromXid = XIDUtil.toXid(mFrom, null);
+      }
     }
     return mFromXid;
   }
@@ -103,33 +109,54 @@ public class MMXMessage implements Serializable {
 //      if ((replyTo = mPayload.getReplyTo()) == null) {
 //        mReplyTo = getFrom();
 //      } else {
-//        mReplyTo = XIDUtil.toXid(replyTo);
+//        mReplyTo = XIDUtil.toXid(replyTo, null);
 //      }
 //    }
 //    return mReplyTo;
 //  }
 
   /**
-   * Get the recipient identifier which may be an end-point or a user.
-   * @return The recipient identifier.
+   * Get the current recipient with the display name.
+   * @return
    */
   public MMXid getTo() {
     if (mToXid == null) {
-      mToXid = XIDUtil.toXid(mTo);
+      MMXid[] tos = getTos();
+      if (tos != null) {
+        MMXid self = XIDUtil.toXid(mTo, null);
+        for (MMXid to : tos) {
+          if (to.equalsTo(self)) {
+            return mToXid = to;
+          }
+        }
+        mToXid = self;
+      }
     }
     return mToXid;
   }
 
   /**
-   * Return a list of recipients for Reply-All.  It always includes the sender
-   * and everyone in the To-list excluding the current user and duplicate users.
+   * Get all explicit recipients which may be end-points or users.
+   * @return The recipients.
+   */
+  public MMXid[] getTos() {
+    if (mToXids == null && mPayload != null) {
+      mToXids = mPayload.unmarshallTo();
+    }
+    return mToXids;
+  }
+
+  /**
+   * Return a list of explicit recipients for Reply-All.  It always includes the
+   * sender and everyone in the To-list excluding the current user and duplicate
+   * users.
    * @return
    */
   public MMXid[] getReplyAll() {
     if (mReplyAll == null) {
-      MMXid[] tos = mPayload.unmarshallTo();
+      MMXid[] tos = getTos();
       if (tos != null) {
-        MMXid self = new MMXid(getTo().getUserId());
+        MMXid self = XIDUtil.toXid(mTo, null);
         MMXid sender = getFrom();
         HashSet<MMXid> set = new HashSet<MMXid>(tos.length);
         // Sender is always included, but exclude current user from the to-list.
@@ -193,7 +220,7 @@ public class MMXMessage implements Serializable {
    */
   @Override
   public String toString() {
-    return "[ id=" + getId() + ", from=" + getFrom() + ", to=" + getTo()
+    return "[ id=" + getId() + ", from=" + getFrom() + ", to=" + getTos()
         + ", rcptId=" + getReceiptId() + ", rcptMsgId=" + getMsgIdFromReceipt()
         + ", data=" + getPayload() + " ]";
   }

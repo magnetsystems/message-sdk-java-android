@@ -223,6 +223,15 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
+   * Set an optional user display name.  It is sent along with the From meta
+   * header.
+   * @param displayName A user display name.
+   */
+  public void setDisplayName(String displayName) {
+    mSettings.setString(MMXSettings.PROP_NAME, displayName);
+  }
+
+  /**
    * Control the message flow. Messages targeting to bared JID will be delivered
    * to the highest priority connected device. If multiple connected devices
    * have the same priority, messages will be delivered to all of them. If the
@@ -589,7 +598,7 @@ public class MMXConnection implements ConnectionListener {
       // Not authorized: invalid password or account does not exist.
       if ((flags & AUTH_AUTO_CREATE) == 0) {
         if (mConListener != null) {
-          mConListener.onAuthFailed(new MMXid(userId));
+          mConListener.onAuthFailed(new MMXid(userId, null));
         }
         return;
       }
@@ -609,7 +618,7 @@ public class MMXConnection implements ConnectionListener {
 
       // Callback if the auto account creation is success.
       if (mConListener != null) {
-        mConListener.onAccountCreated(new MMXid(userId));
+        mConListener.onAccountCreated(new MMXid(userId, null));
       }
 
       // Account is created, now try to log in again.
@@ -660,7 +669,7 @@ public class MMXConnection implements ConnectionListener {
       // userId is taken
       if (e.getCode() == Constants.STATUS_CODE_500) {
         if (mConListener != null) {
-          mConListener.onAuthFailed(new MMXid(userId));
+          mConListener.onAuthFailed(new MMXid(userId, null));
         }
         return false;
       }
@@ -750,13 +759,15 @@ public class MMXConnection implements ConnectionListener {
       return null;
     }
     if (mXID == null) {
-      mXID = XIDUtil.toXid(getUser());
+      mXID = XIDUtil.toXid(getUser(),
+                           mSettings.getString(MMXSettings.PROP_NAME, null));
     }
     return mXID;
   }
+
   /**
-   * Get the full XID (XEP-0106 compliant) of the login user.
-   * @return
+   * Get the full XID (XEP-0106 compliant) of the login user in String format.
+   * @return A format of userID%appID@domain/resource.
    */
   public String getUser() {
     if (mCon == null) {
@@ -864,7 +875,7 @@ public class MMXConnection implements ConnectionListener {
   @Override
   public void authenticated(XMPPConnection con) {
     if (mConListener != null) {
-      mConListener.onAuthenticated(XIDUtil.toXid(con.getUser()));
+      mConListener.onAuthenticated(XIDUtil.toXid(con.getUser(), null));
     }
 
     // If it is not a MMX user, skip asking for missed published items.
