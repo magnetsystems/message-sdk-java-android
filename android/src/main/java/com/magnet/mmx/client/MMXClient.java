@@ -1244,7 +1244,7 @@ public final class MMXClient {
 
       try {
         mUserInfo = getAccountManager().getUserInfo();
-        //FIXME:  Set the display name for this connection
+        mConnection.setDisplayName(mUserInfo.getDisplayName());
       } catch (MMXException e) {
         Log.e(TAG, "onAuthenticated(): unable to load userInfo", e);
       }

@@ -60,6 +60,10 @@ public interface MMXSettings {
    */
   public static final String PROP_USER = "user";      // user ID (no appId)
   /**
+   * The resource identifier (String.)
+   */
+  public static final String PROP_RESOURCE = "resource";
+  /**
    * The password of the user (String.)  A convenient property for the
    * application to store a protected password.
    */

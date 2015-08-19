@@ -91,7 +91,6 @@ public class MMXConnection implements ConnectionListener {
   private String mAppId;
   private String mApiKey;
   private MMXid mXID;     // caching the MMX ID (userID/deviceID)
-  private String mUserId; // caching the user ID (without appId)
   private String mConToken; // MD5 of host-port-userID
   private String mUUID;
   private long mSeq;
@@ -402,7 +401,6 @@ public class MMXConnection implements ConnectionListener {
       if (mCon.isConnected()) {
         try {
           mCon.disconnect();
-          mUserId = null;
           mXID = null;
           mAnonyAcct = null;
           mManagers.clear();
@@ -535,7 +533,6 @@ public class MMXConnection implements ConnectionListener {
   protected void logout() throws MMXException {
     try {
       mCon.disconnect();
-      mUserId = null;
       mAnonyAcct = null;
       mCon.resetAuthFailure();
       mCon.connect();
@@ -793,13 +790,11 @@ public class MMXConnection implements ConnectionListener {
    * @return
    */
   public String getUserId() {
-    if (mCon == null) {
+    MMXid xid = getXID();
+    if (xid == null) {
       return null;
     }
-    if (mUserId == null) {
-      mUserId = XIDUtil.getUserId(mCon.getUser());
-    }
-    return mUserId;
+    return xid.getUserId();
   }
 
   /**
@@ -874,8 +869,11 @@ public class MMXConnection implements ConnectionListener {
 
   @Override
   public void authenticated(XMPPConnection con) {
+    MMXid user = getXID();
+    mSettings.setString(MMXSettings.PROP_USER, user.getUserId());
+    mSettings.setString(MMXSettings.PROP_RESOURCE, user.getDeviceId());
     if (mConListener != null) {
-      mConListener.onAuthenticated(XIDUtil.toXid(con.getUser(), null));
+      mConListener.onAuthenticated(user);
     }
 
     // If it is not a MMX user, skip asking for missed published items.

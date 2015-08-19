@@ -290,8 +290,15 @@ public class PubSubManager {
                               MMXPayload.getMaxSizeAllowed()+" bytes",
                               MMXException.REQUEST_TOO_LARGE);
     }
+
     // XMPP does not include publisher during delivery, but MMX includes it.
-    payload.setFrom(mCon.getXID());
+    MMXid publisher = mCon.getXID();
+    if (publisher != null) {
+      payload.setFrom(publisher);
+    } else {
+      Log.w(TAG, "Unable set publisher in offline mode; retry it later");
+    }
+
     MMXQueue queue = mCon.getQueue();
     String itemId = id != null ? id : mCon.genId();
     if (mCon.isConnected()) {
