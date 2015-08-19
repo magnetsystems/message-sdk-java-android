@@ -23,6 +23,7 @@ import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXMessageStatus;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
+import com.magnet.mmx.client.common.MMXResult;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
@@ -38,6 +39,7 @@ import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.TopicSummary;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
 
@@ -509,6 +511,19 @@ public final class MMXPubSubManager extends MMXManager {
     return mPubSubManager.listAllSubscriptions();
   }
 
+  /**
+   * Get the subscribers to a topic.
+   * 
+   * @param topic a topic name
+   * @param limit maximum number of subscribers to be returned
+   * @return A result set with a total count of subscribers.
+   */
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+          throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.getSubscribers(topic, limit);
+  }
+  
   @Override
   void onConnectionChanged() {
     mPubSubManager = PubSubManager.getInstance(getMMXClient().getMMXConnection());

@@ -637,12 +637,12 @@ public class PubSubManager {
    * Get all subscribers to a topic.
    * @param topic A topic object.
    * @param limit -1 for unlimited, or > 0.
-   * @return
+   * @return A result set.
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public List<UserInfo> getSubscribers(MMXTopic topic, int limit)
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
@@ -656,7 +656,8 @@ public class PubSubManager {
       iqHandler.sendSetIQ(mCon, Constants.PubSubCommand.getSubscribers.toString(),
         rqt, SubscribersResponse.class, iqHandler);
       SubscribersResponse resp = iqHandler.getResult();
-      return resp.getSubscribers();
+      return new MMXResult<List<UserInfo>>(resp.getSubscribers(),
+                                                 resp.getTotal());
     } catch (MMXException e) {
       if (e.getCode() == StatusCode.NOT_FOUND) {
         throw new TopicNotFoundException(e.getMessage());
