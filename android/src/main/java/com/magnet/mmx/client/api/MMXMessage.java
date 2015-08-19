@@ -307,7 +307,7 @@ public class MMXMessage {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
-          String publishedId = mmxClient.getPubSubManager().publish(generatedMessageId, new MMXGlobalTopic(mChannel.getName()), payload);
+          String publishedId = mmxClient.getPubSubManager().publish(generatedMessageId, mChannel.getMMXTopic(), payload);
           //TODO:  Delay this until the server ack is received
           if (!generatedMessageId.equals(publishedId)) {
             throw new RuntimeException("SDK Error: The returned published message id does not match the generated message id.");
