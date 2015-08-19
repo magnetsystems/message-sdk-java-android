@@ -54,7 +54,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .build();
     helpCreate(channel);
     helpFind(channelName, 1);
-    helpSubscribe(channel);
+    helpSubscribe(channel, 1);
     helpPublish(channel);
     helpChannelSummary(channelName, 1, 1);
     helpUnsubscribe(channel);
@@ -71,7 +71,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .build();
     helpCreate(channel);
     helpFind(channelName, 0); // 0 because private channels should not show up on search
-    helpSubscribe(channel);
+    helpSubscribe(channel, 1);
     helpPublish(channel);
     helpChannelSummary(channelName, 0, 0); // 0 and 0 because this method will not be able to find private channels
     helpUnsubscribe(channel);
@@ -138,7 +138,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(expectedCount, findResult.intValue());
   }
 
-  private void helpSubscribe(MMXChannel channel) {
+  private void helpSubscribe(MMXChannel channel, int expectedSubscriberCount) {
     //subscribe
     final AtomicBoolean subResult = new AtomicBoolean(false);
     channel.subscribe(new MMX.OnFinishedListener<String>() {
@@ -166,7 +166,30 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
     assertTrue(subResult.get());
 
-    //FIXME:  Add MMXChannel.getSubscribers()
+    final AtomicInteger getSubsResult = new AtomicInteger(0);
+    channel.getAllSubscribers(100, new MMX.OnFinishedListener<ListResult<MMXUser>>() {
+      public void onSuccess(ListResult<MMXUser> result) {
+        getSubsResult.set(result.totalCount);
+        synchronized (getSubsResult) {
+          getSubsResult.notify();
+        }
+      }
+
+      public void onFailure(MMX.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        synchronized (getSubsResult) {
+          getSubsResult.notify();
+        }
+      }
+    });
+    synchronized (getSubsResult) {
+      try {
+        getSubsResult.wait(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertEquals(expectedSubscriberCount, getSubsResult.intValue());
   }
 
   private void helpPublish(MMXChannel channel) {
