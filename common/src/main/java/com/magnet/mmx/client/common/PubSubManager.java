@@ -291,20 +291,16 @@ public class PubSubManager {
                               MMXException.REQUEST_TOO_LARGE);
     }
 
-    // XMPP does not include publisher during delivery, but MMX includes it.
-    MMXid publisher = mCon.getXID();
-    if (publisher != null) {
-      payload.setFrom(publisher);
-    } else {
-      Log.w(TAG, "Unable set publisher in offline mode; retry it later");
-    }
-
     MMXQueue queue = mCon.getQueue();
     String itemId = id != null ? id : mCon.genId();
     if (mCon.isConnected()) {
       try {
-        // TODO: does the smack cache the node?  It still returns the node
-        // if the node was deleted using custom IQ.  Need investigation.
+        // XMPP does not include publisher during delivery; MMX includes the
+        // authenticated (after online) publisher to the item.
+        payload.setFrom(mCon.getXID());
+
+        // TODO: smack caches the node.  It returns the node if the node is
+        // deleted using custom IQ.  It can be a memory leak.
         LeafNode node = getNode(realTopic, topic);
         node.send(new PayloadItem<MMXPayloadMsgHandler.MMXPacketExtension>(itemId,
                 new MMXPayloadMsgHandler.MMXPacketExtension(payload)));

@@ -135,7 +135,6 @@ public class AccountManager {
   }
 
   /**
-   * @hide
    * Get user information of multiple users by their user ID's.
    * @param uids A set of unescaped user ID's.
    * @return A map of user ID (key) and user Info (value).
@@ -159,9 +158,13 @@ public class AccountManager {
     }
   }
 
-  // We are capable to get account information of any user.  It is not
-  // exposed until a customer requests it.
-  private UserInfo getUserInfo(String uid) throws MMXException {
+  /**
+   * Get a user information of the specified user ID.
+   * @param uid An un-escaped user ID.
+   * @return A user info.
+   * @throws MMXException User not found.
+   */
+  public UserInfo getUserInfo(String uid) throws MMXException {
     try {
       UserId userId = new UserId(XIDUtil.escapeNode(uid));
       UserMMXIQHandler<UserId, UserInfo> iqHandler = new
