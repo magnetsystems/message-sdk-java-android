@@ -6,6 +6,7 @@ import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
+import com.magnet.mmx.client.common.MMXPersonalTopic;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
@@ -322,8 +323,15 @@ public class MMXChannel {
     task.execute();
   }
 
-  private MMXTopic getMMXTopic() {
-    return isPrivate() ? new MMXUserTopic(getName(), getOwner()) : new MMXGlobalTopic(getName());
+  MMXTopic getMMXTopic() {
+    if (isPrivate()) {
+      if (getOwner() == null) {
+        return new MMXPersonalTopic(getName());
+      } else {
+        return new MMXUserTopic(getOwner(), getName());
+      }
+    }
+    return new MMXGlobalTopic(getName());
   }
 
   public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
@@ -529,7 +537,7 @@ public class MMXChannel {
    *
    * @param listener the listener for the subscribers
    */
-  public void getAllSubscribers(final MMX.OnFinishedListener<Set<MMXUser>> listener) {
+  public void getAllSubscribers(final int limit, final MMX.OnFinishedListener<List<MMXUser>> listener) {
     MMXTask<Void> task = new MMXTask<Void> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
