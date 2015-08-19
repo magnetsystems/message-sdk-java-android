@@ -56,6 +56,7 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.UserCreateMode;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.UserCreate;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.BinCodec;
 import com.magnet.mmx.util.DefaultEncryptor;
 import com.magnet.mmx.util.MMXQueue;
@@ -228,6 +229,9 @@ public class MMXConnection implements ConnectionListener {
    */
   public void setDisplayName(String displayName) {
     mSettings.setString(MMXSettings.PROP_NAME, displayName);
+    if (mXID != null) {
+      mXID.setDisplayName(displayName);
+    }
   }
 
   /**
@@ -869,15 +873,27 @@ public class MMXConnection implements ConnectionListener {
 
   @Override
   public void authenticated(XMPPConnection con) {
+    boolean isMMXUser = XIDUtil.getAppId(con.getUser()) != null;
     MMXid user = getXID();
-    mSettings.setString(MMXSettings.PROP_USER, user.getUserId());
-    mSettings.setString(MMXSettings.PROP_RESOURCE, user.getDeviceId());
+
+    // Fetch the display name if it is an MMX user.
+    if (isMMXUser) {
+      try {
+        UserInfo self = AccountManager.getInstance(this).getUserInfo();
+        if (mXID != null) {
+          mXID.setDisplayName(self.getDisplayName());
+        }
+      } catch (MMXException e) {
+        Log.e(TAG, "Unable to retrieve user profile for "+con.getUser());
+      }
+    }
+
     if (mConListener != null) {
       mConListener.onAuthenticated(user);
     }
 
     // If it is not a MMX user, skip asking for missed published items.
-    if (XIDUtil.getAppId(con.getUser()) == null) {
+    if (!isMMXUser) {
       return;
     }
 

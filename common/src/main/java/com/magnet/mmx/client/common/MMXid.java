@@ -104,6 +104,10 @@ public class MMXid implements Serializable {
     return mDisplayName;
   }
 
+  void setDisplayName(String displayName) {
+    mDisplayName = displayName;
+  }
+
   /**
    * Check if two MMXid's are equal.  The equality is defined as both user ID's
    * and their device ID's (if specified) are same.  If any one device ID

@@ -184,12 +184,17 @@ public final class MMX {
             unregisterListener = true;
             break;
           case CONNECTED:
-            sInstance.mCurrentUser = new MMXUser.Builder()
-                    .username(client.getCurrentUserInfo().getUserId())
-                    .displayName(client.getCurrentUserInfo().getDisplayName())
+            try {
+              sInstance.mCurrentUser = new MMXUser.Builder()
+                    .username(client.getClientId().getUserId())
+                    .displayName(client.getClientId().getDisplayName())
                     .build();
-            listener.onSuccess(null);
-            unregisterListener = true;
+              listener.onSuccess(null);
+              unregisterListener = true;
+            } catch (MMXException e) {
+              // Should not happen because it is a connected.
+              Log.e(TAG, "Unable to set current user profile", e);
+            }
             break;
           case CONNECTION_FAILED:
             listener.onFailure(MMX.FailureCode.DEVICE_CONNECTION_FAILED, null);
