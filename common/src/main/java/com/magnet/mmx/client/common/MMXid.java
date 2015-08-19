@@ -16,6 +16,10 @@
 package com.magnet.mmx.client.common;
 
 import java.io.Serializable;
+import java.util.Map;
+
+import com.google.gson.annotations.SerializedName;
+import com.magnet.mmx.util.GsonData;
 
 /**
  * This class represents an identifier for an MMX user or MMX end-point.  The
@@ -30,23 +34,26 @@ import java.io.Serializable;
  */
 public class MMXid implements Serializable {
   private static final long serialVersionUID = -4167064339466261739L;
+  @SerializedName("userId")
   private String mUserId;
+  @SerializedName("devId")
   private String mDeviceId;
 
   /**
    * Construct an identifier for a user.  The <code>userId</code> must not be
-   * in the escaped format.
+   * in the escaped format and it will be stored in lower case.
    * @param userId A non-null user ID.
    */
   public MMXid(String userId) {
-    if ((mUserId = userId) == null) {
+    if (userId == null) {
       throw new IllegalArgumentException("User ID cannot be null");
     }
+    mUserId = userId.toLowerCase();
   }
 
   /**
    * Construct an identifier for an end-point.  The <code>userId</code> must not
-   * be in the escaped format.
+   * be in the escaped format and it will be stored in lower case.
    * @param userId A non-null user ID.
    * @param deviceId A device ID.
    */
@@ -58,7 +65,7 @@ public class MMXid implements Serializable {
   /**
    * Get the user ID.  When comparing the user ID, make sure that it is case
    * insensitive.
-   * @return The user ID.
+   * @return The user ID in lower case.
    */
   public String getUserId() {
     return mUserId;
@@ -66,7 +73,7 @@ public class MMXid implements Serializable {
 
   /**
    * Get the device ID.  A null value may be returned if this identifier is for
-   * user.
+   * user.  The device ID is case sensitive.
    * @return The device ID, or null.
    */
   public String getDeviceId() {
@@ -81,7 +88,7 @@ public class MMXid implements Serializable {
    * @param xid The other MMXid to be compared.
    * @return true if equal; otherwise, false.
    */
-  public boolean equals(MMXid xid) {
+  public boolean equalsTo(MMXid xid) {
     if (xid == this) {
       return true;
     }
@@ -95,6 +102,43 @@ public class MMXid implements Serializable {
   }
 
   /**
+   * Check if two MMXid's are identical.  The user ID (case insensitive) and
+   * device ID (case sensitive, but optional) must match.
+   */
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof MMXid)) {
+      return false;
+    }
+    MMXid xid = (MMXid) obj;
+    if ((xid == null) || !mUserId.equalsIgnoreCase(xid.mUserId)) {
+      return false;
+    }
+    if (mDeviceId == null && xid.mDeviceId == null) {
+      return true;
+    }
+    if (mDeviceId != null) {
+      return mDeviceId.equals(xid.mDeviceId);
+    }
+    return false;
+  }
+
+  /**
+   * A hash code from the user ID and optional device ID.
+   */
+  @Override
+  public int hashCode() {
+    if (mDeviceId == null) {
+      return mUserId.hashCode();
+    } else {
+      return mUserId.hashCode() ^ mDeviceId.hashCode();
+    }
+  }
+
+  /**
    * Get a string representation of the identifier.
    * @return A string in "userID" or "userID/deviceID" format.
    * @see #parse(String)
@@ -102,6 +146,14 @@ public class MMXid implements Serializable {
   @Override
   public String toString() {
     return (mDeviceId == null) ? mUserId : (mUserId+'/'+mDeviceId);
+  }
+
+  /**
+   * Get a JSON representation of the identifier.
+   * @return A JSON string representation.
+   */
+  public String toJson() {
+    return GsonData.getGson().toJson(this);
   }
 
   /**
@@ -117,5 +169,19 @@ public class MMXid implements Serializable {
     } else {
       return new MMXid(xid.substring(0, slash), xid.substring(slash+1));
     }
+  }
+
+  /**
+   * Convert the JSON representation of an identifier into the object.
+   * @param json The JSON string representation.
+   * @return An MMXid object.
+   */
+  public static MMXid fromJson(String json) {
+    return GsonData.getGson().fromJson(json, MMXid.class);
+  }
+
+  // Convert a Map into the object.
+  static MMXid fromMap(Map<String, String> map) {
+    return new MMXid(map.get("userId"), map.get("devId"));
   }
 }

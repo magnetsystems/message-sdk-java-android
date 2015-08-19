@@ -66,6 +66,8 @@ import com.magnet.mmx.protocol.TopicAction.RetractAllRequest;
 import com.magnet.mmx.protocol.TopicAction.RetractRequest;
 import com.magnet.mmx.protocol.TopicAction.SubscribeRequest;
 import com.magnet.mmx.protocol.TopicAction.SubscribeResponse;
+import com.magnet.mmx.protocol.TopicAction.SubscribersRequest;
+import com.magnet.mmx.protocol.TopicAction.SubscribersResponse;
 import com.magnet.mmx.protocol.TopicAction.SummaryRequest;
 import com.magnet.mmx.protocol.TopicAction.SummaryResponse;
 import com.magnet.mmx.protocol.TopicAction.TopicQueryResponse;
@@ -74,6 +76,7 @@ import com.magnet.mmx.protocol.TopicAction.TopicTags;
 import com.magnet.mmx.protocol.TopicAction.UnsubscribeRequest;
 import com.magnet.mmx.protocol.TopicInfo;
 import com.magnet.mmx.protocol.TopicSummary;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
 import com.magnet.mmx.util.TagUtil;
@@ -606,6 +609,43 @@ public class PubSubManager {
         return list;
       }
       throw new MMXException(e.getMessage(), e);
+    } catch (Throwable e) {
+      throw new MMXException(e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Get all subscribers to a topic.
+   * @param topic A topic object.
+   * @param limit -1 for unlimited, or > 0.
+   * @return
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   */
+  public List<UserInfo> getSubscribers(MMXTopic topic, int limit)
+      throws TopicNotFoundException, TopicPermissionException, MMXException {
+    if (topic instanceof MMXPersonalTopic) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+    }
+    String topicPath = TopicHelper.normalizePath(topic.getName());
+    SubscribersRequest rqt = new SubscribersRequest(
+        Utils.escapeNode(topic.getUserId()), topicPath, limit);
+    PubSubIQHandler<SubscribersRequest, SubscribersResponse> iqHandler =
+        new PubSubIQHandler<SubscribersRequest, SubscribersResponse>();
+    try {
+      iqHandler.sendSetIQ(mCon, Constants.PubSubCommand.getSubscribers.toString(),
+        rqt, SubscribersResponse.class, iqHandler);
+      SubscribersResponse resp = iqHandler.getResult();
+      return resp.getSubscribers();
+    } catch (MMXException e) {
+      if (e.getCode() == StatusCode.NOT_FOUND) {
+        throw new TopicNotFoundException(e.getMessage());
+      }
+      if (e.getCode() == StatusCode.FORBIDDEN) {
+        throw new TopicPermissionException(e.getMessage());
+      }
+      throw e;
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);
     }

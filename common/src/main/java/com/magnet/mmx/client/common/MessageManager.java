@@ -301,6 +301,26 @@ public class MessageManager {
     }
   }
 
+  private static class PacketCopy extends Packet {
+    private CharSequence text;
+
+    /**
+     * Create a copy of a packet with the text to send. The passed text must be
+     * a valid text to send to the server, no validation will be done on the
+     * passed text.
+     *
+     * @param text the whole text of the packet to send
+     */
+    public PacketCopy(CharSequence text) {
+      this.text = text;
+    }
+
+    @Override
+    public CharSequence toXML() {
+      return text;
+    }
+  }
+
   protected MessageManager(MMXConnection con) {
     mCon = con;
     mAckExecutor = new QueueExecutor("MMX Ack Sender", true);
@@ -420,6 +440,12 @@ public class MessageManager {
     if (options != null && options.isReceiptEnabled()) {
       msg.addExtension(new DeliveryReceiptRequest());
     }
+
+    // Reliable msg with multiple recipients, save recipients in mmxmeta stanza
+    if ((options == null || !options.isDroppable()) && xids.length > 1) {
+      payload.setTo(to);
+    }
+
     msg.addExtension(new MMXPacketExtension(payload));
     // The normal type and an empty body will disable off-line storage for this
     // message in MMX server.  The "." is just the smallest body
@@ -431,9 +457,19 @@ public class MessageManager {
 
     try {
       if (xids.length > 1) {
-        // Use XEP-0033 to address multiple recipients.
-        List<String> list = Arrays.asList(xids);
-        MultipleRecipientManager.send(xmppCon, msg, list, null, null);
+        // TODO: mmx interceptor has not implemented message status tracking in
+        // multicast router, use XEP-0033 only for unreliable msgs.  It may have
+        // performance problem for large set of recipients and large payload.
+        if (options != null && options.isDroppable()) {
+          // Use XEP-0033 to address multiple recipients.
+          List<String> list = Arrays.asList(xids);
+          MultipleRecipientManager.send(xmppCon, msg, list, null, null);
+        } else {
+          for (String xid : xids) {
+            msg.setTo(xid);
+            xmppCon.sendPacket(new PacketCopy(msg.toXML()));
+          }
+        }
       } else {
         msg.setTo(xids[0]);
         xmppCon.sendPacket(msg);

@@ -3,7 +3,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.1.3'
+        classpath 'com.android.tools.build:gradle:1.2.3'
     }
 }
 
@@ -27,7 +27,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "1.2.3"
+version = "1.5.0-SNAPSHOT"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -61,8 +61,8 @@ dependencies {
     compile 'com.google.android.gms:play-services-base:6.5.+'
     compile 'com.google.android.gms:play-services-location:6.5.+'
 
-    compile 'com.magnet.mmx:mmx-common-api:1.2.3'
     compile 'com.android.support:support-v4:19.1.0'
+    compile 'com.magnet.mmx:mmx-common-api:1.5.0-SNAPSHOT'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p2'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
@@ -112,7 +112,7 @@ task eclipseClean(type: Delete) {
 
 clean.dependsOn eclipseClean
 
-def javadocSource = [sourceSets.main.allJava, '../common/src/main/java']
+def javadocSource = [sourceSets.main.allJava, '../common/src/main/java', '../../message-common/src/main/java']
 
 task androidJavadocs(type: Javadoc) {
     println "generating JAVADOCS task:"
@@ -137,6 +137,7 @@ task androidJavadocs(type: Javadoc) {
     }
 
 // ADD PUBLIC APIS for JavaDoc here
+    include '**/client/api/*'
     include '**/AbstractMMXListener.java'
     include '**/MMXClient.java'
     include '**/MMXClientConfig.java'
