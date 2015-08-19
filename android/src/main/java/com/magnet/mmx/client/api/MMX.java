@@ -12,7 +12,6 @@ import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.*;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
-import com.magnet.mmx.protocol.UserInfo;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -26,28 +25,34 @@ public final class MMX {
     DEVICE_CONNECTION_FAILED,
     SERVER_AUTH_FAILED,
     SERVER_BAD_STATUS,
-    SERVER_EXCEPTION
+    SERVER_EXCEPTION,
+    REGISTRATION_INVALID_USERNAME,
+    REGISTRATION_USER_ALREADY_EXISTS
   }
   /**
    * The listener interface for handling incoming messages and message acknowledgements.
    */
-  public interface EventListener {
+  abstract static public class EventListener {
     /**
      * Invoked when incoming message is received.
      *
      * @param message the incoming message
      * @return true to consume this message, false for additional listeners to be called
      */
-    boolean onMessageReceived(MMXMessage message);
+    abstract public boolean onMessageReceived(MMXMessage message);
 
     /**
-     * Called when an acknowledgement is received.
+     * Called when an acknowledgement is received.  The default implementation of this is a
+     * no-op.
      *
      * @param from the user who acknowledged the message
      * @param messageId the message id that was acknowledged
      * @return true to consume this message, false for additional listeners to be called
      */
-    boolean onMessageAcknowledgementReceived(MMXid from, String messageId);
+    public boolean onMessageAcknowledgementReceived(MMXid from, String messageId) {
+      //default implementation is a no-op
+      return false;
+    }
   }
 
   /**

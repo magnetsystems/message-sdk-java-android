@@ -9,6 +9,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
+import com.magnet.mmx.util.XIDUtil;
 
 import org.apache.http.NameValuePair;
 import org.apache.http.message.BasicNameValuePair;
@@ -155,6 +156,9 @@ public class MMXUser {
     MMXTask<Integer> task = new MMXTask<Integer>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Integer doRun(MMXClient mmxClient) throws Throwable {
+        if (!XIDUtil.validateUserId(getUsername())) {
+          throw new IllegalArgumentException("Username is invalid"); //FIXME:  Change this to a custom-type
+        }
         Log.d(TAG, "register(): begin");
         MMXClientConfig config = MMX.getMMXClient().getConnectionInfo().clientConfig;
         HttpURLConnection conn;
@@ -206,14 +210,21 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        if (exception != null && exception instanceof SSLHandshakeException) {
-          Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
-                  "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
-                  "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
-        } else {
-          Log.d(TAG, "register(): exception caught", exception);
+        MMX.FailureCode code = MMX.FailureCode.DEVICE_ERROR;
+        if (exception != null) {
+          if (exception instanceof SSLHandshakeException) {
+            Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
+                    "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
+                    "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
+            code = MMX.FailureCode.DEVICE_CONNECTION_FAILED;
+          } else if (exception instanceof IllegalArgumentException) {
+            code = MMX.FailureCode.REGISTRATION_INVALID_USERNAME;
+          } else {
+            Log.d(TAG, "register(): exception caught", exception);
+            code = MMX.FailureCode.SERVER_EXCEPTION;
+          }
         }
-        listener.onFailure(MMX.FailureCode.DEVICE_ERROR, exception);
+        listener.onFailure(code, exception);
       }
 
       @Override
@@ -223,6 +234,9 @@ public class MMXUser {
           case 201:
             //success
             listener.onSuccess(null);
+            break;
+          case 409:
+            listener.onFailure(MMX.FailureCode.REGISTRATION_USER_ALREADY_EXISTS, null);
             break;
           default:
             listener.onFailure(MMX.FailureCode.SERVER_BAD_STATUS, null);

@@ -9,6 +9,7 @@ import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
+import com.magnet.mmx.client.common.MMXUserTopic;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
@@ -105,6 +106,17 @@ public class MMXChannel {
     }
 
     /**
+     * Set the private flag for this channel
+     *
+     * @param isPrivate the private flag
+     * @return this Builder object
+     */
+    Builder setPrivate(boolean isPrivate) {
+      mChannel.setPrivate(isPrivate);
+      return this;
+    }
+
+    /**
      * Build the channel object
      *
      * @return the channel
@@ -114,8 +126,18 @@ public class MMXChannel {
     }
   }
 
+  /**
+   * The results of a find operation
+   */
   public static class FindResult {
+    /**
+     * The total count of results
+     */
     public final int totalCount;
+
+    /**
+     * The result channels
+     */
     public final List<MMXChannel> channels;
 
     private FindResult(int totalCount, List<MMXChannel> channels) {
@@ -129,6 +151,7 @@ public class MMXChannel {
   private String mOwnerUsername;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
+  private boolean mPrivate;
   private Boolean mSubscribed;
 
   /**
@@ -300,8 +323,7 @@ public class MMXChannel {
   }
 
   private MMXTopic getMMXTopic() {
-    //TODO: handle private topics
-    return new MMXGlobalTopic(getName());
+    return isPrivate() ? new MMXUserTopic(getName(), getOwner()) : new MMXGlobalTopic(getName());
   }
 
   public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
@@ -360,6 +382,26 @@ public class MMXChannel {
   }
 
   /**
+   * Set the private flag for this channel
+   *
+   * @param isPrivate the private flag
+   * @return this MMXChannel object
+   */
+  MMXChannel setPrivate(boolean isPrivate) {
+    mPrivate = isPrivate;
+    return this;
+  }
+
+  /**
+   * Whether or not the current channel is private
+   *
+   * @return true if private, false if public
+   */
+  public boolean isPrivate() {
+    return mPrivate;
+  }
+
+  /**
    * Create the topic
    *
    * @param listener the listner for the newly created channel
@@ -371,7 +413,8 @@ public class MMXChannel {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
                 .setDescription(mSummary);
-        return psm.createTopic(getMMXTopic(), options);
+        MMXTopic topic = getMMXTopic();
+        return psm.createTopic(topic, options);
       }
 
       @Override
@@ -470,6 +513,41 @@ public class MMXChannel {
             .content(messageContent)
             .build();
     return message.send(listener);
+  }
+
+  public static class MMXInvite {
+
+
+  }
+
+  public void inviteUser(MMXUser invitee, String invitationText, MMX.OnFinishedListener<MMXInvite> listener) {
+    throw new RuntimeException("NOT YET IMPLEMENTED");
+  }
+
+  /**
+   * Retrieves all the subscribers for this channel.
+   *
+   * @param listener the listener for the subscribers
+   */
+  public void getAllSubscribers(final MMX.OnFinishedListener<Set<MMXUser>> listener) {
+    MMXTask<Void> task = new MMXTask<Void> (MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Void doRun(MMXClient mmxClient) throws Throwable {
+        return super.doRun(mmxClient);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        super.onException(exception);
+      }
+
+      @Override
+      public void onResult(Void result) {
+        super.onResult(result);
+      }
+    };
+    task.execute();
+    throw new RuntimeException("NOT YET IMPLEMETED");
   }
 
   /**
@@ -583,6 +661,7 @@ public class MMXChannel {
                       .ownerUsername(info.getCreator().getUserId())
                       .subscribed(subMap.containsKey(topic))
                       .summary(info.getDescription())
+                      .setPrivate(topic.isUserTopic())
                       .build()
       );
     }
