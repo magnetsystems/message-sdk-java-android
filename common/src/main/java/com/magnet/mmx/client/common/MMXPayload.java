@@ -21,12 +21,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Headers;
-import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.Payload;
 import com.magnet.mmx.util.Base64;
 import com.magnet.mmx.util.DisposableFile;
@@ -56,8 +54,7 @@ public class MMXPayload implements Serializable {
    */
   public final static String CONTENT_ENCODING = Headers.CONTENT_ENCODING;
   private static final long serialVersionUID = -1590042423835668427L;
-  private MmxHeaders mMmxMeta;
-  private Headers mMeta;
+  private Headers mHeaders;
   private Payload mPayload;
 
   /**
@@ -103,8 +100,7 @@ public class MMXPayload implements Serializable {
    * @see com.magnet.util.TypeMapper#getClassByType(String)
    */
   MMXPayload(String type, CharSequence textData) {
-    mMmxMeta = new MmxHeaders();
-    mMeta = new Headers();
+    mHeaders = new Headers();
     mPayload = new Payload(type, textData);
   }
 
@@ -120,8 +116,7 @@ public class MMXPayload implements Serializable {
    * @see com.magnet.util.TypeMapper#getClassByType(String)
    */
   MMXPayload(String type, DisposableFile fileData) {
-    mMmxMeta = new MmxHeaders();
-    mMeta = new Headers();
+    mHeaders = new Headers();
     mPayload = new Payload(type, fileData);
   }
 
@@ -129,48 +124,32 @@ public class MMXPayload implements Serializable {
    * @hide
    * An internal constructor used by incoming receiver.
    */
-  public MMXPayload(MmxHeaders mmxMeta, Headers meta, Payload payload) {
-    if ((mMmxMeta = mmxMeta) == null) {
-      mMmxMeta = new MmxHeaders();
-    }
-    if ((mMeta = meta) == null) {
-      mMeta = new Headers();
+  public MMXPayload(Headers headers, Payload payload) {
+    if ((mHeaders = headers) == null) {
+      mHeaders = new Headers();
     }
     mPayload = payload;
   }
 
   /**
-   * Set an MMX meta header to this payload.  Duplicated header will be
-   * overwritten.
-   * @param name A header name.
-   * @param value A JSON String value.
-   * @return
-   */
-  MMXPayload setMmxMetaData(String name, Object value) {
-    mMmxMeta.put(name, value);
-    return this;
-  }
-
-  /**
-   * Set all application meta <code>headers</code> to this payload.  Duplicated
-   * headers will be overwritten.
+   * Set all meta <code>headers</code> to this payload.  Duplicated headers will
+   * be overwritten.
    * @param headers A non-null collection of meta headers.
    * @return This object.
    */
   public MMXPayload setAllMetaData(Map<String, String> headers) {
-    mMeta.putAll(headers);
+    mHeaders.putAll(headers);
     return this;
   }
 
   /**
-   * Set an application meta header to this payload.  Duplicated header will be
-   * overwritten.
+   * Set a meta header to this payload.  Duplicated header will be overwritten.
    * @param name A header name.
    * @param value A value.
    * @return This object.
    */
   public MMXPayload setMetaData(String name, String value) {
-    mMeta.put(name, value);
+    mHeaders.put(name, value);
     return this;
   }
 
@@ -180,7 +159,7 @@ public class MMXPayload implements Serializable {
    * @return This object.
    */
   public MMXPayload setContentType(String value) {
-    mMeta.setContentType(value);
+    mHeaders.setContentType(value);
     return this;
   }
 
@@ -190,7 +169,7 @@ public class MMXPayload implements Serializable {
    * @return This object.
    */
   public MMXPayload setContentEncoding(String value) {
-    mMeta.setContentEncoding(value);
+    mHeaders.setContentEncoding(value);
     return this;
   }
 
@@ -200,38 +179,9 @@ public class MMXPayload implements Serializable {
 //   * @return This object.
 //   */
 //  public MMXPayload setReplyTo(MMXid value) {
-//    mHeaders.setReplyTo(value.toJson());
+//    mHeaders.setReplyTo(value.toString());
 //    return this;
 //  }
-
-  /**
-   * Specify the recipients in the header.  The JSON serialization will be
-   * performed just before the message is sent, but not in this method.
-   * @return This object.
-   */
-  MMXPayload setTo(MMXid[] xids) {
-    mMmxMeta.put(MmxHeaders.TO, xids);
-    return this;
-  }
-
-  /**
-   * Unmarshall the recipients from the deserialized JSON object to MMX ID's.
-   * This is not the counter part of {@link #setTo(MMXid[])}.
-   * @return
-   */
-  MMXid[] unmarshallTo() {
-    List<Map<String, String>> list = (List<Map<String, String>>)
-        mMmxMeta.getHeader(MmxHeaders.TO, null);
-    if (list == null) {
-      return null;
-    }
-    int i = 0;
-    MMXid[] xids = new MMXid[list.size()];
-    for (Map<String, String> map : list) {
-      xids[i++] = MMXid.fromMap(map);
-    }
-    return xids;
-  }
 
   /**
    * Get the identifier of the data.
@@ -305,7 +255,7 @@ public class MMXPayload implements Serializable {
    * @return The meta headers in this payload.
    */
   public Map<String, String> getAllMetaData() {
-    return mMeta;
+    return mHeaders;
   }
 
   /**
@@ -315,7 +265,7 @@ public class MMXPayload implements Serializable {
    * @return A value.
    */
   public String getMetaData(String name, String defVal) {
-    return mMeta.getHeader(name, defVal);
+    return mHeaders.getHeader(name, defVal);
   }
 
   /**
@@ -323,7 +273,7 @@ public class MMXPayload implements Serializable {
    * @return null or a content encoding type.
    */
   public String getContentEncoding() {
-    return mMeta.getContentEncoding(null);
+    return mHeaders.getContentEncoding(null);
   }
 
 //  /**
@@ -334,7 +284,7 @@ public class MMXPayload implements Serializable {
 //    String replyTo = mHeaders.getReplyTo(null);
 //    if (replyTo == null)
 //      return null;
-//    return MMXid.fromJson(replyTo);
+//    return MMXid.parse(replyTo);
 //  }
 
   /**
@@ -342,15 +292,7 @@ public class MMXPayload implements Serializable {
    * @return null or a content type.
    */
   public String getContentType() {
-    return mMeta.getContentType(null);
-  }
-
-  /**
-   * Get the internal MMX meta header extension object.
-   * @return
-   */
-  MmxHeaders getMmxMeta() {
-    return mMmxMeta;
+    return mHeaders.getContentType(null);
   }
 
   /**
@@ -358,8 +300,8 @@ public class MMXPayload implements Serializable {
    * Get the internal meta header extension object.
    * @return
    */
-  Headers getMetaExt() {
-    return mMeta;
+  public Headers getMetaExt() {
+    return mHeaders;
   }
 
   /**
@@ -367,7 +309,7 @@ public class MMXPayload implements Serializable {
    * Get the internal payload extension object.
    * @return
    */
-  Payload getPayloadExt() {
+  public Payload getPayloadExt() {
     return mPayload;
   }
 
@@ -378,8 +320,8 @@ public class MMXPayload implements Serializable {
    */
   int getSize() {
     int size = 0;
-    if (mMeta != null) {
-      for (Map.Entry<String, String> header : mMeta.entrySet()) {
+    if (mHeaders != null) {
+      for (Map.Entry<String, String> header : mHeaders.entrySet()) {
         size += header.getKey().length();
         size += header.getValue().length();
       }
@@ -396,6 +338,6 @@ public class MMXPayload implements Serializable {
 
   @Override
   public String toString() {
-    return "[ mmxmeta=("+mMmxMeta+"), meta=("+mMeta+"), payload="+mPayload+" ]";
+    return "[ meta=("+mHeaders+"), payload="+mPayload+" ]";
   }
 }

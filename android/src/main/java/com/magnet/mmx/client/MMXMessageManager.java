@@ -78,8 +78,8 @@ public final class MMXMessageManager extends MMXManager {
    * @return the generated message id of the resulting message
    * @throws MMXException Empty recipients or invalid payload size
    */
-  public String sendText(final MMXid[] recipients, final String message,
-                          final Options options) throws MMXException {
+  String sendText(final MMXid[] recipients, final String message, final Options options)
+                      throws MMXException {
     return sendPayload(recipients, new MMXPayload(message), options);
   }
 
@@ -114,7 +114,7 @@ public final class MMXMessageManager extends MMXManager {
    * @return the generated message id of the resulting message
    * @throws MMXException Empty recipients or invalid payload size
    */
-  public String sendPayload(final MMXid[] recipients, final MMXPayload payload, 
+  String sendPayload(final MMXid[] recipients, final MMXPayload payload, 
                      final Options options) throws MMXException {
     checkDestroyed();
     if (recipients == null || recipients.length == 0) {
