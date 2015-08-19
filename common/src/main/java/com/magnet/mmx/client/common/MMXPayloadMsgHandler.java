@@ -27,7 +27,6 @@ import org.xmlpull.v1.XmlPullParser;
 
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Headers;
-import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.Payload;
 import com.magnet.mmx.util.DisposableFile;
 import com.magnet.mmx.util.FileUtil;
@@ -65,33 +64,27 @@ public class MMXPayloadMsgHandler {
 
   // The encoder for the MMX stanza.
   public static class MMXPacketExtension implements PacketExtension {
-    private MmxHeaders mMmxMeta;
-    private Headers mMeta;
+    private Headers mHeaders;
     private Payload mPayload;
     private transient CharSequence mXml;
 
     public MMXPacketExtension(MMXPayload payload) {
-      this(payload.getMmxMeta(), payload.getMetaExt(), payload.getPayloadExt());
+      this(payload.getMetaExt(), payload.getPayloadExt());
     }
 
-    public MMXPacketExtension(Map<String, Object> mmxMeta,
-                               Map<String, String> meta, Payload payload) {
-      if (mmxMeta != null) {
-        mMmxMeta = new MmxHeaders();
-        mMmxMeta.putAll(mmxMeta);
-      }
-      if (meta != null) {
-        mMeta = new Headers();
-        mMeta.putAll(meta);
+    public MMXPacketExtension(Map<String, String> headers, Payload payload) {
+      if (headers != null) {
+        mHeaders = new Headers();
+        mHeaders.putAll(headers);
       }
       mPayload = payload;
       DisposableFile file = mPayload.getFile();
       if (file != null && file.isBinary()) {
-        if (mMeta == null) {
-          mMeta = new Headers();
+        if (mHeaders == null) {
+          mHeaders = new Headers();
         }
-        if (mMeta.getContentEncoding(null) == null) {
-          mMeta.setContentEncoding(Constants.BASE64);
+        if (mHeaders.getContentEncoding(null) == null) {
+          mHeaders.setContentEncoding(Constants.BASE64);
         }
       }
     }
@@ -122,15 +115,10 @@ public class MMXPayloadMsgHandler {
       xml.halfOpenElement(getElementName());
       xml.xmlnsAttribute(getNamespace());
       xml.rightAngelBracket();
-      if (mMmxMeta != null) {
-        xml.openElement(Constants.MMX_MMXMETA);
-        xml.append(GsonData.getGson().toJson(mMmxMeta));
-        xml.closeElement(Constants.MMX_MMXMETA);
-      }
-      if (mMeta != null) {
+      if (mHeaders != null) {
         xml.openElement(Constants.MMX_META);
         // The headers encoded by GSON is XML safe; no XML escape is needed.
-        xml.append(GsonData.getGson().toJson(mMeta));
+        xml.append(GsonData.getGson().toJson(mHeaders));
         xml.closeElement(Constants.MMX_META);
       }
       // The <payload/> element is mandatory.
@@ -168,7 +156,7 @@ public class MMXPayloadMsgHandler {
     }
 
     public MMXPayload getPayload() {
-      return new MMXPayload(mMmxMeta, mMeta, mPayload);
+      return new MMXPayload(mHeaders, mPayload);
     }
   }
 
@@ -176,17 +164,14 @@ public class MMXPayloadMsgHandler {
   public static class Provider implements PacketExtensionProvider {
     @Override
     public PacketExtension parseExtension(XmlPullParser parser) throws Exception {
-      MmxHeaders mmxMeta = null;
-      Headers meta = null;
+      Headers headers = null;
       Payload payload = null;
       boolean done = false;
       do {
         int eventType = parser.next();
         if (eventType == XmlPullParser.START_TAG) {
-          if (Constants.MMX_MMXMETA.equals(parser.getName())) {
-            mmxMeta = GsonData.getGson().fromJson(parser.nextText(), MmxHeaders.class);
-          } else if (Constants.MMX_META.equals(parser.getName())) {
-            meta = GsonData.getGson().fromJson(parser.nextText(), Headers.class);
+          if (Constants.MMX_META.equals(parser.getName())) {
+            headers = GsonData.getGson().fromJson(parser.nextText(), Headers.class);
           } else if (Constants.MMX_PAYLOAD.equals(parser.getName())) {
             String mtype = parser.getAttributeValue(null, Constants.MMX_ATTR_MTYPE);
             String cid = parser.getAttributeValue(null, Constants.MMX_ATTR_CID);
@@ -207,7 +192,7 @@ public class MMXPayloadMsgHandler {
         }
       } while (!done);
 
-      return new MMXPacketExtension(mmxMeta, meta, payload);
+      return new MMXPacketExtension(headers, payload);
     }
   }
 

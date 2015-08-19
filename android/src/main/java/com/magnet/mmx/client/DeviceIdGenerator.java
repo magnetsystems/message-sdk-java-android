@@ -88,8 +88,8 @@ class DeviceIdGenerator {
       if (isAndroidEmulator() ||
           TextUtils.isEmpty(devId = getHardwareDeviceId(context))) {
         UUID uuid = UUID.randomUUID();
-        result = Long.toString(uuid.getMostSignificantBits() & Long.MAX_VALUE, 36) +
-                 Long.toString(uuid.getLeastSignificantBits() & Long.MAX_VALUE, 36);
+        result = Long.toString(uuid.getMostSignificantBits(), 36) +
+                 Long.toString(uuid.getLeastSignificantBits(), 36);
       } else {
         try {
           MessageDigest md = MessageDigest.getInstance("SHA-1");
