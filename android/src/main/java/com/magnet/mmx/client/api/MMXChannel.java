@@ -679,12 +679,12 @@ public class MMXChannel {
     }
 
     /**
-     * Reject this invitation.  This will notify the inviter.
+     * Decline this invitation.  This will notify the inviter.
      *
      * @param text text to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void reject(String text, final MMX.OnFinishedListener<MMXInvite> listener) {
+    public void decline(String text, final MMX.OnFinishedListener<MMXInvite> listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't reject an outgoing invite");
       }
