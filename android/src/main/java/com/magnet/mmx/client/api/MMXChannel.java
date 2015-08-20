@@ -419,13 +419,24 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, new Exception(exception));
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
 
       @Override
-      public void onResult(MMXTopic result) {
+      public void onResult(final MMXTopic createResult) {
         MMXChannel.this.ownerUsername(MMX.getCurrentUser().getUsername());
-        listener.onSuccess(MMXChannel.fromMMXTopic(result));
+        //subscribe to this channel
+        //FIXME: Eventually this should go away and instead be invoked by passing in the options during creation
+        MMXChannel.this.subscribe(new MMX.OnFinishedListener<String>() {
+          public void onSuccess(String result) {
+            Log.d(TAG, "subscription success for channel: " + MMXChannel.this.getName());
+          }
+
+          public void onFailure(MMX.FailureCode code, Throwable ex) {
+            Log.e(TAG, "subscription failed for channel: " + MMXChannel.this.getName());
+          }
+        });
+        listener.onSuccess(MMXChannel.fromMMXTopic(createResult));
       }
     };
     task.execute();
