@@ -386,6 +386,7 @@ public class MMXMessage {
         }
       };
     }
+    id(generatedMessageId);
     task.execute();
     return generatedMessageId;
   }

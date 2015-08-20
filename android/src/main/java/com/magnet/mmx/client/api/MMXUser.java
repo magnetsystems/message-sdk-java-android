@@ -314,4 +314,13 @@ public class MMXUser {
   public int hashCode() {
     return mUsername.hashCode();
   }
+
+  /**
+   * Validates the specified userId.  Returns true for a valid userId.
+   * @param userId the user id to validate
+   * @return true if valid, false otherwise
+   */
+  public static boolean isValidUserId(String userId) {
+    return XIDUtil.validateUserId(userId);
+  }
 }

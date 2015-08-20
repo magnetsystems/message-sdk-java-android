@@ -199,7 +199,7 @@ public class MMXChannel {
    *
    * @return the owner, null if not yet retrieved
    */
-  public String getOwner() {
+  public String getOwnerUsername() {
     return mOwnerUsername;
   }
 
@@ -306,15 +306,24 @@ public class MMXChannel {
 
   MMXTopic getMMXTopic() {
     if (isPrivate()) {
-      if (getOwner() == null) {
+      if (getOwnerUsername() == null) {
         return new MMXPersonalTopic(getName());
       } else {
-        return new MMXUserTopic(getOwner(), getName());
+        return new MMXUserTopic(getOwnerUsername(), getName());
       }
     }
     return new MMXGlobalTopic(getName());
   }
 
+  /**
+   * Retrieve all of the messages for this channel
+   *
+   * @param startDate filter based on start date, or null for no filter
+   * @param endDate filter based on end date, or null for no filter
+   * @param limit the maximum number of messages to return
+   * @param ascending the chronological sort order of the results
+   * @param listener the listener for the results of this operation
+   */
   public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
                        final MMX.OnFinishedListener<List<MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
@@ -323,6 +332,7 @@ public class MMXChannel {
       @Override
       public List<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
+        //FIXME:  This should really return a ListResult<MMXMessage> with the total count
         return psm.getItems(topic, new TopicAction.FetchOptions()
                 .setSince(startDate)
                 .setUntil(endDate)
@@ -413,6 +423,7 @@ public class MMXChannel {
 
       @Override
       public void onResult(MMXTopic result) {
+        MMXChannel.this.ownerUsername(MMX.getCurrentUser().getUsername());
         listener.onSuccess(MMXChannel.fromMMXTopic(result));
       }
     };
@@ -504,6 +515,178 @@ public class MMXChannel {
     return message.send(listener);
   }
 
+
+
+  /**
+   * Sends an invitation to the specified user for this channel.
+   *
+   * @param invitee the invitee
+   * @param invitationText the text to include in the invite
+   * @param listener the listener for success/failure of this operation
+   */
+  public void inviteUser(final MMXUser invitee, final String invitationText,
+                         final MMX.OnFinishedListener<MMXInvite> listener) {
+    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
+    MMXInvite invite = new MMXInvite(inviteInfo, false);
+    invite.send(listener);
+  }
+
+  /**
+   * Retrieves all the subscribers for this channel.
+   *
+   * @param limit the maximum number of subscribers to return
+   * @param listener the listener for the subscribers
+   */
+  public void getAllSubscribers(final int limit, final MMX.OnFinishedListener<ListResult<MMXUser>> listener) {
+    MMXTask<MMXResult<List<UserInfo>>> task =
+            new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public MMXResult<List<UserInfo>> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.getSubscribers(getMMXTopic(), limit);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(MMXResult<List<UserInfo>> result) {
+        ArrayList<MMXUser> users = new ArrayList<MMXUser>();
+        for (UserInfo userInfo : result.getResult()) {
+          users.add(new MMXUser.Builder()
+                  .displayName(userInfo.getDisplayName())
+                  .username(userInfo.getUserId())
+                  .build());
+        }
+        listener.onSuccess(new ListResult<MMXUser>(result.getTotal(), users));
+      }
+    };
+    task.execute();
+  }
+
+  /**
+   * Find the channel that starts with the specified text.
+   *
+   * @param startsWith the search string
+   * @param limit the maximum number of results to return
+   * @param listener the listener for the query results
+   */
+  public static void findByName(final String startsWith, final int limit,
+                                final MMX.OnFinishedListener<ListResult<MMXChannel>> listener) {
+    MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
+            MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        TopicAction.TopicSearch search = new TopicAction.TopicSearch()
+                .setTopicName(startsWith, SearchAction.Match.PREFIX);
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
+        List<MMXChannel> channels = fromTopicInfos(searchResult.getResults());
+        return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
+      }
+
+      @Override
+      public void onResult(ListResult<MMXChannel> result) {
+        //build the query result
+        listener.onSuccess(result);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+    };
+    task.execute();
+  }
+
+  /**
+   * Query for the specified tags (inclusive)
+   *
+   * @param tags the tags to match
+   * @param listener the listener for the query results
+   */
+  public static void findByTags(final Set<String> tags, final int limit,
+                                final MMX.OnFinishedListener<ListResult<MMXChannel>> listener) {
+    MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
+            MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        TopicAction.TopicSearch search = new TopicAction.TopicSearch()
+                .setTags(new ArrayList<String>(tags));
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
+        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
+        return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
+      }
+
+      @Override
+      public void onResult(ListResult<MMXChannel> result) {
+        //build the query result
+        listener.onSuccess(result);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+    };
+    task.execute();
+  }
+
+  static MMXChannel fromMMXTopic(MMXTopic topic) {
+    if (topic == null) {
+      return null;
+    }
+    return new MMXChannel()
+            .name(topic.getName())
+            .ownerUsername(topic.getUserId());
+  }
+
+  private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos) throws MMXException {
+    MMXPubSubManager psm = MMX.getMMXClient().getPubSubManager();
+
+    //get subscriptions
+    List<MMXSubscription> subscriptions = psm.listAllSubscriptions();
+    HashMap<MMXTopic, MMXSubscription> subMap = new HashMap<MMXTopic, MMXSubscription>();
+    for (MMXSubscription subscription : subscriptions) {
+      subMap.put(subscription.getTopic(), subscription);
+    }
+
+    //get topic summaries
+    HashMap<MMXTopic, MMXTopicInfo> topicInfoMap = new HashMap<MMXTopic, MMXTopicInfo>();
+    ArrayList<MMXTopic> topics = new ArrayList<MMXTopic>(topicInfos.size());
+    for (MMXTopicInfo info : topicInfos) {
+      MMXTopic topic = info.getTopic();
+      topics.add(topic);
+      topicInfoMap.put(topic, info);
+    }
+    List<TopicSummary> summaries = psm.getTopicSummary(topics, null, null);
+
+    ArrayList<MMXChannel> channels = new ArrayList<MMXChannel>();
+    for (TopicSummary summary : summaries) {
+      MMXTopic topic = summary.getTopicNode();
+      MMXTopicInfo info = topicInfoMap.get(topic);
+
+      channels.add(new MMXChannel.Builder()
+                      .lastTimeActive(summary.getLastPubTime())
+                      .name(topic.getName())
+                      .numberOfMessages(summary.getCount())
+                      .ownerUsername(info.getCreator().getUserId())
+                      .subscribed(subMap.containsKey(topic))
+                      .summary(info.getDescription())
+                      .setPrivate(topic.isUserTopic())
+                      .build()
+      );
+    }
+    return channels;
+  }
+
+  // ***************************
+  // CODE RELATED TO INVITATIONS
+  // ***************************
+
   /**
    * The basic fields that are included in an invitation.
    */
@@ -512,6 +695,7 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_NAME = "channelName";
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
     private static final String KEY_CHANNEL_IS_PRIVATE = "channelIsPrivate";
+    private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private MMXChannel mChannel;
     private MMXUser mInvitee;
     private MMXUser mInviter;
@@ -568,6 +752,7 @@ public class MMXChannel {
       content.put(KEY_CHANNEL_NAME, mChannel.getName());
       content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
       content.put(KEY_CHANNEL_IS_PRIVATE, String.valueOf(mChannel.isPrivate()));
+      content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
       return content;
     }
 
@@ -577,10 +762,12 @@ public class MMXChannel {
       String channelName = content.get(KEY_CHANNEL_NAME);
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
       String channelIsPrivate = content.get(KEY_CHANNEL_IS_PRIVATE);
+      String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPrivate(Boolean.parseBoolean(channelIsPrivate))
+              .ownerUsername(channelOwnerUsername)
               .build();
       return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
     }
@@ -789,172 +976,5 @@ public class MMXChannel {
       response.setResponseText(responseText);
       return response;
     }
-  }
-
-  /**
-   * Sends an invitation to the specified user for this channel.
-   *
-   * @param invitee the invitee
-   * @param invitationText the text to include in the invite
-   * @param listener the listener for success/failure of this operation
-   */
-  public void inviteUser(final MMXUser invitee, final String invitationText,
-                         final MMX.OnFinishedListener<MMXInvite> listener) {
-    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
-    MMXInvite invite = new MMXInvite(inviteInfo, false);
-    invite.send(listener);
-  }
-
-  /**
-   * Retrieves all the subscribers for this channel.
-   *
-   * @param limit the maximum number of subscribers to return
-   * @param listener the listener for the subscribers
-   */
-  public void getAllSubscribers(final int limit, final MMX.OnFinishedListener<ListResult<MMXUser>> listener) {
-    MMXTask<MMXResult<List<UserInfo>>> task =
-            new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public MMXResult<List<UserInfo>> doRun(MMXClient mmxClient) throws Throwable {
-        MMXPubSubManager psm = mmxClient.getPubSubManager();
-        return psm.getSubscribers(getMMXTopic(), limit);
-      }
-
-      @Override
-      public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
-      }
-
-      @Override
-      public void onResult(MMXResult<List<UserInfo>> result) {
-        ArrayList<MMXUser> users = new ArrayList<MMXUser>();
-        for (UserInfo userInfo : result.getResult()) {
-          users.add(new MMXUser.Builder()
-                  .displayName(userInfo.getDisplayName())
-                  .username(userInfo.getUserId())
-                  .build());
-        }
-        listener.onSuccess(new ListResult<MMXUser>(result.getTotal(), users));
-      }
-    };
-    task.execute();
-  }
-
-  /**
-   * Find the channel that starts with the specified text.
-   *
-   * @param startsWith the search string
-   * @param limit the maximum number of results to return
-   * @param listener the listener for the query results
-   */
-  public static void findByName(final String startsWith, final int limit,
-                                final MMX.OnFinishedListener<ListResult<MMXChannel>> listener) {
-    MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
-            MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
-        MMXPubSubManager psm = mmxClient.getPubSubManager();
-        TopicAction.TopicSearch search = new TopicAction.TopicSearch()
-                .setTopicName(startsWith, SearchAction.Match.PREFIX);
-        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
-        List<MMXChannel> channels = fromTopicInfos(searchResult.getResults());
-        return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
-      }
-
-      @Override
-      public void onResult(ListResult<MMXChannel> result) {
-        //build the query result
-        listener.onSuccess(result);
-      }
-
-      @Override
-      public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
-      }
-    };
-    task.execute();
-  }
-
-  /**
-   * Query for the specified tags (inclusive)
-   *
-   * @param tags the tags to match
-   * @param listener the listener for the query results
-   */
-  public static void findByTags(final Set<String> tags, final int limit,
-                                final MMX.OnFinishedListener<ListResult> listener) {
-    MMXTask<ListResult> task = new MMXTask<ListResult>(
-            MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public ListResult doRun(MMXClient mmxClient) throws Throwable {
-        MMXPubSubManager psm = mmxClient.getPubSubManager();
-        TopicAction.TopicSearch search = new TopicAction.TopicSearch()
-                .setTags(new ArrayList<String>(tags));
-        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
-        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
-        return new ListResult(searchResult.getTotal(), channels);
-      }
-
-      @Override
-      public void onResult(ListResult result) {
-        //build the query result
-        listener.onSuccess(result);
-      }
-
-      @Override
-      public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
-      }
-    };
-    task.execute();
-  }
-
-  static MMXChannel fromMMXTopic(MMXTopic topic) {
-    if (topic == null) {
-      return null;
-    }
-    return new MMXChannel()
-            .name(topic.getName())
-            .ownerUsername(topic.getUserId());
-  }
-
-
-  private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos) throws MMXException {
-    MMXPubSubManager psm = MMX.getMMXClient().getPubSubManager();
-
-    //get subscriptions
-    List<MMXSubscription> subscriptions = psm.listAllSubscriptions();
-    HashMap<MMXTopic, MMXSubscription> subMap = new HashMap<MMXTopic, MMXSubscription>();
-    for (MMXSubscription subscription : subscriptions) {
-      subMap.put(subscription.getTopic(), subscription);
-    }
-
-    //get topic summaries
-    HashMap<MMXTopic, MMXTopicInfo> topicInfoMap = new HashMap<MMXTopic, MMXTopicInfo>();
-    ArrayList<MMXTopic> topics = new ArrayList<MMXTopic>(topicInfos.size());
-    for (MMXTopicInfo info : topicInfos) {
-      MMXTopic topic = info.getTopic();
-      topics.add(topic);
-      topicInfoMap.put(topic, info);
-    }
-    List<TopicSummary> summaries = psm.getTopicSummary(topics, null, null);
-
-    ArrayList<MMXChannel> channels = new ArrayList<MMXChannel>();
-    for (TopicSummary summary : summaries) {
-      MMXTopic topic = summary.getTopicNode();
-      MMXTopicInfo info = topicInfoMap.get(topic);
-
-      channels.add(new MMXChannel.Builder()
-                      .lastTimeActive(summary.getLastPubTime())
-                      .name(topic.getName())
-                      .numberOfMessages(summary.getCount())
-                      .ownerUsername(info.getCreator().getUserId())
-                      .subscribed(subMap.containsKey(topic))
-                      .summary(info.getDescription())
-                      .setPrivate(topic.isUserTopic())
-                      .build()
-      );
-    }
-    return channels;
   }
 }
