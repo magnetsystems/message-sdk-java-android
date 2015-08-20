@@ -51,6 +51,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     MMXChannel channel = new MMXChannel.Builder()
             .name(channelName)
             .summary(channelSummary)
+            .setPublic(true)
             .build();
     helpCreate(channel);
     helpFind(channelName, 1);
@@ -67,7 +68,6 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     MMXChannel channel = new MMXChannel.Builder()
             .name(channelName)
             .summary(channelSummary)
-            .setPrivate(true)
             .build();
     helpCreate(channel);
     helpFind(channelName, 0); // 0 because private channels should not show up on search
@@ -84,7 +84,6 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     MMXChannel channel = new MMXChannel.Builder()
             .name(channelName)
             .summary(channelSummary)
-            .setPrivate(true)
             .build();
     helpCreate(channel);
 
