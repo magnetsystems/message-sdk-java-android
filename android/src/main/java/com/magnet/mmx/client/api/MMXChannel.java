@@ -108,13 +108,13 @@ public class MMXChannel {
     }
 
     /**
-     * Set the private flag for this channel
+     * Set the public flag for this channel
      *
-     * @param isPrivate the private flag
+     * @param isPublic the public flag
      * @return this Builder object
      */
-    Builder setPrivate(boolean isPrivate) {
-      mChannel.setPrivate(isPrivate);
+    public Builder setPublic(boolean isPublic) {
+      mChannel.setPublic(isPublic);
       return this;
     }
 
@@ -133,7 +133,7 @@ public class MMXChannel {
   private String mOwnerUsername;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
-  private boolean mPrivate;
+  private boolean mPublic;
   private Boolean mSubscribed;
 
   /**
@@ -305,7 +305,7 @@ public class MMXChannel {
   }
 
   MMXTopic getMMXTopic() {
-    if (isPrivate()) {
+    if (!isPublic()) {
       if (getOwnerUsername() == null) {
         return new MMXPersonalTopic(getName());
       } else {
@@ -381,29 +381,30 @@ public class MMXChannel {
   }
 
   /**
-   * Set the private flag for this channel
+   * Set the public flag for this channel
    *
-   * @param isPrivate the private flag
+   * @param isPublic the public flag
    * @return this MMXChannel object
    */
-  MMXChannel setPrivate(boolean isPrivate) {
-    mPrivate = isPrivate;
+  MMXChannel setPublic(boolean isPublic) {
+    mPublic = isPublic;
     return this;
   }
 
   /**
-   * Whether or not the current channel is private
+   * Whether or not the current channel is public
    *
-   * @return true if private, false if public
+   * @return true if public, false if private
    */
-  public boolean isPrivate() {
-    return mPrivate;
+  public boolean isPublic() {
+    return mPublic;
   }
 
   /**
-   * Create the topic
+   * Create the channel.  The default behavior is to create a private channel.
    *
    * @param listener the listner for the newly created channel
+   * @see Builder#setPublic(boolean)
    */
   public void create(final MMX.OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
@@ -418,13 +419,24 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, new Exception(exception));
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
       }
 
       @Override
-      public void onResult(MMXTopic result) {
+      public void onResult(final MMXTopic createResult) {
         MMXChannel.this.ownerUsername(MMX.getCurrentUser().getUsername());
-        listener.onSuccess(MMXChannel.fromMMXTopic(result));
+        //subscribe to this channel
+        //FIXME: Eventually this should go away and instead be invoked by passing in the options during creation
+        MMXChannel.this.subscribe(new MMX.OnFinishedListener<String>() {
+          public void onSuccess(String result) {
+            Log.d(TAG, "subscription success for channel: " + MMXChannel.this.getName());
+          }
+
+          public void onFailure(MMX.FailureCode code, Throwable ex) {
+            Log.e(TAG, "subscription failed for channel: " + MMXChannel.this.getName());
+          }
+        });
+        listener.onSuccess(MMXChannel.fromMMXTopic(createResult));
       }
     };
     task.execute();
@@ -673,7 +685,7 @@ public class MMXChannel {
                       .ownerUsername(info.getCreator().getUserId())
                       .subscribed(subMap.containsKey(topic))
                       .summary(info.getDescription())
-                      .setPrivate(topic.isUserTopic())
+                      .setPublic(!topic.isUserTopic())
                       .build()
       );
     }
@@ -691,7 +703,7 @@ public class MMXChannel {
     private static final String KEY_TEXT = "text";
     private static final String KEY_CHANNEL_NAME = "channelName";
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
-    private static final String KEY_CHANNEL_IS_PRIVATE = "channelIsPrivate";
+    private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private MMXChannel mChannel;
     private MMXUser mInvitee;
@@ -748,7 +760,7 @@ public class MMXChannel {
       }
       content.put(KEY_CHANNEL_NAME, mChannel.getName());
       content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
-      content.put(KEY_CHANNEL_IS_PRIVATE, String.valueOf(mChannel.isPrivate()));
+      content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
       content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
       return content;
     }
@@ -758,12 +770,12 @@ public class MMXChannel {
       String text = content.get(KEY_TEXT);
       String channelName = content.get(KEY_CHANNEL_NAME);
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
-      String channelIsPrivate = content.get(KEY_CHANNEL_IS_PRIVATE);
+      String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
       String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
-              .setPrivate(Boolean.parseBoolean(channelIsPrivate))
+              .setPublic(Boolean.parseBoolean(channelIsPublic))
               .ownerUsername(channelOwnerUsername)
               .build();
       return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
