@@ -555,10 +555,7 @@ public class MMXChannel {
       public void onResult(MMXResult<List<UserInfo>> result) {
         ArrayList<MMXUser> users = new ArrayList<MMXUser>();
         for (UserInfo userInfo : result.getResult()) {
-          users.add(new MMXUser.Builder()
-                  .displayName(userInfo.getDisplayName())
-                  .username(userInfo.getUserId())
-                  .build());
+          users.add(MMXUser.fromUserInfo(userInfo));
         }
         listener.onSuccess(new ListResult<MMXUser>(result.getTotal(), users));
       }

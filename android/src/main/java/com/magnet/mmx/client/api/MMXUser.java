@@ -1,9 +1,11 @@
 package com.magnet.mmx.client.api;
 
+import com.magnet.mmx.client.MMXAccountManager;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
@@ -15,7 +17,10 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLHandshakeException;
@@ -268,10 +273,7 @@ public class MMXUser {
         List<UserInfo> userInfos = response.getUsers();
         ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
         for (UserInfo userInfo : userInfos) {
-          resultList.add(new MMXUser.Builder()
-                  .username(userInfo.getUserId())
-                  .displayName(userInfo.getDisplayName())
-                  .build());
+          resultList.add(fromUserInfo(userInfo));
         }
         return new ListResult<MMXUser>(response.getTotalCount(), resultList);
       }
@@ -293,6 +295,53 @@ public class MMXUser {
     task.execute();
   }
 
+  /**
+   * Retrieve the MMXUser objects or the specified set of usernames.  This is an case-insensitive
+   * exact-match search.
+   *
+   * @param usernames the usernames to lookup
+   * @param listener the listener for the results of this operation
+   */
+  public static void findByNames(final HashSet<String> usernames,
+                                 final MMX.OnFinishedListener<HashMap<String, MMXUser>> listener) {
+    MMXTask<Map<String, UserInfo>> task =
+            new MMXTask<Map<String, UserInfo>>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Map<String, UserInfo> doRun(MMXClient mmxClient) throws Throwable {
+        MMXAccountManager am = mmxClient.getAccountManager();
+        return am.getUserInfo(usernames);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+
+      @Override
+      public void onResult(Map<String, UserInfo> result) {
+        HashMap<String, MMXUser> results = new HashMap<String, MMXUser>();
+        for (Map.Entry<String, UserInfo> entry : result.entrySet()) {
+          results.put(entry.getKey(), fromUserInfo(entry.getValue()));
+        }
+        listener.onSuccess(results);
+      }
+    };
+    task.execute();
+  }
+
+  static MMXUser fromUserInfo(UserInfo userInfo) {
+    return new MMXUser.Builder()
+            .displayName(userInfo.getDisplayName())
+            .username(userInfo.getUserId())
+            .build();
+  }
+
+  static MMXUser fromMMXid(MMXid mmxId) {
+    return new MMXUser.Builder()
+            .displayName(mmxId.getDisplayName())
+            .username(mmxId.getUserId())
+            .build();
+  }
   /**
    * Implementation of the equals method that checks username equality only (case-insensitive)
    *

@@ -488,18 +488,12 @@ public class MMXMessage {
     HashSet<MMXUser> recipients = new HashSet<MMXUser>();
     if (topic == null) {
       //this is normal message.  getReplyAll() returns null for pubsub messages
-      MMXUser receiver = new MMXUser.Builder()
-              .username(message.getTo().getUserId())
-              .displayName(message.getTo().getDisplayName())
-              .build();
+      MMXUser receiver = MMXUser.fromMMXid(message.getTo());
       recipients.add(receiver);
       MMXid[] otherRecipients = message.getReplyAll();
       if (otherRecipients != null) {
         for (MMXid otherRecipient : otherRecipients) {
-          MMXUser recipient = new MMXUser.Builder()
-                  .username(otherRecipient.getUserId())
-                  .displayName(otherRecipient.getDisplayName())
-                  .build();
+          MMXUser recipient = MMXUser.fromMMXid(otherRecipient);
           recipients.add(recipient);
         }
       }
@@ -510,10 +504,7 @@ public class MMXMessage {
     }
 
     MMXMessage newMessage = new MMXMessage();
-    MMXUser sender = new MMXUser.Builder()
-            .username(message.getFrom().getUserId())
-            .displayName(message.getFrom().getDisplayName())
-            .build();
+    MMXUser sender = MMXUser.fromMMXid(message.getFrom());
     return newMessage
             .sender(sender)
             .id(message.getId())

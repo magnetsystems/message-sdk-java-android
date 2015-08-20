@@ -272,10 +272,7 @@ public final class MMX {
             break;
           case CONNECTED:
             try {
-              sInstance.mCurrentUser = new MMXUser.Builder()
-                    .username(client.getClientId().getUserId())
-                    .displayName(client.getClientId().getDisplayName())
-                    .build();
+              sInstance.mCurrentUser = MMXUser.fromMMXid(client.getClientId());
               listener.onSuccess(null);
               unregisterListener = true;
             } catch (MMXException e) {
