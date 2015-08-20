@@ -231,7 +231,7 @@ public class MMXPayload implements Serializable {
   MMXid unmarshallFrom() {
     Map<String, String> map = (Map<String, String>) mMmxMeta.getHeader(
         MmxHeaders.FROM, null);
-    return MMXid.fromMap(map);
+    return (map == null) ? null : MMXid.fromMap(map);
   }
 
   /**
