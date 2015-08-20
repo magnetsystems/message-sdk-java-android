@@ -336,6 +336,13 @@ public final class MMXClient {
       }
     }
     
+    public void onMessageAccepted(MMXid recipient, String msgId) {
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "onMessageAccepted() start; recipeint="+recipient+", msgID="+msgId);
+      }
+      // TODO: a server ack is received.
+    }
+    
     public void onMessageFailed(String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onMessageFailed() start; msgID="+msgId);

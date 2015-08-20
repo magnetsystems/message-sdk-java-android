@@ -106,8 +106,9 @@ public class MMXConnection implements ConnectionListener {
   public final static int AUTH_ANONYMOUS = 0x2;
 
   static {
-    // Register the Message Provider, so it can parse unsolicited messages.
+    // Register the Message Providers, so it can parse unsolicited messages.
     MMXPayloadMsgHandler.registerMsgProvider();
+    MMXSignalMsgHandler.registerMsgProvider();
   }
 
   /**

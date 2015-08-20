@@ -18,6 +18,7 @@ package com.magnet.mmx.client.common;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.HashSet;
 
 import org.jivesoftware.smack.packet.Message;
@@ -117,7 +118,7 @@ public class MMXMessage implements Serializable {
 
   /**
    * Get the current recipient with the display name.
-   * @return
+   * @return The current recipient.
    */
   public MMXid getTo() {
     if (mToXid == null) {
@@ -136,7 +137,7 @@ public class MMXMessage implements Serializable {
   }
 
   /**
-   * Get all explicit recipients which may be end-points or users.
+   * Get all explicitly specified recipients of this message.
    * @return The recipients.
    */
   public MMXid[] getTos() {
@@ -220,7 +221,7 @@ public class MMXMessage implements Serializable {
    */
   @Override
   public String toString() {
-    return "[ id=" + getId() + ", from=" + getFrom() + ", to=" + getTos()
+    return "[ id=" + getId() + ", from=" + getFrom() + ", tos=" + Arrays.asList(getTos())
         + ", rcptId=" + getReceiptId() + ", rcptMsgId=" + getMsgIdFromReceipt()
         + ", data=" + getPayload() + " ]";
   }

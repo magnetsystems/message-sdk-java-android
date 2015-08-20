@@ -31,10 +31,17 @@ public interface MMXMessageListener {
    */
   public void onMessageReceived( MMXMessage message, String receiptId );
   /**
-   * A callback when a message is sent successfully.
+   * A callback when a message has left the sender.
    * @param msgId The message ID.
    */
   public void onMessageSent( String msgId );
+  /**
+   * A callback when a message is accepted by the server.  It is for reliable
+   * messaging.
+   * @param receiver A receiver of the message.
+   * @param msgId The message ID.
+   */
+  public void onMessageAccepted( MMXid receiver, String msgId );
   /**
    * A callback when sending a message failed due to network issue.  Typically
    * it will be followed by the connection close callback.

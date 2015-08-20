@@ -35,11 +35,19 @@ public class MMXMessageHandler implements MMXMessageListener {
   public void onMessageReceived(MMXMessage message, String receiptId) {
   }
   /**
-   * An empty callback when a message is sent successfully.
+   * An empty callback when a message has left the sender successfully.
    * @param msgId The message ID.
    */
   @Override
   public void onMessageSent(String msgId) {
+  }
+  /**
+   * An empty callback when a message is accepted by the server.
+   * @param receiver The receiver of the message.
+   * @param msgId The message ID.
+   */
+  @Override
+  public void onMessageAccepted(MMXid receiver, String msgId) {
   }
   /**
    * An empty callback when the message is failed sending.

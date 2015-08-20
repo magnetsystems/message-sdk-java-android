@@ -49,6 +49,7 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.MessageCommand;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.MsgAck;
 import com.magnet.mmx.protocol.MsgEvents;
 import com.magnet.mmx.protocol.MsgId;
@@ -206,6 +207,26 @@ public class MessageManager {
     }
   };
 
+  // Reliable message sent callback
+  private PacketListener mMsgSignalPacketListener = new PacketListener() {
+    @Override
+    public void processPacket(final Packet packet) throws NotConnectedException {
+      mCon.getExecutor().post(new Runnable() {
+        @Override
+        public void run() {
+          final MMXMessageListener listener = mCon.getMessageListener();
+          MMXSignalMsgHandler.MMXPacketExtension extension = packet.getExtension(
+              Constants.MMX, Constants.MMX_NS_MSG_SIGNAL);
+          MmxHeaders mmxMeta = extension.getMmxMeta();
+          ServerAck serverAck = ServerAck.parse(mmxMeta);
+          // TODO: how to do the callback for the server ack?
+          mCon.getMessageListener().onMessageAccepted(serverAck.getReceiver(),
+                serverAck.getMsgId());
+        }
+      });
+    }
+  };
+
 //  private PacketListener mMsgPayloadSendListener = new PacketListener() {
 //    @Override
 //    public void processPacket(Packet packet) throws NotConnectedException {
@@ -219,6 +240,7 @@ public class MessageManager {
 //    }
 //  };
 
+  // Unreliable message sent callback
   private PacketListener mMsgPayloadSentListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
@@ -351,9 +373,14 @@ public class MessageManager {
     PacketFilter extFilter = new OrFilter(
         new PacketExtensionFilter(Constants.MMX, Constants.MMX_NS_MSG_PAYLOAD),
         new PacketExtensionFilter(DeliveryReceipt.ELEMENT, DeliveryReceipt.NAMESPACE));
-    PacketFilter packetFilter = new AndFilter(extFilter, msgFilter);
+    PacketFilter payloadFilter = new AndFilter(extFilter, msgFilter);
     mCon.getXMPPConnection().addPacketListener(mMsgPayloadPacketListener,
-                                               packetFilter);
+                                               payloadFilter);
+
+    PacketFilter signalFilter = new AndFilter(new PacketExtensionFilter(
+                    Constants.MMX, Constants.MMX_NS_MSG_SIGNAL), msgFilter);
+    mCon.getXMPPConnection().addPacketListener(mMsgSignalPacketListener,
+                                              signalFilter);
 
     // Any MMX or XMPP error messages.
     mCon.getXMPPConnection().addPacketListener(mErrorMsgPacketListener,
