@@ -113,7 +113,7 @@ public class MMXChannel {
      * @param isPublic the public flag
      * @return this Builder object
      */
-    Builder setPublic(boolean isPublic) {
+    public Builder setPublic(boolean isPublic) {
       mChannel.setPublic(isPublic);
       return this;
     }
@@ -401,9 +401,10 @@ public class MMXChannel {
   }
 
   /**
-   * Create the topic
+   * Create the channel.  The default behavior is to create a private channel.
    *
    * @param listener the listner for the newly created channel
+   * @see Builder#setPublic(boolean)
    */
   public void create(final MMX.OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
