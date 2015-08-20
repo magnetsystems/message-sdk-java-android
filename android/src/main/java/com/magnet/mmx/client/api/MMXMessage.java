@@ -40,6 +40,17 @@ public class MMXMessage {
     }
 
     /**
+     * Set the message type for the MMXMessage object.
+     *
+     * @param type the message type
+     * @return this Builder instance
+     */
+    MMXMessage.Builder type(String type) {
+      mMessage.type(type);
+      return this;
+    }
+
+    /**
      * Set timestamp for the MMXMessage (sent time).
      *
      * @param timestamp the timestamp
@@ -123,6 +134,7 @@ public class MMXMessage {
   }
 
   private String mId;
+  private String mType;
   private Date mTimestamp;
   private MMXUser mSender;
   private MMXChannel mChannel;
@@ -133,12 +145,12 @@ public class MMXMessage {
   /**
    * Default constructor
    */
-  private MMXMessage() {
+  MMXMessage() {
 
   }
 
   /**
-   * Set the message id ofr this MMXMessage object.
+   * Set the message id of this MMXMessage object.
    *
    * @param id the message id
    * @return this MMXMessage object
@@ -156,6 +168,26 @@ public class MMXMessage {
    */
   public String getId() {
     return mId;
+  }
+
+  /**
+   * Set the message type for this MMXMessage object.
+   *
+   * @param type the type
+   * @return this MMXMessage object
+   */
+  MMXMessage type(String type) {
+    mType = type;
+    return this;
+  }
+
+  /**
+   * The message type for this MMXMessage
+   *
+   * @return the message type
+   */
+  String getType() {
+    return mType;
   }
 
   /**
@@ -297,7 +329,8 @@ public class MMXMessage {
       throw new IllegalArgumentException("Unable to send.  No channel and no recipients");
     }
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
-    final MMXPayload payload = new MMXPayload("");
+    final String type = getType() != null ? getType() : null;
+    final MMXPayload payload = new MMXPayload(type, "");
     for (Map.Entry<String, String> entry : mContent.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
@@ -353,6 +386,7 @@ public class MMXMessage {
         }
       };
     }
+    id(generatedMessageId);
     task.execute();
     return generatedMessageId;
   }
@@ -454,18 +488,12 @@ public class MMXMessage {
     HashSet<MMXUser> recipients = new HashSet<MMXUser>();
     if (topic == null) {
       //this is normal message.  getReplyAll() returns null for pubsub messages
-      MMXUser receiver = new MMXUser.Builder()
-              .username(message.getTo().getUserId())
-              .displayName(message.getTo().getDisplayName())
-              .build();
+      MMXUser receiver = MMXUser.fromMMXid(message.getTo());
       recipients.add(receiver);
       MMXid[] otherRecipients = message.getReplyAll();
       if (otherRecipients != null) {
         for (MMXid otherRecipient : otherRecipients) {
-          MMXUser recipient = new MMXUser.Builder()
-                  .username(otherRecipient.getUserId())
-                  .displayName(otherRecipient.getDisplayName())
-                  .build();
+          MMXUser recipient = MMXUser.fromMMXid(otherRecipient);
           recipients.add(recipient);
         }
       }
@@ -476,10 +504,7 @@ public class MMXMessage {
     }
 
     MMXMessage newMessage = new MMXMessage();
-    MMXUser sender = new MMXUser.Builder()
-            .username(message.getFrom().getUserId())
-            .displayName(message.getFrom().getDisplayName())
-            .build();
+    MMXUser sender = MMXUser.fromMMXid(message.getFrom());
     return newMessage
             .sender(sender)
             .id(message.getId())

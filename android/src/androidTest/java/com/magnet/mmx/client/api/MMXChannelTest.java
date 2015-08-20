@@ -78,6 +78,76 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpDelete(channel);
   }
 
+  public void testPrivateChannelInvite() {
+    String channelName = "private-channel" + System.currentTimeMillis();
+    String channelSummary = channelName + " Summary";
+    MMXChannel channel = new MMXChannel.Builder()
+            .name(channelName)
+            .summary(channelSummary)
+            .setPrivate(true)
+            .build();
+    helpCreate(channel);
+
+    final AtomicBoolean inviteResponseValue = new AtomicBoolean(false);
+    final StringBuffer inviteResponseText = new StringBuffer();
+    final StringBuffer inviteTextBuffer = new StringBuffer();
+    MMX.EventListener inviteListener = new MMX.EventListener() {
+      @Override
+      public boolean onMessageReceived(MMXMessage message) {
+        return false;
+      }
+
+      public boolean onInviteReceived(MMXChannel.MMXInvite invite) {
+        inviteTextBuffer.append(invite.getInviteInfo().getText());
+        invite.accept("foobar response", null);
+        synchronized (inviteTextBuffer) {
+          inviteTextBuffer.notify();
+        }
+        return true;
+      }
+
+      public boolean onInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
+        inviteResponseValue.set(inviteResponse.isAccepted());
+        inviteResponseText.append(inviteResponse.getResponseText());
+        synchronized (inviteResponseValue) {
+          inviteResponseValue.notify();
+        }
+        return true;
+      }
+    };
+    MMX.registerListener(inviteListener);
+    final AtomicBoolean inviteSent = new AtomicBoolean(false);
+    channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMX.OnFinishedListener<MMXChannel.MMXInvite>() {
+      @Override
+      public void onSuccess(MMXChannel.MMXInvite result) {
+        inviteSent.set(true);
+        synchronized (inviteSent) {
+          inviteSent.notify();
+        }
+      }
+
+      @Override
+      public void onFailure(MMX.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        synchronized (inviteSent) {
+          inviteSent.notify();
+        }
+      }
+    });
+    synchronized (inviteResponseValue) {
+      try {
+        inviteResponseValue.wait(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertEquals("foobar", inviteTextBuffer.toString());
+    assertTrue(inviteResponseValue.get());
+    assertEquals("foobar response", inviteResponseText.toString());
+
+    helpDelete(channel);
+  }
+
   //**************
   //HELPER METHODS
   //**************
@@ -195,11 +265,16 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpPublish(MMXChannel channel) {
     //setup message listener to receive published message
     final StringBuffer barBuffer = new StringBuffer();
+    final StringBuffer senderBuffer = new StringBuffer();
     final MMX.EventListener messageListener = new MMX.EventListener() {
       @Override
       public boolean onMessageReceived(MMXMessage message) {
         String bar = message.getContent().get("foo");
         //FIXME:  Check the sender name/displayname
+        MMXUser sender = message.getSender();
+        if (sender != null) {
+          senderBuffer.append(sender.getDisplayName());
+        }
         if (bar != null) {
           barBuffer.append(bar);
         }
@@ -244,6 +319,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
     assertEquals(id, pubId.toString());
     assertEquals("bar", barBuffer.toString());
+    assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
     MMX.unregisterListener(messageListener);
   }
 
