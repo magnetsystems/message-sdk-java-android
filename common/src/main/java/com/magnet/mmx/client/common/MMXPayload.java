@@ -102,7 +102,7 @@ public class MMXPayload implements Serializable {
    * @param textData Data content in text.
    * @see com.magnet.util.TypeMapper#getClassByType(String)
    */
-  MMXPayload(String type, CharSequence textData) {
+  public MMXPayload(String type, CharSequence textData) {
     mMmxMeta = new MmxHeaders();
     mMeta = new Headers();
     mPayload = new Payload(type, textData);
@@ -119,7 +119,7 @@ public class MMXPayload implements Serializable {
    * @param fileData Data content stored in a file.
    * @see com.magnet.util.TypeMapper#getClassByType(String)
    */
-  MMXPayload(String type, DisposableFile fileData) {
+  public MMXPayload(String type, DisposableFile fileData) {
     mMmxMeta = new MmxHeaders();
     mMeta = new Headers();
     mPayload = new Payload(type, fileData);
@@ -256,7 +256,7 @@ public class MMXPayload implements Serializable {
    * Get the identifier of the data.
    * @return The data identifier.
    */
-  String getType() {
+  public String getType() {
     return mPayload.getMsgType();
   }
 

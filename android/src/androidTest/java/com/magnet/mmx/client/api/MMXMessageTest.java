@@ -29,9 +29,11 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertTrue(MMX.getMMXClient().isConnected());
     MMX.enableIncomingMessages(true);
     final HashMap<String, Object> receivedContent = new HashMap<String, Object>();
+    final StringBuffer senderBuffer = new StringBuffer();
     MMX.EventListener messageListener = new MMX.EventListener() {
       public boolean onMessageReceived(MMXMessage message) {
         Log.d(TAG, "onMessageReceived(): " + message.getId());
+        senderBuffer.append(message.getSender().getDisplayName());
         for (Map.Entry<String, String> entry : message.getContent().entrySet()) {
           receivedContent.put(entry.getKey(), entry.getValue());
         }
@@ -79,6 +81,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     }
     assertEquals(resultSb.toString(), messageId);
     assertEquals("bar", receivedContent.get("foo"));
+    assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
 
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);

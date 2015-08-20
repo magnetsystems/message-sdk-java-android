@@ -195,11 +195,16 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpPublish(MMXChannel channel) {
     //setup message listener to receive published message
     final StringBuffer barBuffer = new StringBuffer();
+    final StringBuffer senderBuffer = new StringBuffer();
     final MMX.EventListener messageListener = new MMX.EventListener() {
       @Override
       public boolean onMessageReceived(MMXMessage message) {
         String bar = message.getContent().get("foo");
         //FIXME:  Check the sender name/displayname
+        MMXUser sender = message.getSender();
+        if (sender != null) {
+          senderBuffer.append(sender.getDisplayName());
+        }
         if (bar != null) {
           barBuffer.append(bar);
         }
@@ -244,6 +249,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
     assertEquals(id, pubId.toString());
     assertEquals("bar", barBuffer.toString());
+    assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
     MMX.unregisterListener(messageListener);
   }
 

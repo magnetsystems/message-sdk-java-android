@@ -504,9 +504,291 @@ public class MMXChannel {
     return message.send(listener);
   }
 
+  /**
+   * The basic fields that are included in an invitation.
+   */
+  public static class MMXInviteInfo {
+    private static final String KEY_TEXT = "text";
+    private static final String KEY_CHANNEL_NAME = "channelName";
+    private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
+    private static final String KEY_CHANNEL_IS_PRIVATE = "channelIsPrivate";
+    private MMXChannel mChannel;
+    private MMXUser mInvitee;
+    private MMXUser mInviter;
+    private String mText;
+
+    private MMXInviteInfo(MMXUser invitee, MMXUser inviter, MMXChannel channel, String text) {
+      mInvitee = invitee;
+      mInviter = inviter;
+      mChannel = channel;
+      mText = text;
+    }
+
+    /**
+     * The user who is being invited.
+     *
+     * @return the user who is being invited
+     */
+    public MMXUser getInvitee() {
+      return mInvitee;
+    }
+
+    /**
+     * The user who is inviting someone else to subscribe to this channel.
+     *
+     * @return the user who is inviting someone else to subscribe
+     */
+    public MMXUser getInviter() {
+      return mInviter;
+    }
+
+    /**
+     * The channel for this invite
+     *
+     * @return the channel for this invite
+     */
+    public MMXChannel getChannel() {
+      return mChannel;
+    }
+
+    /**
+     * The text for this invite
+     *
+     * @return the text for this invite
+     */
+    public String getText() {
+      return mText;
+    }
+
+    protected final HashMap<String, String> buildMessageContent() {
+      HashMap<String,String> content = new HashMap<String, String>();
+      if (getText() != null) {
+        content.put(KEY_TEXT, mText);
+      }
+      content.put(KEY_CHANNEL_NAME, mChannel.getName());
+      content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
+      content.put(KEY_CHANNEL_IS_PRIVATE, String.valueOf(mChannel.isPrivate()));
+      return content;
+    }
+
+    static MMXInviteInfo fromMMXMessage(MMXMessage message) {
+      Map<String,String> content = message.getContent();
+      String text = content.get(KEY_TEXT);
+      String channelName = content.get(KEY_CHANNEL_NAME);
+      String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
+      String channelIsPrivate = content.get(KEY_CHANNEL_IS_PRIVATE);
+      MMXChannel channel = new MMXChannel.Builder()
+              .name(channelName)
+              .summary(channelSummary)
+              .setPrivate(Boolean.parseBoolean(channelIsPrivate))
+              .build();
+      return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
+    }
+  }
+
+  /**
+   * The MMXInvite class is used when sending invites for channels.
+   *
+   * @see #inviteUser(MMXUser, String, MMX.OnFinishedListener)
+   */
   public static class MMXInvite {
+    static final String TYPE = "invitation";
+    private MMXInviteInfo mInviteInfo;
+    private boolean mIncoming;
 
+    private MMXInvite(MMXInviteInfo inviteInfo, boolean incoming) {
+      mInviteInfo = inviteInfo;
+      mIncoming = incoming;
+    }
 
+    /**
+     * The information for this invite
+     *
+     * @return the information for this invite
+     */
+    public MMXInviteInfo getInviteInfo() {
+      return mInviteInfo;
+    }
+
+    private void send(final MMX.OnFinishedListener<MMXInvite> listener) {
+      if (mIncoming) {
+        throw new RuntimeException("Cannot call send on an incoming invitation.");
+      }
+      HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+      recipients.add(mInviteInfo.getInvitee());
+      MMXMessage message = new MMXMessage.Builder()
+              .recipients(recipients)
+              .content(mInviteInfo.buildMessageContent())
+              .type(TYPE)
+              .build();
+      message.send(new MMX.OnFinishedListener<String>() {
+        public void onSuccess(String result) {
+          if (listener != null) {
+            listener.onSuccess(MMXInvite.this);
+          }
+        }
+
+        public void onFailure(MMX.FailureCode code, Throwable ex) {
+          if (listener != null) {
+            listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+          }
+        }
+      });
+    }
+
+    /**
+     * Accept this invitation.  This will subscribe to the specified topic and notify the inviter.
+     *
+     * @param text text to include with the response
+     * @param listener the listener for success/failure of the operation (optional)
+     */
+    public void accept(final String text, final MMX.OnFinishedListener<MMXInvite> listener) {
+      if (!mIncoming) {
+        throw new RuntimeException("Can't accept an outgoing invite");
+      }
+
+      MMXChannel channel = mInviteInfo.getChannel();
+      channel.subscribe(new MMX.OnFinishedListener<String>() {
+        @Override
+        public void onSuccess(String result) {
+          MMXMessage response = buildResponse(true, text);
+          response.send(new MMX.OnFinishedListener<String>() {
+            @Override
+            public void onSuccess(String result) {
+              if (listener != null) {
+                listener.onSuccess(MMXInvite.this);
+              }
+            }
+
+            @Override
+            public void onFailure(MMX.FailureCode code, Throwable ex) {
+              if (listener != null) {
+                listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+              }
+            }
+          });
+        }
+
+        @Override
+        public void onFailure(MMX.FailureCode code, Throwable ex) {
+          if (listener != null) {
+            listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+          }
+        }
+      });
+    }
+
+    /**
+     * Reject this invitation.  This will notify the inviter.
+     *
+     * @param text text to include with the response
+     * @param listener the listener for success/failure of the operation (optional)
+     */
+    public void reject(String text, final MMX.OnFinishedListener<MMXInvite> listener) {
+      if (!mIncoming) {
+        throw new RuntimeException("Can't reject an outgoing invite");
+      }
+      MMXMessage response = buildResponse(false, text);
+      response.send(new MMX.OnFinishedListener<String>() {
+        @Override
+        public void onSuccess(String result) {
+          if (listener != null) {
+            listener.onSuccess(MMXInvite.this);
+          }
+        }
+
+        @Override
+        public void onFailure(MMX.FailureCode code, Throwable ex) {
+          if (listener != null) {
+            listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+          }
+        }
+      });
+    }
+
+    private MMXMessage buildResponse(boolean accepted, String responseText) {
+      HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+      recipients.add(mInviteInfo.getInviter());
+      HashMap<String, String> content = mInviteInfo.buildMessageContent();
+      content.put(MMXInviteResponse.KEY_IS_ACCEPTED, String.valueOf(accepted));
+      if (responseText != null) {
+        content.put(MMXInviteResponse.KEY_RESPONSE_TEXT, responseText);
+      }
+      return new MMXMessage.Builder()
+              .recipients(recipients)
+              .content(mInviteInfo.buildMessageContent())
+              .type(MMXInviteResponse.TYPE)
+              .build();
+    }
+
+    static MMXInvite fromMMXMessage(MMXMessage message) {
+      MMXInviteInfo info = MMXInviteInfo.fromMMXMessage(message);
+      return new MMXInvite(info, true);
+    }
+  }
+
+  /**
+   * The invitation response that is sent when an invite is accepted or rejected
+   */
+  public static class MMXInviteResponse {
+    static final String TYPE = "invitationResponse";
+    private static final String KEY_IS_ACCEPTED = "inviteIsAccepted";
+    private static final String KEY_RESPONSE_TEXT = "inviteResponseText";
+    private MMXInviteInfo mInviteInfo;
+    private boolean mAccepted;
+    private String mResponseText;
+
+    private MMXInviteResponse(MMXInviteInfo inviteInfo) {
+      mInviteInfo = inviteInfo;
+    }
+
+    /**
+     * Retrieves the invite information
+     *
+     * @return the invite information
+     */
+    public MMXInviteInfo getInviteInfo() {
+      return mInviteInfo;
+    }
+
+    /**
+     * Whether or not the invite was accepted
+     *
+     * @return true if accepted, false if not
+     */
+    public boolean isAccepted() {
+      return mAccepted;
+    }
+
+    private void setAccepted(boolean accepted) {
+      mAccepted = accepted;
+    }
+
+    /**
+     * Any text included with the response
+     *
+     * @return text that was included with the response
+     */
+    public String getResponseText() {
+      return mResponseText;
+    }
+
+    private void setResponseText(String responseText) {
+      mResponseText = responseText;
+    }
+
+    static MMXInviteResponse fromMMXMessage(MMXMessage message) {
+      MMXInviteInfo inviteInfo = MMXInviteInfo.fromMMXMessage(message);
+      MMXInviteResponse response = new MMXInviteResponse(inviteInfo);
+
+      //additional params in the response
+      Map<String, String> content = message.getContent();
+      String isAccepted = content.get(KEY_IS_ACCEPTED);
+      String responseText = content.get(KEY_RESPONSE_TEXT);
+      response.setAccepted(Boolean.parseBoolean(isAccepted));
+      response.setResponseText(responseText);
+      return response;
+    }
   }
 
   /**
@@ -516,9 +798,11 @@ public class MMXChannel {
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
-  public void inviteUser(MMXUser invitee, String invitationText, MMX.OnFinishedListener<MMXInvite> listener) {
-
-    throw new RuntimeException("NOT YET IMPLEMENTED");
+  public void inviteUser(final MMXUser invitee, final String invitationText,
+                         final MMX.OnFinishedListener<MMXInvite> listener) {
+    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
+    MMXInvite invite = new MMXInvite(inviteInfo, false);
+    invite.send(listener);
   }
 
   /**

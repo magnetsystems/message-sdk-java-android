@@ -62,10 +62,10 @@ public final class MMX {
      * Called when an MMXChannel invitation is received.  The default implementation of this
      * method is a no-op.
      *
-     * @param invitation the invitation
+     * @param invite the invitation
      * @return true to consume this event, false for additional listeners to be called
      */
-    public boolean onInvitationReceived(MMXChannel.MMXInvite invitation) {
+    public boolean onInviteReceived(MMXChannel.MMXInvite invite) {
       //default implementation is a no-op
       return false;
     }
@@ -74,11 +74,10 @@ public final class MMX {
      * Called when a MMXChannel invitation has been responded to.  The default implementation of this
      * method is a no-op.
      *
-     * @param accepted true if accepted, false otherwise
-     * @param text any text that was included in the response
+     * @param inviteResponse the invite response
      * @return true to consume this event, false for additional listeners to be called
      */
-    public boolean onInvitationResponseReceived(boolean accepted, String text) {
+    public boolean onInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
       //default implementation is a no-op
       return false;
     }
@@ -136,7 +135,17 @@ public final class MMX {
   private AbstractMMXListener mGlobalListener = new AbstractMMXListener() {
     @Override
     public void handleMessageReceived(MMXClient mmxClient, com.magnet.mmx.client.common.MMXMessage mmxMessage, String receiptId) {
-      notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage));
+      MMXPayload payload = mmxMessage.getPayload();
+      String type = payload.getType();
+      if (MMXChannel.MMXInvite.TYPE.equals(type)) {
+        MMXChannel.MMXInvite invite = MMXChannel.MMXInvite.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
+        notifyInviteReceived(invite);
+      } else if (MMXChannel.MMXInviteResponse.TYPE.equals(type)) {
+        MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
+        notifyInviteResponseReceived(inviteResponse);
+      } else {
+        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage));
+      }
     }
 
     @Override
@@ -536,6 +545,44 @@ public final class MMX {
       }
     }
   }
+
+  private static void notifyInviteReceived(MMXChannel.MMXInvite invite) {
+    checkState();
+    synchronized (sInstance.mListeners) {
+      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      while (listeners.hasNext()) {
+        EventListener listener = listeners.next();
+        try {
+          if (listener.onInviteReceived(invite)) {
+            //listener returning true means consume the message
+            break;
+          }
+        } catch (Exception ex) {
+          Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
+        }
+      }
+    }
+  }
+
+  private static void notifyInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
+    checkState();
+    synchronized (sInstance.mListeners) {
+      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      while (listeners.hasNext()) {
+        EventListener listener = listeners.next();
+        try {
+          if (listener.onInviteResponseReceived(inviteResponse)) {
+            //listener returning true means consume the message
+            break;
+          }
+        } catch (Exception ex) {
+          Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
+        }
+      }
+    }
+  }
+
+
 
   /**
    * Helper method to retrieve the Android context.
