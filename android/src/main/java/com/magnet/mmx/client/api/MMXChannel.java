@@ -716,7 +716,7 @@ public class MMXChannel {
       }
       return new MMXMessage.Builder()
               .recipients(recipients)
-              .content(mInviteInfo.buildMessageContent())
+              .content(content)
               .type(MMXInviteResponse.TYPE)
               .build();
     }
