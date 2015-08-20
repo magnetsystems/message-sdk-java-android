@@ -692,7 +692,7 @@ public class MMXChannel {
     private static final String KEY_TEXT = "text";
     private static final String KEY_CHANNEL_NAME = "channelName";
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
-    private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPrivate";
+    private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private MMXChannel mChannel;
     private MMXUser mInvitee;
