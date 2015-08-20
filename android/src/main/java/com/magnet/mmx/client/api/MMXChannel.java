@@ -644,13 +644,58 @@ public class MMXChannel {
     task.execute();
   }
 
+  /**
+   * Returns a list of the channels to which the current user is subscribed.
+   *
+   * The returned Channel objects will not be fully populated.
+
+   * @param listener the results listener for this operation
+   */
+  public static void getAllSubscriptions(final MMX.OnFinishedListener<List<MMXChannel>> listener) {
+    MMXTask<List<MMXSubscription>> task = new MMXTask<List<MMXSubscription>>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public List<MMXSubscription> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        return psm.listAllSubscriptions();
+      }
+
+      @Override
+      public void onResult(List<MMXSubscription> result) {
+        ArrayList<MMXChannel> channels = new ArrayList<MMXChannel>();
+        for (MMXSubscription subscription : result) {
+          MMXChannel channel = MMXChannel.fromMMXTopic(subscription.getTopic());
+          channel.subscribed(true);
+          channels.add(channel);
+        }
+        listener.onSuccess(channels);
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+      }
+    };
+    task.execute();
+  }
+
+  /**
+   * This method only populates the topic name and the public flag in all cases.
+   *
+   * Owner username will be populated if it's a private topic
+   *
+   * @param topic the topic
+   * @return an MMXChannel representation of the topic
+   */
   static MMXChannel fromMMXTopic(MMXTopic topic) {
     if (topic == null) {
       return null;
     }
-    return new MMXChannel()
+    boolean isUserTopic = topic.isUserTopic();
+    return new MMXChannel.Builder()
             .name(topic.getName())
-            .ownerUsername(topic.getUserId());
+            .ownerUsername(isUserTopic ? topic.getUserId() : null)
+            .setPublic(!isUserTopic)
+            .build();
   }
 
   private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos) throws MMXException {
