@@ -469,10 +469,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFetch(MMXChannel channel, int expectedCount) {
     //test basic fetch
     final AtomicInteger fetchCount = new AtomicInteger(0);
-    channel.getItems(null, null, 100, true, new MMX.OnFinishedListener<List<MMXMessage>>() {
+    channel.getItems(null, null, 100, true, new MMX.OnFinishedListener<ListResult<MMXMessage>>() {
       @Override
-      public void onSuccess(List<MMXMessage> result) {
-        fetchCount.set(result.size());
+      public void onSuccess(ListResult<MMXMessage> result) {
+        fetchCount.set(result.totalCount);
         synchronized (fetchCount) {
           fetchCount.notify();
         }

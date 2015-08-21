@@ -328,19 +328,24 @@ public class MMXChannel {
    * @param listener the listener for the results of this operation
    */
   public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
-                       final MMX.OnFinishedListener<List<MMXMessage>> listener) {
+                       final MMX.OnFinishedListener<ListResult<MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
-    MMXTask<List<com.magnet.mmx.client.common.MMXMessage>> task =
-            new MMXTask<List<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
+    MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> task =
+            new MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public List<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+      public ListResult<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        //FIXME:  This should really return a ListResult<MMXMessage> with the total count
-        return psm.getItems(topic, new TopicAction.FetchOptions()
+        List<com.magnet.mmx.client.common.MMXMessage> messages =
+                psm.getItems(topic, new TopicAction.FetchOptions()
                 .setSince(startDate)
                 .setUntil(endDate)
                 .setMaxItems(limit)
                 .setAscending(ascending));
+        ArrayList<MMXTopic> topicList = new ArrayList<MMXTopic>();
+        topicList.add(getMMXTopic());
+        List<TopicSummary> summaries = psm.getTopicSummary(topicList, startDate, endDate);
+        TopicSummary summary = summaries.get(0);
+        return new ListResult<com.magnet.mmx.client.common.MMXMessage>(summary.getCount(), messages);
       }
 
       @Override
@@ -349,15 +354,15 @@ public class MMXChannel {
       }
 
       @Override
-      public void onResult(List<com.magnet.mmx.client.common.MMXMessage> result) {
+      public void onResult(ListResult<com.magnet.mmx.client.common.MMXMessage> result) {
         ArrayList<MMXMessage> resultList = new ArrayList<MMXMessage>();
-        if (result != null && result.size() > 0) {
+        if (result != null && result.items.size() > 0) {
           //convert MMXMessages
-          for (com.magnet.mmx.client.common.MMXMessage message : result) {
+          for (com.magnet.mmx.client.common.MMXMessage message : result.items) {
             resultList.add(MMXMessage.fromMMXMessage(getMMXTopic(), message));
           }
         }
-        listener.onSuccess(resultList);
+        listener.onSuccess(new ListResult<MMXMessage>(result.totalCount, resultList));
       }
     };
     task.execute();
