@@ -226,7 +226,7 @@ public class MMXPayload implements Serializable {
 
   /**
    * Unmarshall the sender from the deserialized JSON object to MMX ID.
-   * @return
+   * @return null or a sender ID.
    */
   MMXid unmarshallFrom() {
     Map<String, String> map = (Map<String, String>) mMmxMeta.getHeader(
@@ -236,7 +236,7 @@ public class MMXPayload implements Serializable {
 
   /**
    * Unmarshall the recipients from the deserialized JSON object to MMX ID's.
-   * @return
+   * @return null or a non-empty array of recipients' ID.
    */
   MMXid[] unmarshallTo() {
     List<Map<String, String>> list = (List<Map<String, String>>)

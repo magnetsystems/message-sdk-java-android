@@ -137,12 +137,16 @@ public class MMXMessage implements Serializable {
   }
 
   /**
-   * Get all explicitly specified recipients of this message.
-   * @return The recipients.
+   * Get all explicitly specified recipients of this message.  If no explicit
+   * recipients are specified, an empty array will be returned.
+   * @return A non-null array of recipients.
    */
   public MMXid[] getTos() {
     if (mToXids == null && mPayload != null) {
       mToXids = mPayload.unmarshallTo();
+      if (mToXids == null) {
+        mToXids = new MMXid[0];
+      }
     }
     return mToXids;
   }
@@ -151,7 +155,7 @@ public class MMXMessage implements Serializable {
    * Return a list of explicit recipients for Reply-All.  It always includes the
    * sender and everyone in the To-list excluding the current user and duplicate
    * users.
-   * @return
+   * @return A non-null array of recipients.
    */
   public MMXid[] getReplyAll() {
     if (mReplyAll == null) {
@@ -221,9 +225,9 @@ public class MMXMessage implements Serializable {
    */
   @Override
   public String toString() {
-    return "[ id=" + getId() + ", from=" + getFrom() + ", tos=" + Arrays.asList(getTos())
-        + ", rcptId=" + getReceiptId() + ", rcptMsgId=" + getMsgIdFromReceipt()
-        + ", data=" + getPayload() + " ]";
+    return "[ id="+getId()+", from="+getFrom()+", to="+getTo()+
+        ", tos="+Arrays.asList(getTos())+", rcptId="+getReceiptId()+
+        ", rcptMsgId="+getMsgIdFromReceipt()+", data="+getPayload()+" ]";
   }
 
   // @return A delivery receipt ID if there is a request for delivery receipt.
