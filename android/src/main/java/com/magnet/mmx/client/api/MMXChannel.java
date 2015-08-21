@@ -763,13 +763,13 @@ public class MMXChannel {
     private MMXChannel mChannel;
     private MMXUser mInvitee;
     private MMXUser mInviter;
-    private String mText;
+    private String mComment;
 
-    private MMXInviteInfo(MMXUser invitee, MMXUser inviter, MMXChannel channel, String text) {
+    private MMXInviteInfo(MMXUser invitee, MMXUser inviter, MMXChannel channel, String comment) {
       mInvitee = invitee;
       mInviter = inviter;
       mChannel = channel;
-      mText = text;
+      mComment = comment;
     }
 
     /**
@@ -800,18 +800,18 @@ public class MMXChannel {
     }
 
     /**
-     * The text for this invite
+     * The comment for this invite
      *
-     * @return the text for this invite
+     * @return the comment for this invite
      */
-    public String getText() {
-      return mText;
+    public String getComment() {
+      return mComment;
     }
 
     protected final HashMap<String, String> buildMessageContent() {
       HashMap<String,String> content = new HashMap<String, String>();
-      if (getText() != null) {
-        content.put(KEY_TEXT, mText);
+      if (getComment() != null) {
+        content.put(KEY_TEXT, getComment());
       }
       content.put(KEY_CHANNEL_NAME, mChannel.getName());
       content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
@@ -890,10 +890,10 @@ public class MMXChannel {
     /**
      * Accept this invitation.  This will subscribe to the specified topic and notify the inviter.
      *
-     * @param text text to include with the response
+     * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void accept(final String text, final MMX.OnFinishedListener<MMXInvite> listener) {
+    public void accept(final String comment, final MMX.OnFinishedListener<MMXInvite> listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't accept an outgoing invite");
       }
@@ -902,7 +902,7 @@ public class MMXChannel {
       channel.subscribe(new MMX.OnFinishedListener<String>() {
         @Override
         public void onSuccess(String result) {
-          MMXMessage response = buildResponse(true, text);
+          MMXMessage response = buildResponse(true, comment);
           response.send(new MMX.OnFinishedListener<String>() {
             @Override
             public void onSuccess(String result) {
@@ -932,14 +932,14 @@ public class MMXChannel {
     /**
      * Decline this invitation.  This will notify the inviter.
      *
-     * @param text text to include with the response
+     * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void decline(String text, final MMX.OnFinishedListener<MMXInvite> listener) {
+    public void decline(String comment, final MMX.OnFinishedListener<MMXInvite> listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't reject an outgoing invite");
       }
-      MMXMessage response = buildResponse(false, text);
+      MMXMessage response = buildResponse(false, comment);
       response.send(new MMX.OnFinishedListener<String>() {
         @Override
         public void onSuccess(String result) {
