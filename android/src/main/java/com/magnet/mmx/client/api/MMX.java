@@ -164,6 +164,11 @@ public final class MMX {
       super.onMessageDelivered(mmxClient, recipient, messageId);
     }
 
+    public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
+      MMXMessage.handleServerAck(recipient, messageId);
+      super.onMessageAccepted(mmxClient, recipient, messageId);
+    }
+
     @Override
     public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
       switch (connectionEvent) {
@@ -304,6 +309,10 @@ public final class MMX {
 
       }
 
+      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
+
+      }
+
       public void onPubsubItemReceived(MMXClient client, MMXTopic topic,
                                        com.magnet.mmx.client.common.MMXMessage message) {
 
@@ -368,6 +377,10 @@ public final class MMX {
 
       }
 
+      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
+
+      }
+
       public void onPubsubItemReceived(MMXClient client, MMXTopic topic,
                                        com.magnet.mmx.client.common.MMXMessage message) {
 
@@ -414,6 +427,10 @@ public final class MMX {
       }
 
       public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
+
+      }
+
+      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
 
       }
 

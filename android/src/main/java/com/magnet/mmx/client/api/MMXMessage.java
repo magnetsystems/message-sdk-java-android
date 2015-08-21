@@ -5,6 +5,7 @@ import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
+import com.magnet.mmx.client.common.Participant;
 import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Date;
@@ -17,7 +18,6 @@ import java.util.Set;
  * The message class
  */
 public class MMXMessage {
-
   /**
    * The builder for the MMXMessage class
    */
@@ -340,7 +340,6 @@ public class MMXMessage {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
           String publishedId = mmxClient.getPubSubManager().publish(generatedMessageId, mChannel.getMMXTopic(), payload);
-          //TODO:  Delay this until the server ack is received
           if (!generatedMessageId.equals(publishedId)) {
             throw new RuntimeException("SDK Error: The returned published message id does not match the generated message id.");
           }
@@ -366,9 +365,18 @@ public class MMXMessage {
           for (MMXUser recipient : mRecipients) {
             recipientsArray[index++] = new MMXid(recipient.getUsername(), null);
           }
+          if (listener != null) {
+            synchronized (sMessageSendListeners) {
+              HashSet<String> recipientSet = new HashSet<String>();
+              for (MMXid mmxId : recipientsArray) {
+                recipientSet.add(mmxId.getUserId());
+              }
+              sMessageSendListeners.put(generatedMessageId, new RecipientListenerPair(recipientSet, listener));
+            }
+          }
           String messageId = mmxClient.getMessageManager().sendPayload(generatedMessageId, recipientsArray, payload,
                   new Options().enableReceipt(true));
-          //TODO:  Delay this until the server ack is received
+
           if (!generatedMessageId.equals(messageId)) {
             throw new RuntimeException("SDK Error:  The returned message id does not match the generated message id");
           }
@@ -512,5 +520,37 @@ public class MMXMessage {
             .timestamp(message.getPayload().getSentTime())
             .recipients(recipients)
             .content(content);
+  }
+
+  //For handling the onSuccess of send() messages when server ack is received
+  private class RecipientListenerPair {
+    private final Set<String> recipients;
+    private final MMX.OnFinishedListener<String> listener;
+
+    private RecipientListenerPair(Set<String> recipients,
+                                  MMX.OnFinishedListener<String> listener) {
+      this.recipients = recipients;
+      this.listener = listener;
+    }
+
+    private synchronized boolean onAckReceived(String recipient) {
+      recipients.remove(recipient);
+      return recipients.size() == 0;
+    }
+  }
+
+  private static HashMap<String, RecipientListenerPair> sMessageSendListeners =
+          new HashMap<String, RecipientListenerPair>();
+
+  static void handleServerAck(MMXid recipient, String messageId) {
+    synchronized (sMessageSendListeners) {
+      RecipientListenerPair listenerPair = sMessageSendListeners.get(messageId);
+      if (listenerPair != null) {
+        if (listenerPair.onAckReceived(recipient.getUserId())) {
+          sMessageSendListeners.remove(messageId);
+          listenerPair.listener.onSuccess(messageId);
+        }
+      }
+    }
   }
 }

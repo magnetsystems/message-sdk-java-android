@@ -1342,6 +1342,15 @@ public final class MMXClient {
     void onMessageDelivered(MMXClient client, MMXid recipient, String messageId);
 
     /**
+     * Called when a message has been accepted for delivery by the MMX server
+     *
+     * @param client the instance of the MMXClient
+     * @param recipient the recipient for which the message was accepted
+     * @param messageId the message id of the message
+     */
+    void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
+
+    /**
      * Called when a pubsub item is received.
      * @param client The instance of the MMXClient
      * @param topic The topic for the pubsub item that was received
