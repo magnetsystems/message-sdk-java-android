@@ -103,6 +103,10 @@ public class MMXClientTest extends InstrumentationTestCase {
       }
     }
 
+    public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
+      Log.d(TAG, "onMessageAccepted message id =" + messageId);
+    }
+
     public void onPubsubItemReceived(MMXClient client, MMXTopic topic, MMXMessage message) {
       Log.d(TAG, "onPubsubItemReceived topic=" + topic.getName() + ";message=" + message.getPayload().getDataAsText());
       isPubSubItemReceived.set(true);

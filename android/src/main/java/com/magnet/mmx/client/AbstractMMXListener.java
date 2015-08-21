@@ -144,6 +144,27 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
   }
 
   /**
+   * Implements the MMXListener method and dispatches the call to any registered listeners.
+   * The listeners will be called in the order registered.
+   *
+   * @param mmxClient the MMXClient instance
+   * @param recipient the recipient of the originally sent message (who has acknowledged receipt of the message)
+   * @param messageId The id of the message for which the receipt was returned
+   */
+  public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
+    Log.d(TAG, "onMessageAccepted(): start.  ");
+    synchronized (mListeners) {
+      for (MMXClient.MMXListener listener : mListeners) {
+        try {
+          listener.onMessageAccepted(mmxClient, recipient, messageId);
+        } catch (Throwable throwable) {
+          Log.e(TAG, "onMessageAccepted(): caught throwable from listener: " + listener, throwable);
+        }
+      }
+    }
+  }
+
+  /**
    * Called by onMessageDelivered before any of the listeners are processed.
    *
    * @param mmxClient the MMXClient instance
