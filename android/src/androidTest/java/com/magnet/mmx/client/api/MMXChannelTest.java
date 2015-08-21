@@ -147,6 +147,55 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpDelete(channel);
   }
 
+  public void testGetAllSubscriptions() {
+    long timestamp = System.currentTimeMillis();
+    String privateChannelName = "private-channel" + timestamp;
+    String privateChannelSummary = privateChannelName + " Summary";
+    MMXChannel privateChannel = new MMXChannel.Builder()
+            .name(privateChannelName)
+            .summary(privateChannelSummary)
+            .build();
+    helpCreate(privateChannel);
+
+    String publicChannelName = "channel" + timestamp;
+    String publicChannelSummary = publicChannelName + " Summary";
+    MMXChannel publicChannel = new MMXChannel.Builder()
+            .name(publicChannelName)
+            .summary(publicChannelSummary)
+            .setPublic(true)
+            .build();
+    helpCreate(publicChannel);
+
+    //should have autosubscribed since we created them
+    final AtomicInteger subCount = new AtomicInteger(0);
+    MMXChannel.getAllSubscriptions(new MMX.OnFinishedListener<List<MMXChannel>>() {
+      public void onSuccess(List<MMXChannel> result) {
+        subCount.set(result.size());
+        synchronized (subCount) {
+          subCount.notify();
+        }
+      }
+
+      public void onFailure(MMX.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        synchronized (subCount) {
+          subCount.notify();
+        }
+      }
+    });
+    synchronized (subCount) {
+      try {
+        subCount.wait();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertEquals(2, subCount.intValue());
+
+    helpDelete(publicChannel);
+    helpDelete(privateChannel);
+  }
+
   //**************
   //HELPER METHODS
   //**************

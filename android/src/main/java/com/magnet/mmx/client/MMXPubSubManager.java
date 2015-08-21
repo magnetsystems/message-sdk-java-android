@@ -512,6 +512,22 @@ public final class MMXPubSubManager extends MMXManager {
   }
 
   /**
+   * @hide
+   * List all (recursively) or one level of personal and/or global
+   * topics at a starting topic.  All non-personal user topics are not
+   * discoverable.
+   * @param startingTopic null for root, or a starting topic name.
+   * @param type Filtering types: global-only, personal-only, or both.
+   * @param recursive true to list recursively; otherwise, false.
+   * @return A list of topics or an empty list.
+   * @throws MMXException
+   */
+  public List<MMXTopicInfo> listTopics(String startingTopic, TopicAction.ListType type,
+                                       boolean recursive) throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.listTopics(startingTopic, type, recursive);
+  }
+  /**
    * Get the subscribers to a topic.
    * 
    * @param topic a topic name

@@ -34,6 +34,9 @@ import java.util.Set;
 public class MMXChannel {
   private static final String TAG = MMXChannel.class.getSimpleName();
 
+  /**
+   * The builder for a MMXChannel object
+   */
   public static final class Builder {
     private MMXChannel mChannel;
 
@@ -412,7 +415,7 @@ public class MMXChannel {
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
-                .setDescription(mSummary);
+                .setDescription(mSummary).setSubscribeOnCreate(true);
         MMXTopic topic = getMMXTopic();
         return psm.createTopic(topic, options);
       }
@@ -425,17 +428,6 @@ public class MMXChannel {
       @Override
       public void onResult(final MMXTopic createResult) {
         MMXChannel.this.ownerUsername(MMX.getCurrentUser().getUsername());
-        //subscribe to this channel
-        //FIXME: Eventually this should go away and instead be invoked by passing in the options during creation
-        MMXChannel.this.subscribe(new MMX.OnFinishedListener<String>() {
-          public void onSuccess(String result) {
-            Log.d(TAG, "subscription success for channel: " + MMXChannel.this.getName());
-          }
-
-          public void onFailure(MMX.FailureCode code, Throwable ex) {
-            Log.e(TAG, "subscription failed for channel: " + MMXChannel.this.getName());
-          }
-        });
         listener.onSuccess(MMXChannel.fromMMXTopic(createResult));
       }
     };
@@ -592,7 +584,7 @@ public class MMXChannel {
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
-        List<MMXChannel> channels = fromTopicInfos(searchResult.getResults());
+        List<MMXChannel> channels = fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
 
@@ -626,7 +618,7 @@ public class MMXChannel {
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
-        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults());
+        List<MMXChannel> channels =fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
 
@@ -647,27 +639,19 @@ public class MMXChannel {
   /**
    * Returns a list of the channels to which the current user is subscribed.
    *
-   * The returned Channel objects will not be fully populated.
-
    * @param listener the results listener for this operation
    */
   public static void getAllSubscriptions(final MMX.OnFinishedListener<List<MMXChannel>> listener) {
-    MMXTask<List<MMXSubscription>> task = new MMXTask<List<MMXSubscription>>(MMX.getMMXClient(), MMX.getHandler()) {
+    MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
-      public List<MMXSubscription> doRun(MMXClient mmxClient) throws Throwable {
+      public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        return psm.listAllSubscriptions();
+        return fromSubscriptions(psm.listAllSubscriptions());
       }
 
       @Override
-      public void onResult(List<MMXSubscription> result) {
-        ArrayList<MMXChannel> channels = new ArrayList<MMXChannel>();
-        for (MMXSubscription subscription : result) {
-          MMXChannel channel = MMXChannel.fromMMXTopic(subscription.getTopic());
-          channel.subscribed(true);
-          channels.add(channel);
-        }
-        listener.onSuccess(channels);
+      public void onResult(List<MMXChannel> result) {
+        listener.onSuccess(result);
       }
 
       @Override
@@ -698,11 +682,37 @@ public class MMXChannel {
             .build();
   }
 
-  private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos) throws MMXException {
+  private static List<MMXChannel> fromSubscriptions(List<MMXSubscription> subscriptions) throws MMXException {
+    MMXPubSubManager psm = MMX.getMMXClient().getPubSubManager();
+    if (subscriptions == null || subscriptions.size() == 0) {
+      return new ArrayList<MMXChannel>();
+    }
+
+    //FIXME: This is expensive if there are a lot of topics but for now we will allow it until we get server support
+    HashSet<MMXTopic> topics = new HashSet<MMXTopic>();
+    for (MMXSubscription subscription : subscriptions) {
+      topics.add(subscription.getTopic());
+    }
+
+    List<MMXTopicInfo> topicInfos = psm.listTopics(null, TopicAction.ListType.both, true);
+    //narrow down this list of topicInfos
+    ArrayList<MMXTopicInfo> filteredTopicInfos = new ArrayList<MMXTopicInfo>();
+    for (MMXTopicInfo info : topicInfos) {
+      if (topics.contains(info.getTopic())) {
+        filteredTopicInfos.add(info);
+      }
+    }
+    return fromTopicInfos(filteredTopicInfos, subscriptions);
+  }
+
+  private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos,
+                                                 List<MMXSubscription> subscriptions) throws MMXException {
     MMXPubSubManager psm = MMX.getMMXClient().getPubSubManager();
 
-    //get subscriptions
-    List<MMXSubscription> subscriptions = psm.listAllSubscriptions();
+    if (subscriptions == null) {
+      //get subscriptions
+      subscriptions = psm.listAllSubscriptions();
+    }
     HashMap<MMXTopic, MMXSubscription> subMap = new HashMap<MMXTopic, MMXSubscription>();
     for (MMXSubscription subscription : subscriptions) {
       subMap.put(subscription.getTopic(), subscription);
