@@ -97,7 +97,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       public boolean onInviteReceived(MMXChannel.MMXInvite invite) {
-        inviteTextBuffer.append(invite.getInviteInfo().getText());
+        inviteTextBuffer.append(invite.getInviteInfo().getComment());
         invite.accept("foobar response", null);
         synchronized (inviteTextBuffer) {
           inviteTextBuffer.notify();
