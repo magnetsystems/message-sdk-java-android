@@ -120,7 +120,8 @@ public class PubSubManager {
   private final static String FIELD_SEND_ITEM_SUBSCRIBE = "pubsub#send_item_subscribe";
   private final static String LAST_DELIVERY_FILE = "com.magnet.pubsub-";
   private final static String USER_TOPIC_NOT_ALLOWED = "User topic is not allowed";
-  private final static boolean USER_TOPIC_SUPPORTED = false;
+  private final static boolean SHOW_USER_TOPICS = false;
+  private final static boolean SHOW_USER_TOPIC_SUBSCRIPTIONS = true;
   private MMXConnection mCon;
   private MappedByteBuffer mBuffer;
   private String mAppPrefix;
@@ -586,7 +587,7 @@ public class PubSubManager {
    * @throws MMXException
    */
   public List<MMXSubscription> listAllSubscriptions() throws MMXException {
-    return listSubscriptions(null, USER_TOPIC_SUPPORTED ?
+    return listSubscriptions(null, SHOW_USER_TOPIC_SUBSCRIPTIONS ?
         ListType.both : ListType.global);
   }
 
@@ -603,7 +604,7 @@ public class PubSubManager {
     if (topic != null) {
       topicName = TopicHelper.normalizePath(topic.getName());
     }
-    return listSubscriptions(topicName, USER_TOPIC_SUPPORTED ?
+    return listSubscriptions(topicName, SHOW_USER_TOPIC_SUBSCRIPTIONS ?
         ListType.both : ListType.global);
   }
 
@@ -683,8 +684,8 @@ public class PubSubManager {
    */
   public List<MMXTopicInfo> listTopics() throws MMXException {
     return listTopics(null,
-        USER_TOPIC_SUPPORTED ? ListType.both : ListType.global,
-        USER_TOPIC_SUPPORTED ? true : false);
+        SHOW_USER_TOPICS ? ListType.both : ListType.global,
+        SHOW_USER_TOPICS ? true : false);
   }
 
   /**
