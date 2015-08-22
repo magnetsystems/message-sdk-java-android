@@ -182,7 +182,7 @@ public class TestPubsubAPI extends TestCase {
                 queryParam("topicName", "testTopic4").
                 get("topicssummary").
         then().log().all().
-                assertThat().body("topics.any {it.topicName == 'testTopic4'}", is(true)).
+                assertThat().body("topics.any {it.topicName == 'testtopic4'}", is(true)).
                 assertThat().body("topics.any {it.publishedItemCount >= 1}", is(true));
 
         // List published items count
