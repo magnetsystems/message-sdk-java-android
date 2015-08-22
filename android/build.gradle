@@ -27,7 +27,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "1.5.1"
+version = "1.5.2"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -63,7 +63,7 @@ dependencies {
     compile 'com.google.android.gms:play-services-gcm:7.8.0'
 
     compile 'com.android.support:support-v4:22.2.1'
-    compile 'com.magnet.mmx:mmx-common-api:1.5.1'
+    compile 'com.magnet.mmx:mmx-common-api:1.5.2'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p2'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
