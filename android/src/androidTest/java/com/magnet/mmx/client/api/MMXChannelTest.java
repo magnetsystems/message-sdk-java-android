@@ -2,8 +2,6 @@ package com.magnet.mmx.client.api;
 
 import android.util.Log;
 
-import com.magnet.mmx.client.common.MMXid;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -116,7 +114,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     };
     MMX.registerListener(inviteListener);
     final AtomicBoolean inviteSent = new AtomicBoolean(false);
-    channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMX.OnFinishedListener<MMXChannel.MMXInvite>() {
+    channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMXChannel.OnFinishedListener<MMXChannel.MMXInvite>() {
       @Override
       public void onSuccess(MMXChannel.MMXInvite result) {
         inviteSent.set(true);
@@ -126,7 +124,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (inviteSent) {
           inviteSent.notify();
@@ -168,7 +166,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
     //should have autosubscribed since we created them
     final AtomicInteger subCount = new AtomicInteger(0);
-    MMXChannel.getAllSubscriptions(new MMX.OnFinishedListener<List<MMXChannel>>() {
+    MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
       public void onSuccess(List<MMXChannel> result) {
         subCount.set(result.size());
         synchronized (subCount) {
@@ -176,7 +174,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (subCount) {
           subCount.notify();
@@ -201,7 +199,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //**************
   private void helpCreate(MMXChannel channel) {
     final AtomicBoolean createResult = new AtomicBoolean(false);
-    channel.create(new MMX.OnFinishedListener<MMXChannel>() {
+    channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         createResult.set(true);
         synchronized (createResult) {
@@ -209,7 +207,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         createResult.set(false);
         synchronized (createResult) {
@@ -230,7 +228,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFind(String channelName, int expectedCount) {
     //find
     final AtomicInteger findResult = new AtomicInteger(0);
-    MMXChannel.findByName(channelName, 10, new MMX.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findByName(channelName, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findResult.set(result.totalCount);
         synchronized (findResult) {
@@ -239,7 +237,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (findResult) {
           findResult.notify();
@@ -259,7 +257,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpSubscribe(MMXChannel channel, int expectedSubscriberCount) {
     //subscribe
     final AtomicBoolean subResult = new AtomicBoolean(false);
-    channel.subscribe(new MMX.OnFinishedListener<String>() {
+    channel.subscribe(new MMXChannel.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         subResult.set(true);
         synchronized (subResult) {
@@ -267,7 +265,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (subResult) {
           subResult.notify();
@@ -285,7 +283,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertTrue(subResult.get());
 
     final AtomicInteger getSubsResult = new AtomicInteger(0);
-    channel.getAllSubscribers(100, new MMX.OnFinishedListener<ListResult<MMXUser>>() {
+    channel.getAllSubscribers(100, new MMXChannel.OnFinishedListener<ListResult<MMXUser>>() {
       public void onSuccess(ListResult<MMXUser> result) {
         getSubsResult.set(result.totalCount);
         synchronized (getSubsResult) {
@@ -293,7 +291,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (getSubsResult) {
           getSubsResult.notify();
@@ -343,7 +341,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     final StringBuffer pubId = new StringBuffer();
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
-    String id = channel.publish(content, new MMX.OnFinishedListener<String>() {
+    String id = channel.publish(content, new MMXMessage.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         pubId.append(result);
         synchronized (pubId) {
@@ -351,7 +349,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (pubId) {
           pubId.notify();
@@ -375,7 +373,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     //get topic again
     final AtomicInteger itemCount = new AtomicInteger(0);
     final AtomicInteger channelCount = new AtomicInteger(0);
-    MMXChannel.findByName(channelName, 100, new MMX.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findByName(channelName, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         channelCount.set(result.totalCount);
@@ -388,7 +386,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (channelCount) {
           channelCount.notify();
@@ -409,7 +407,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpUnsubscribe(MMXChannel channel) {
     //unsubscribe
     final AtomicBoolean unsubResult = new AtomicBoolean(false);
-    channel.unsubscribe(new MMX.OnFinishedListener<Boolean>() {
+    channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
       @Override
       public void onSuccess(Boolean result) {
         unsubResult.set(result);
@@ -419,7 +417,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (unsubResult) {
           unsubResult.notify();
@@ -439,7 +437,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpDelete(MMXChannel channel) {
     //delete
     final AtomicBoolean deleteResult = new AtomicBoolean(false);
-    channel.delete(new MMX.OnFinishedListener<Void>() {
+    channel.delete(new MMXChannel.OnFinishedListener<Void>() {
       @Override
       public void onSuccess(Void result) {
         deleteResult.set(true);
@@ -449,7 +447,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (deleteResult) {
           deleteResult.notify();
@@ -469,7 +467,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFetch(MMXChannel channel, int expectedCount) {
     //test basic fetch
     final AtomicInteger fetchCount = new AtomicInteger(0);
-    channel.getItems(null, null, 100, true, new MMX.OnFinishedListener<ListResult<MMXMessage>>() {
+    channel.getItems(null, null, 100, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
       @Override
       public void onSuccess(ListResult<MMXMessage> result) {
         fetchCount.set(result.totalCount);
@@ -479,7 +477,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (fetchCount) {
           fetchCount.notify();

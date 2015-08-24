@@ -1,7 +1,6 @@
 package com.magnet.mmx.client.api;
 
 import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.client.common.MMXid;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,12 +61,12 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
             .content(content)
             .build();
     final StringBuffer resultSb = new StringBuffer();
-    final String messageId = message.send(new MMX.OnFinishedListener<String>() {
+    final String messageId = message.send(new MMXMessage.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         resultSb.append(result);
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
         Log.e(TAG, "testSendMessage(): failureCode=" + code, ex);
         fail();
       }

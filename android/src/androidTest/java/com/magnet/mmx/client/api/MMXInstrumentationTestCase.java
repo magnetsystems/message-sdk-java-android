@@ -63,8 +63,8 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
 
     final AtomicBoolean success = new AtomicBoolean(false);
     //setup the listener for the registration call
-    final MMX.OnFinishedListener<Void> listener =
-            new MMX.OnFinishedListener<Void>() {
+    final MMXUser.OnFinishedListener<Void> listener =
+            new MMXUser.OnFinishedListener<Void>() {
               public void onSuccess(Void result) {
                 Log.d(TAG, "onSuccess: result=" + result);
                 success.set(true);
@@ -73,7 +73,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
                 }
               }
 
-              public void onFailure(MMX.FailureCode code, Throwable ex) {
+              public void onFailure(MMXUser.FailureCode code, Throwable ex) {
                 Log.e(TAG, "onFailure(): code=" + code, ex);
                 synchronized (this) {
                   this.notify();
