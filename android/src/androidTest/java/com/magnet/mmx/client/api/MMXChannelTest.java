@@ -333,7 +333,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public boolean onMessageAcknowledgementReceived(MMXid from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
         return false;
       }
     };

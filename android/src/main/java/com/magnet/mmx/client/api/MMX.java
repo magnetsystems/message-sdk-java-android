@@ -64,7 +64,7 @@ public final class MMX {
      * @param messageId the message id that was acknowledged
      * @return true to consume this message, false for additional listeners to be called
      */
-    public boolean onMessageAcknowledgementReceived(MMXid from, String messageId) {
+    public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
       //default implementation is a no-op
       return false;
     }
@@ -481,7 +481,8 @@ public final class MMX {
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
-          if (listener.onMessageAcknowledgementReceived(from, originalMessageId)) {
+          MMXUser fromUser = MMXUser.fromMMXid(from);
+          if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
             //listener returning true means consume the message
             break;
           }
