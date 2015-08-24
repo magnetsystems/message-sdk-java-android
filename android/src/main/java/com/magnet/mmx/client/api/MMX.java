@@ -10,9 +10,7 @@ import com.magnet.mmx.client.AbstractMMXListener;
 import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
-import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.*;
-import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Iterator;
@@ -26,14 +24,41 @@ public final class MMX {
    * Possible failure codes returned in the OnFinishedListener.onFailure method.
    * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
    */
-  public enum FailureCode {
-    DEVICE_ERROR,
-    DEVICE_CONNECTION_FAILED,
-    SERVER_AUTH_FAILED,
-    SERVER_BAD_STATUS,
-    SERVER_EXCEPTION,
-    REGISTRATION_INVALID_USERNAME,
-    REGISTRATION_USER_ALREADY_EXISTS
+  public static class FailureCode {
+    public static final FailureCode DEVICE_ERROR = new FailureCode(1);
+    public static final FailureCode DEVICE_CONNECTION_FAILED = new FailureCode(2);
+    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(3);
+    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(4);
+    public static final FailureCode SERVER_EXCEPTION = new FailureCode(5);
+    private int mValue;
+
+    FailureCode(int value) {
+      mValue = value;
+    }
+
+    public final int getValue() {
+      return mValue;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      FailureCode that = (FailureCode) o;
+
+      return mValue == that.mValue;
+
+    }
+
+    @Override
+    public int hashCode() {
+      return mValue;
+    }
+
+    public String toString() {
+      return "FailureCode=" + mValue;
+    }
   }
 
   /**
@@ -112,13 +137,13 @@ public final class MMX {
    *
    * @param <T> The parameter type with which the onSuccess callback will be invoked
    */
-  public interface OnFinishedListener<T> {
+  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
     /**
      * Invoked if the operation succeeded
      *
      * @param result the result of the operation
      */
-    void onSuccess(T result);
+    public abstract void onSuccess(T result);
 
     /**
      * Invoked if the operation failed
@@ -126,7 +151,7 @@ public final class MMX {
      * @param code the failure code
      * @param ex the exception, null if no exception
      */
-    void onFailure(FailureCode code, Throwable ex);
+    public abstract void onFailure(FailureCode code, Throwable ex);
   }
 
   public static final String EXTRA_NESTED_INTENT = "extraNestedIntent";
@@ -278,11 +303,12 @@ public final class MMX {
    * @param username the username
    * @param password the password
    * @param listener listener for success or failure
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    * @see com.magnet.mmx.client.api.MMX.EventListener
    * @see #enableIncomingMessages(boolean)
    */
   public static void login(String username, byte[] password,
-                           final MMX.OnFinishedListener<Void> listener) {
+                           final OnFinishedListener<Void> listener) {
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         Log.d(TAG, "login() received connection event: " + event);
@@ -346,8 +372,9 @@ public final class MMX {
 
   /**
    * Stop sending/receiving messages.
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
-  public static void logout(final MMX.OnFinishedListener<Void> listener) {
+  public static void logout(final OnFinishedListener<Void> listener) {
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         Log.d(TAG, "logout() received connection event: " + event);
@@ -422,6 +449,7 @@ public final class MMX {
    *
    * @param listener the listener to register
    * @return true if newly registered, false otherwise (if listener was already registered)
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean registerListener(EventListener listener) {
     checkState();
@@ -440,6 +468,7 @@ public final class MMX {
    *
    * @param listener the listener to unregister
    * @return true if the listener was unregistered successfully, false if the listener was NOT known
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean unregisterListener(EventListener listener) {
     checkState();
@@ -588,36 +617,6 @@ public final class MMX {
     return sInstance.mGlobalListener;
   }
 
-  abstract static class MMXStatusTask extends MMXTask<MMXStatus> {
-    private final OnFinishedListener<Void> mListener;
-
-    MMXStatusTask(OnFinishedListener<Void> listener) {
-      super(getMMXClient(), getHandler());
-      mListener = listener;
-    }
-
-    @Override
-    public abstract MMXStatus doRun(MMXClient mmxClient) throws Throwable;
-
-    @Override
-    public final void onException(Throwable exception) {
-      if (mListener != null) {
-        mListener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
-      }
-    }
-
-    @Override
-    public final void onResult(MMXStatus result) {
-      if (mListener != null) {
-        if (result.getCode() == MMXStatus.SUCCESS) {
-          mListener.onSuccess(null);
-        } else {
-          mListener.onFailure(MMX.FailureCode.SERVER_BAD_STATUS, new Exception(result.toString()));
-        }
-      }
-    }
-  }
-
   /**
    * Registers the wakeup broadcast intent.  This is handled internally using
    * Intent.toUri().  This is part of the GCM wakeup functionality of MMX.  There are several
@@ -631,6 +630,7 @@ public final class MMX {
    * </ol>
    *
    * @param intent the intent to register
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public synchronized static void registerWakeupBroadcast(Intent intent) {
     checkState();
@@ -641,6 +641,7 @@ public final class MMX {
 
   /**
    * Unregisters the wakeup broadcast intent.
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public synchronized static void unregisterWakeupBroadcast() {
     checkState();
