@@ -43,7 +43,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         return false;
       }
 
-      public boolean onMessageAcknowledgementReceived(MMXid from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
         return false;
       }
     };
