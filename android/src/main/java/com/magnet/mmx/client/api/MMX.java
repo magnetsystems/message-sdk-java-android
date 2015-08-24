@@ -55,6 +55,10 @@ public final class MMX {
     public int hashCode() {
       return mValue;
     }
+
+    public String toString() {
+      return "FailureCode=" + mValue;
+    }
   }
 
   /**
