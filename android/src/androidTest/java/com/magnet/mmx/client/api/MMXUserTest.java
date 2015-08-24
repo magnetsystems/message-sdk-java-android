@@ -29,7 +29,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     //test findByName()
     final AtomicInteger totalCount = new AtomicInteger(0);
     final StringBuffer displayNameBuffer = new StringBuffer();
-    MMXUser.findByName(displayName, 10, new MMX.OnFinishedListener<ListResult<MMXUser>>() {
+    MMXUser.findByName(displayName, 10, new MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
       @Override
       public void onSuccess(ListResult<MMXUser> result) {
         totalCount.set(result.totalCount);
@@ -41,7 +41,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXUser.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized(totalCount) {
           totalCount.notify();
@@ -63,7 +63,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     names.add(username);
     totalCount.set(0);
     displayNameBuffer.delete(0, displayNameBuffer.length());
-    MMXUser.findByNames(names, new MMX.OnFinishedListener<HashMap<String, MMXUser>>() {
+    MMXUser.findByNames(names, new MMXUser.OnFinishedListener<HashMap<String, MMXUser>>() {
       public void onSuccess(HashMap<String, MMXUser> result) {
         totalCount.set(result.size());
         MMXUser user = result.get(username);
@@ -73,7 +73,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMX.FailureCode code, Throwable ex) {
+      public void onFailure(MMXUser.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (totalCount) {
           totalCount.notify();

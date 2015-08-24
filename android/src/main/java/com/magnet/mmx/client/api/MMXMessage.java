@@ -5,7 +5,6 @@ import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
-import com.magnet.mmx.client.common.Participant;
 import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Date;
@@ -18,6 +17,40 @@ import java.util.Set;
  * The message class
  */
 public class MMXMessage {
+  /**
+   * Failure codes for the MMXMessage class.
+   */
+  public static class FailureCode extends MMX.FailureCode {
+    FailureCode(int value) {
+      super(value);
+    }
+
+    static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
+      return new FailureCode(code.getValue());
+    }
+  }
+
+  /**
+   * The OnFinishedListener for MMXMessage methods.
+   *
+   * @param <T> The type of the onSuccess result
+   */
+  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
+    /**
+     * Called when the operation completes successfully
+     *
+     * @param result the result of the operation
+     */
+    public abstract void onSuccess(T result);
+
+    /**
+     * Called if the operation fails
+     *
+     * @param code the failure code
+     * @param throwable the throwable associated with this failure (may be null)
+     */
+    public abstract void onFailure(FailureCode code, Throwable throwable);
+  }
   /**
    * The builder for the MMXMessage class
    */
@@ -321,7 +354,7 @@ public class MMXMessage {
    *
    * @param listener the listener for this method call
    */
-  public String send(final MMX.OnFinishedListener<String> listener) {
+  public String send(final OnFinishedListener<String> listener) {
     //validate message
     if (mChannel != null && mRecipients.size() > 0) {
       throw new IllegalArgumentException("Cannot send to both a channel and recipients");
@@ -348,7 +381,7 @@ public class MMXMessage {
 
         @Override
         public void onException(Throwable exception) {
-          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
         }
 
         @Override
@@ -385,7 +418,7 @@ public class MMXMessage {
 
         @Override
         public void onException(Throwable exception) {
-          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
         }
 
         @Override
@@ -407,7 +440,7 @@ public class MMXMessage {
    * @return the message id
    */
   public String reply(Map<String, String> replyContent,
-                      MMX.OnFinishedListener<String> listener) {
+                      OnFinishedListener<String> listener) {
     if (mTimestamp == null) {
       throw new IllegalStateException("Cannot reply on an outgoing message.");
     }
@@ -423,7 +456,7 @@ public class MMXMessage {
    * @return the message id
    */
   public String replyAll(Map<String, String> replyContent,
-                         MMX.OnFinishedListener<String> listener) {
+                         OnFinishedListener<String> listener) {
     if (mTimestamp == null) {
       throw new IllegalStateException("Cannot reply on an outgoing message.");
     }
@@ -460,9 +493,9 @@ public class MMXMessage {
    * Acknowledge this message.  This will invoke
    *
    * @param listener the listener for this call
-   * @see MMX.OnFinishedListener
+   * @see OnFinishedListener
    */
-  public final void acknowledge(final MMX.OnFinishedListener<Void> listener) {
+  public final void acknowledge(final OnFinishedListener<Void> listener) {
     if (mReceiptId == null) {
       throw new IllegalArgumentException("Cannot acknowledge() this message: " + mId);
     }
@@ -475,7 +508,7 @@ public class MMXMessage {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -525,10 +558,10 @@ public class MMXMessage {
   //For handling the onSuccess of send() messages when server ack is received
   private class RecipientListenerPair {
     private final Set<String> recipients;
-    private final MMX.OnFinishedListener<String> listener;
+    private final OnFinishedListener<String> listener;
 
     private RecipientListenerPair(Set<String> recipients,
-                                  MMX.OnFinishedListener<String> listener) {
+                                  OnFinishedListener<String> listener) {
       this.recipients = recipients;
       this.listener = listener;
     }

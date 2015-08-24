@@ -5,6 +5,7 @@ import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
@@ -30,6 +31,44 @@ import javax.net.ssl.SSLHandshakeException;
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
+
+  /**
+   * Failure codes for the MMXUser class.
+   */
+  public static class FailureCode extends MMX.FailureCode {
+    public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101);
+    public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102);
+
+    FailureCode(int value) {
+      super(value);
+    }
+
+    static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
+      return new FailureCode(code.getValue());
+    }
+  }
+
+  /**
+   * The OnFinishedListener for MMXUser methods.
+   *
+   * @param <T> The type of the onSuccess result
+   */
+  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
+    /**
+     * Called when the operation completes successfully
+     *
+     * @param result the result of the operation
+     */
+    public abstract void onSuccess(T result);
+
+    /**
+     * Called if the operation fails
+     *
+     * @param code the failure code
+     * @param throwable the throwable associated with this failure (may be null)
+     */
+    public abstract void onFailure(FailureCode code, Throwable throwable);
+  }
 
   /**
    * The builder for the MMXUser class
@@ -130,7 +169,7 @@ public class MMXUser {
    * @param listener the listener, true for success, false otherwise
    */
   public void register(final byte[] password,
-                       final MMX.OnFinishedListener<Void> listener) {
+                       final OnFinishedListener<Void> listener) {
     MMXTask<Integer> task = new MMXTask<Integer>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Integer doRun(MMXClient mmxClient) throws Throwable {
@@ -188,18 +227,18 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        MMX.FailureCode code = MMX.FailureCode.DEVICE_ERROR;
+        FailureCode code = FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR, exception);
         if (exception != null) {
           if (exception instanceof SSLHandshakeException) {
             Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
                     "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
                     "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
-            code = MMX.FailureCode.DEVICE_CONNECTION_FAILED;
+            code = FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_CONNECTION_FAILED, exception);
           } else if (exception instanceof IllegalArgumentException) {
-            code = MMX.FailureCode.REGISTRATION_INVALID_USERNAME;
-          } else {
+            code = FailureCode.REGISTRATION_INVALID_USERNAME;
+          } else if (exception instanceof MMXException) {
             Log.d(TAG, "register(): exception caught", exception);
-            code = MMX.FailureCode.SERVER_EXCEPTION;
+            code = FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception);
           }
         }
         listener.onFailure(code, exception);
@@ -214,10 +253,10 @@ public class MMXUser {
             listener.onSuccess(null);
             break;
           case 409:
-            listener.onFailure(MMX.FailureCode.REGISTRATION_USER_ALREADY_EXISTS, null);
+            listener.onFailure(FailureCode.REGISTRATION_USER_ALREADY_EXISTS, null);
             break;
           default:
-            listener.onFailure(MMX.FailureCode.SERVER_BAD_STATUS, null);
+            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
             break;
         }
       }
@@ -231,7 +270,7 @@ public class MMXUser {
    * @param newPassword the new password
    */
   public void changePassword(final byte[] newPassword,
-                             final MMX.OnFinishedListener<Void> listener) {
+                             final OnFinishedListener<Void> listener) {
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
@@ -242,7 +281,7 @@ public class MMXUser {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_EXCEPTION, exception), exception);
         }
       }
 
@@ -264,7 +303,7 @@ public class MMXUser {
    * @param listener listener for success or failure
    */
   public static void findByName(final String startsWith, final int limit,
-                                      final MMX.OnFinishedListener<ListResult<MMXUser>> listener) {
+                                      final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
@@ -281,7 +320,7 @@ public class MMXUser {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
         }
       }
 
@@ -303,7 +342,7 @@ public class MMXUser {
    * @param listener the listener for the results of this operation
    */
   public static void findByNames(final HashSet<String> usernames,
-                                 final MMX.OnFinishedListener<HashMap<String, MMXUser>> listener) {
+                                 final OnFinishedListener<HashMap<String, MMXUser>> listener) {
     MMXTask<Map<String, UserInfo>> task =
             new MMXTask<Map<String, UserInfo>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -314,7 +353,7 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override

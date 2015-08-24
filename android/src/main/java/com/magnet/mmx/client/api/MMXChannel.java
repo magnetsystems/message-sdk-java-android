@@ -35,6 +35,41 @@ public class MMXChannel {
   private static final String TAG = MMXChannel.class.getSimpleName();
 
   /**
+   * Failure codes for the MMXChannel class.
+   */
+  public static class FailureCode extends MMX.FailureCode {
+    FailureCode(int value) {
+      super(value);
+    }
+
+    static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
+      return new FailureCode(code.getValue());
+    }
+  }
+
+  /**
+   * The OnFinishedListener for MMXChannel methods.
+   *
+   * @param <T> The type of the onSuccess result
+   */
+  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
+    /**
+     * Called when the operation completes successfully
+     *
+     * @param result the result of the operation
+     */
+    public abstract void onSuccess(T result);
+
+    /**
+     * Called if the operation fails
+     *
+     * @param code the failure code
+     * @param throwable the throwable associated with this failure (may be null)
+     */
+    public abstract void onFailure(FailureCode code, Throwable throwable);
+  }
+
+  /**
    * The builder for a MMXChannel object
    */
   public static final class Builder {
@@ -251,7 +286,7 @@ public class MMXChannel {
    *
    * @param listener the success/failure listener for this call
    */
-  public void getTags(final MMX.OnFinishedListener<HashSet<String>> listener) {
+  public void getTags(final OnFinishedListener<HashSet<String>> listener) {
     MMXTask<HashSet<String>> task = new MMXTask<HashSet<String>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public HashSet<String> doRun(MMXClient mmxClient) throws Throwable {
@@ -263,7 +298,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -280,7 +315,7 @@ public class MMXChannel {
    * @param tags the tags for this channel or null to remove all tags
    * @param listener the success/failure listener for this call
    */
-  public void setTags(final HashSet<String> tags, final MMX.OnFinishedListener<Void> listener) {
+  public void setTags(final HashSet<String> tags, final OnFinishedListener<Void> listener) {
     MMXTask<MMXStatus> task = new MMXTask<MMXStatus>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
@@ -290,7 +325,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -299,7 +334,7 @@ public class MMXChannel {
           listener.onSuccess(null);
         } else {
           Log.e(TAG, "setTags(): received bad status from server: " + result);
-          listener.onFailure(MMX.FailureCode.SERVER_BAD_STATUS, null);
+          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
         }
 
       }
@@ -328,7 +363,7 @@ public class MMXChannel {
    * @param listener the listener for the results of this operation
    */
   public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
-                       final MMX.OnFinishedListener<ListResult<MMXMessage>> listener) {
+                       final OnFinishedListener<ListResult<MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> task =
             new MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -350,7 +385,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -414,7 +449,7 @@ public class MMXChannel {
    * @param listener the listner for the newly created channel
    * @see Builder#setPublic(boolean)
    */
-  public void create(final MMX.OnFinishedListener<MMXChannel> listener) {
+  public void create(final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
@@ -427,7 +462,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -444,12 +479,26 @@ public class MMXChannel {
    *
    * @param listener the listener for success or failure
    */
-  public void delete(final MMX.OnFinishedListener<Void> listener) {
-    MMX.MMXStatusTask task = new MMX.MMXStatusTask(listener) {
+  public void delete(final OnFinishedListener<Void> listener) {
+    MMXTask<MMXStatus> task = new MMXTask<MMXStatus> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         return psm.deleteTopic(getMMXTopic());
+      }
+
+      @Override
+      public void onResult(MMXStatus result) {
+        if (result.getCode() == MMXStatus.SUCCESS) {
+          listener.onSuccess(null);
+        } else {
+          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
+        }
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
     };
     task.execute();
@@ -460,7 +509,7 @@ public class MMXChannel {
    *
    * @param listener the listener for the subscription id
    */
-  public void subscribe(final MMX.OnFinishedListener<String> listener) {
+  public void subscribe(final OnFinishedListener<String> listener) {
     MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public String doRun(MMXClient mmxClient) throws Throwable {
@@ -470,7 +519,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -486,7 +535,7 @@ public class MMXChannel {
    *
    * @param listener the listener for success or failure
    */
-  public void unsubscribe(final MMX.OnFinishedListener<Boolean> listener) {
+  public void unsubscribe(final OnFinishedListener<Boolean> listener) {
     MMXTask<Boolean> task = new MMXTask<Boolean>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Boolean doRun(MMXClient mmxClient) throws Throwable {
@@ -497,7 +546,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -516,7 +565,7 @@ public class MMXChannel {
    * @return the message id for this published message
    */
   public String publish(Map<String, String> messageContent,
-                      final MMX.OnFinishedListener<String> listener) {
+                      final MMXMessage.OnFinishedListener<String> listener) {
     MMXMessage message = new MMXMessage.Builder()
             .channel(this)
             .content(messageContent)
@@ -534,7 +583,7 @@ public class MMXChannel {
    * @param listener the listener for success/failure of this operation
    */
   public void inviteUser(final MMXUser invitee, final String invitationText,
-                         final MMX.OnFinishedListener<MMXInvite> listener) {
+                         final OnFinishedListener<MMXInvite> listener) {
     MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
     MMXInvite invite = new MMXInvite(inviteInfo, false);
     invite.send(listener);
@@ -546,7 +595,7 @@ public class MMXChannel {
    * @param limit the maximum number of subscribers to return
    * @param listener the listener for the subscribers
    */
-  public void getAllSubscribers(final int limit, final MMX.OnFinishedListener<ListResult<MMXUser>> listener) {
+  public void getAllSubscribers(final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<MMXResult<List<UserInfo>>> task =
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -557,7 +606,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
 
       @Override
@@ -580,7 +629,7 @@ public class MMXChannel {
    * @param listener the listener for the query results
    */
   public static void findByName(final String startsWith, final int limit,
-                                final MMX.OnFinishedListener<ListResult<MMXChannel>> listener) {
+                                final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -601,7 +650,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
     };
     task.execute();
@@ -614,7 +663,7 @@ public class MMXChannel {
    * @param listener the listener for the query results
    */
   public static void findByTags(final Set<String> tags, final int limit,
-                                final MMX.OnFinishedListener<ListResult<MMXChannel>> listener) {
+                                final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -635,7 +684,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
     };
     task.execute();
@@ -646,7 +695,7 @@ public class MMXChannel {
    *
    * @param listener the results listener for this operation
    */
-  public static void getAllSubscriptions(final MMX.OnFinishedListener<List<MMXChannel>> listener) {
+  public static void getAllSubscriptions(final OnFinishedListener<List<MMXChannel>> listener) {
     MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
@@ -661,7 +710,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
       }
     };
     task.execute();
@@ -845,7 +894,7 @@ public class MMXChannel {
   /**
    * The MMXInvite class is used when sending invites for channels.
    *
-   * @see #inviteUser(MMXUser, String, MMX.OnFinishedListener)
+   * @see #inviteUser(MMXUser, String, OnFinishedListener)
    */
   public static class MMXInvite {
     static final String TYPE = "invitation";
@@ -866,7 +915,7 @@ public class MMXChannel {
       return mInviteInfo;
     }
 
-    private void send(final MMX.OnFinishedListener<MMXInvite> listener) {
+    private void send(final OnFinishedListener<MMXInvite> listener) {
       if (mIncoming) {
         throw new RuntimeException("Cannot call send on an incoming invitation.");
       }
@@ -877,16 +926,16 @@ public class MMXChannel {
               .content(mInviteInfo.buildMessageContent())
               .type(TYPE)
               .build();
-      message.send(new MMX.OnFinishedListener<String>() {
+      message.send(new MMXMessage.OnFinishedListener<String>() {
         public void onSuccess(String result) {
           if (listener != null) {
             listener.onSuccess(MMXInvite.this);
           }
         }
 
-        public void onFailure(MMX.FailureCode code, Throwable ex) {
+        public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
           if (listener != null) {
-            listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
           }
         }
       });
@@ -898,17 +947,17 @@ public class MMXChannel {
      * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void accept(final String comment, final MMX.OnFinishedListener<MMXInvite> listener) {
+    public void accept(final String comment, final OnFinishedListener<MMXInvite> listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't accept an outgoing invite");
       }
 
       MMXChannel channel = mInviteInfo.getChannel();
-      channel.subscribe(new MMX.OnFinishedListener<String>() {
+      channel.subscribe(new OnFinishedListener<String>() {
         @Override
         public void onSuccess(String result) {
           MMXMessage response = buildResponse(true, comment);
-          response.send(new MMX.OnFinishedListener<String>() {
+          response.send(new MMXMessage.OnFinishedListener<String>() {
             @Override
             public void onSuccess(String result) {
               if (listener != null) {
@@ -917,18 +966,18 @@ public class MMXChannel {
             }
 
             @Override
-            public void onFailure(MMX.FailureCode code, Throwable ex) {
+            public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
               if (listener != null) {
-                listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+                listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
               }
             }
           });
         }
 
         @Override
-        public void onFailure(MMX.FailureCode code, Throwable ex) {
+        public void onFailure(FailureCode code, Throwable ex) {
           if (listener != null) {
-            listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
           }
         }
       });
@@ -940,12 +989,12 @@ public class MMXChannel {
      * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void decline(String comment, final MMX.OnFinishedListener<MMXInvite> listener) {
+    public void decline(String comment, final OnFinishedListener<MMXInvite> listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't reject an outgoing invite");
       }
       MMXMessage response = buildResponse(false, comment);
-      response.send(new MMX.OnFinishedListener<String>() {
+      response.send(new MMXMessage.OnFinishedListener<String>() {
         @Override
         public void onSuccess(String result) {
           if (listener != null) {
@@ -954,9 +1003,9 @@ public class MMXChannel {
         }
 
         @Override
-        public void onFailure(MMX.FailureCode code, Throwable ex) {
+        public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
           if (listener != null) {
-            listener.onFailure(MMX.FailureCode.SERVER_EXCEPTION, ex);
+            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
           }
         }
       });
