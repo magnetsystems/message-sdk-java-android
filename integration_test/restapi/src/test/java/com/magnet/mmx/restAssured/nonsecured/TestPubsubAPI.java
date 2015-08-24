@@ -223,7 +223,7 @@ public class TestPubsubAPI extends TestCase {
             when().delete("topics/" + nonExistantTopic);
 
     responseDelete.then()
-      .body("message", startsWith("Topic with name")).statusCode(400);
+      .body("message", startsWith("Channel with name")).statusCode(400);
   }
 
   @Test
@@ -247,7 +247,7 @@ public class TestPubsubAPI extends TestCase {
             post("/topics/" +  nonExistantTopic + "/publish");
 
     responsePublishMessagePost.then()
-        .body("message", startsWith("Topic with name")).statusCode(400);
+        .body("message", startsWith("Channel with name")).statusCode(400);
 
   }
 
@@ -286,7 +286,7 @@ public class TestPubsubAPI extends TestCase {
     responsePublishMessagePost.then().
         statusCode(400).
         assertThat().body("status", equalTo("ERROR")).
-        assertThat().body("message", containsString("Topic message content can't be empty"));
+        assertThat().body("message", containsString("Channel message content can't be empty"));
   }
 
     @AfterClass
