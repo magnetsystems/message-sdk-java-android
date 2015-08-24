@@ -303,6 +303,7 @@ public final class MMX {
    * @param username the username
    * @param password the password
    * @param listener listener for success or failure
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    * @see com.magnet.mmx.client.api.MMX.EventListener
    * @see #enableIncomingMessages(boolean)
    */
@@ -371,6 +372,7 @@ public final class MMX {
 
   /**
    * Stop sending/receiving messages.
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static void logout(final OnFinishedListener<Void> listener) {
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
@@ -447,6 +449,7 @@ public final class MMX {
    *
    * @param listener the listener to register
    * @return true if newly registered, false otherwise (if listener was already registered)
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean registerListener(EventListener listener) {
     checkState();
@@ -465,6 +468,7 @@ public final class MMX {
    *
    * @param listener the listener to unregister
    * @return true if the listener was unregistered successfully, false if the listener was NOT known
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean unregisterListener(EventListener listener) {
     checkState();
@@ -626,6 +630,7 @@ public final class MMX {
    * </ol>
    *
    * @param intent the intent to register
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public synchronized static void registerWakeupBroadcast(Intent intent) {
     checkState();
@@ -636,6 +641,7 @@ public final class MMX {
 
   /**
    * Unregisters the wakeup broadcast intent.
+   * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public synchronized static void unregisterWakeupBroadcast() {
     checkState();
