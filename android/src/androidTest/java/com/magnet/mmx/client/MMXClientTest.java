@@ -18,6 +18,7 @@ package com.magnet.mmx.client;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,6 +37,7 @@ import com.magnet.mmx.client.common.TopicExistsException;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXTopicId;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.UserInfo;
@@ -101,6 +103,10 @@ public class MMXClientTest extends InstrumentationTestCase {
       }
     }
 
+    public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
+      Log.d(TAG, "onMessageAccepted message id =" + messageId);
+    }
+
     public void onPubsubItemReceived(MMXClient client, MMXTopic topic, MMXMessage message) {
       Log.d(TAG, "onPubsubItemReceived topic=" + topic.getName() + ";message=" + message.getPayload().getDataAsText());
       isPubSubItemReceived.set(true);
@@ -162,7 +168,55 @@ public class MMXClientTest extends InstrumentationTestCase {
       return "VIN-1234";
     }
   }
+  
+  public void testMMXid() {
+    MMXid user1 = new MMXid("user1", null);
+    MMXid uuser1 = new MMXid("USER1", null);
+    MMXid user1dev1 = new MMXid("user1", "dev1", null);
+    MMXid uuser1dev1 = new MMXid("USER1", "dev1", null);
+    MMXid user1dev2 = new MMXid("user1", "dev2", null);
 
+    // user ID is case insensitive
+    assertEquals(user1, uuser1);
+    assertTrue(user1.equalsTo(uuser1));
+    assertEquals(user1dev1, uuser1dev1);
+    assertTrue(user1dev1.equalsTo(uuser1dev1));
+    
+    // logically equal and user ID is case insensitive
+    assertTrue(user1.equalsTo(user1dev1));
+    assertTrue(user1.equalsTo(uuser1dev1));
+
+    // physically not equal, but user ID is case insensitive.
+    assertFalse(user1.equals(user1dev1));
+    assertFalse(user1.equals(uuser1dev1));
+    
+    // logical and physical not equal
+    assertFalse(user1dev1.equals(user1dev2));
+    assertFalse(user1dev1.equalsTo(user1dev2));
+    
+    MMXid user1_dev1 = new MMXid("user1", "dev1", null);
+    HashSet<MMXid> xids = new HashSet<MMXid>();
+    assertTrue(xids.add(user1dev1));
+    assertFalse(xids.add(user1_dev1));
+    assertFalse(xids.add(uuser1dev1));
+  }
+  
+  public void testMMXTopicId() {
+    MMXTopicId topic1 = new MMXTopicId("topic1");
+    MMXTopicId uctopic1 = new MMXTopicId("TOPIC1");
+    MMXTopicId utopic1 = new MMXTopicId("user1", "topic1");
+    MMXTopicId ucutopic1 = new MMXTopicId("USER1", "TOPIC1");
+    
+    assertEquals(topic1, uctopic1);
+    assertEquals(utopic1, ucutopic1);
+    
+    HashSet<MMXTopicId> topicIds = new HashSet<MMXTopicId>();
+    assertTrue(topicIds.add(topic1));
+    assertFalse(topicIds.add(uctopic1));
+    assertTrue(topicIds.add(utopic1));
+    assertFalse(topicIds.add(ucutopic1));
+  }
+  
   public void testConnectWithCustomDeviceId() {
     MMXClientConfig clientConfig = new CustomClientTestConfig(this.getInstrumentation().getTargetContext());
     MMXClient client = MMXClient.getInstance("CustomConfig", this.getInstrumentation().getTargetContext(), clientConfig);
@@ -298,7 +352,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       .setMetaData("meta1", "value1");
 
     //do the send
-    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2), payload,
+    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2, null), payload,
             new Options().enableReceipt(true));
 
     //wait for the message
@@ -416,7 +470,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     disconnect(false, listener);
     assertFalse(mmxClient.isConnected());
 
-    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1),
+    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1, null),
             "Test message", null);
     assertNotNull(messageId);
 
@@ -446,7 +500,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     disconnect(false, listener);
     assertFalse(mmxClient.isConnected());
 
-    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1),
+    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1, null),
             "Test message", null);
     assertNotNull(messageId);
 
@@ -777,7 +831,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     //send message
 
     //do the send
-    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2),
+    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2, null),
         new MMXPayload("foobar")
             .setMetaData("meta1", "value1"), null);
 
@@ -1057,4 +1111,5 @@ public class MMXClientTest extends InstrumentationTestCase {
     MMXStatus status = am.createAccount(account);
     assertEquals(MMXStatus.SUCCESS, status.getCode());
   }
+
 }

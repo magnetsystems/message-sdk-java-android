@@ -176,5 +176,6 @@ public class MMXTask<T> implements Runnable {
     if (mHandlerThread != null) {
       mHandlerThread.quit();
     }
+    super.finalize();
   }
 }

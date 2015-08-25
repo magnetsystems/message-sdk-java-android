@@ -18,7 +18,8 @@ package com.magnet.mmx.client.common;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.Serializable;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.HashSet;
 
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smackx.receipts.DeliveryReceipt;
@@ -40,6 +41,7 @@ import com.magnet.mmx.util.XIDUtil;
  * application data.
  */
 public class MMXMessage implements Serializable {
+  private static final String TAG = "MMXMessage";
   private static final long serialVersionUID = -5040082668605553404L;
   private String mMsgId;
   private String mFrom;
@@ -49,7 +51,9 @@ public class MMXMessage implements Serializable {
   private MMXPayload mPayload;
   private transient MMXid mFromXid;
   private transient MMXid mToXid;
-//  private transient MMXAddressable mReplyToEndpoint;
+  private transient MMXid[] mToXids;
+  private transient MMXid[] mReplyAll;
+//  private transient MMXid mReplyTo;
 
   // A wrapper for ordinary message with optional delivery receipt.
   MMXMessage(Message msg) {
@@ -84,7 +88,12 @@ public class MMXMessage implements Serializable {
    */
   public MMXid getFrom() {
     if (mFromXid == null) {
-      mFromXid = XIDUtil.toXid(mFrom);
+      if (mPayload != null) {
+        mFromXid = mPayload.unmarshallFrom();
+      }
+      if (mFromXid == null) {
+        mFromXid = XIDUtil.toXid(mFrom, null);
+      }
     }
     return mFromXid;
   }
@@ -95,27 +104,78 @@ public class MMXMessage implements Serializable {
 //   *
 //   * @return The replying address for this message.
 //   */
-//  public MMXEndpoint getReplyTo() {
-//    if (mReplyToEndpoint == null) {
+//  public MMXid getReplyTo() {
+//    if (mReplyTo == null) {
 //      String replyTo;
 //      if ((replyTo = mPayload.getReplyTo()) == null) {
-//        mReplyToEndpoint = getFrom();
+//        mReplyTo = getFrom();
 //      } else {
-//        mReplyToEndpoint = XIDUtil.toEndpoint(replyTo);
+//        mReplyTo = XIDUtil.toXid(replyTo, null);
 //      }
 //    }
-//    return mReplyToEndpoint;
+//    return mReplyTo;
 //  }
 
   /**
-   * Get the recipient identifier which may be an end-point or a user.
-   * @return The recipient identifier.
+   * Get the current recipient with the display name.
+   * @return The current recipient.
    */
   public MMXid getTo() {
     if (mToXid == null) {
-      mToXid = XIDUtil.toXid(mTo);
+      MMXid[] tos = getTos();
+      if (tos != null) {
+        MMXid self = XIDUtil.toXid(mTo, null);
+        for (MMXid to : tos) {
+          if (to.equalsTo(self)) {
+            return mToXid = to;
+          }
+        }
+        mToXid = self;
+      }
     }
     return mToXid;
+  }
+
+  /**
+   * Get all explicitly specified recipients of this message.  If no explicit
+   * recipients are specified, an empty array will be returned.
+   * @return A non-null array of recipients.
+   */
+  public MMXid[] getTos() {
+    if (mToXids == null && mPayload != null) {
+      mToXids = mPayload.unmarshallTo();
+      if (mToXids == null) {
+        mToXids = new MMXid[0];
+      }
+    }
+    return mToXids;
+  }
+
+  /**
+   * Return a list of explicit recipients for Reply-All.  It always includes the
+   * sender and everyone in the To-list excluding the current user and duplicate
+   * users.
+   * @return A non-null array of recipients.
+   */
+  public MMXid[] getReplyAll() {
+    if (mReplyAll == null) {
+      MMXid[] tos = getTos();
+      if (tos != null) {
+        MMXid self = XIDUtil.toXid(mTo, null);
+        MMXid sender = getFrom();
+        HashSet<MMXid> set = new HashSet<MMXid>(tos.length);
+        // Sender is always included, but exclude current user from the to-list.
+        set.add(sender);
+        for (MMXid to : tos) {
+          if (!to.equalsTo(self)) {
+            set.add(to);
+          }
+        }
+        mReplyAll = new MMXid[set.size()];
+        set.toArray(mReplyAll);
+      }
+    }
+    return mReplyAll;
   }
 
   /**
@@ -126,15 +186,15 @@ public class MMXMessage implements Serializable {
     return mPayload;
   }
 
-  /**
-   * A convenient method to get the optional meta headers from the payload.
-   * @return A Map object or null.
-   * @deprecated Use {@link MMXPayload#getAllMetaData()}
-   */
-  @Deprecated
-  public Map<String, String> getAllMetaData() {
-    return (mPayload == null) ? null : mPayload.getAllMetaData();
-  }
+//  /**
+//   * A convenient method to get the optional meta headers from the payload.
+//   * @return A Map object or null.
+//   * @deprecated Use {@link MMXPayload#getAllMetaData()}
+//   */
+//  @Deprecated
+//  public Map<String, String> getAllMetaData() {
+//    return (mPayload == null) ? null : mPayload.getAllMetaData();
+//  }
 
   /**
    * Get the message ID from the delivery receipt if it exists.
@@ -165,9 +225,9 @@ public class MMXMessage implements Serializable {
    */
   @Override
   public String toString() {
-    return "[ id=" + getId() + ", from=" + getFrom() + ", to=" + getTo()
-        + ", rcptId=" + getReceiptId() + ", rcptMsgId=" + getMsgIdFromReceipt()
-        + ", data=" + getPayload() + " ]";
+    return "[ id="+getId()+", from="+getFrom()+", to="+getTo()+
+        ", tos="+Arrays.asList(getTos())+", rcptId="+getReceiptId()+
+        ", rcptMsgId="+getMsgIdFromReceipt()+", data="+getPayload()+" ]";
   }
 
   // @return A delivery receipt ID if there is a request for delivery receipt.

@@ -16,7 +16,10 @@
 package com.magnet.mmx.client.common;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.UserCommand;
@@ -121,9 +124,47 @@ public class AccountManager {
     return getUserInfo(mCon.getUserId());
   }
 
-  // We are capable to get account information of any user.  It is not
-  // exposed until a customer requests it.
-  private UserInfo getUserInfo(String uid) throws MMXException {
+  private static class MapOfUserInfo extends HashMap<String, UserInfo> {
+    public MapOfUserInfo() {
+      super();
+    }
+
+    public MapOfUserInfo(int size) {
+      super(size);
+    }
+  }
+
+  /**
+   * Get user information of multiple users by their user ID's.
+   * @param uids A set of unescaped user ID's.
+   * @return A map of user ID (key) and user Info (value).
+   * @throws MMXException
+   */
+  public Map<String, UserInfo> getUserInfo(Set<String> uids) throws MMXException {
+    ArrayList<UserId> userIds = new ArrayList<UserId>(uids.size());
+    for (String uid : uids) {
+      UserId userId = new UserId(XIDUtil.escapeNode(uid));
+      userIds.add(userId);
+    }
+    try {
+      UserMMXIQHandler<List<UserId>, MapOfUserInfo> iqHandler = new
+          UserMMXIQHandler<List<UserId>, MapOfUserInfo>();
+      iqHandler.sendGetIQ(mCon, Constants.UserCommand.list.toString(),
+          userIds, MapOfUserInfo.class, iqHandler);
+      MapOfUserInfo usersInfo = iqHandler.getResult();
+      return usersInfo;
+    } catch (Throwable e) {
+      throw new MMXException(e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Get a user information of the specified user ID.
+   * @param uid An un-escaped user ID.
+   * @return A user info.
+   * @throws MMXException User not found.
+   */
+  public UserInfo getUserInfo(String uid) throws MMXException {
     try {
       UserId userId = new UserId(XIDUtil.escapeNode(uid));
       UserMMXIQHandler<UserId, UserInfo> iqHandler = new

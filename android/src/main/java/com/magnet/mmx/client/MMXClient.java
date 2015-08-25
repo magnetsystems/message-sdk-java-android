@@ -44,6 +44,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.OSType;
 import com.magnet.mmx.protocol.PushType;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.DefaultEncryptor;
 
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
@@ -333,6 +334,13 @@ public final class MMXClient {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onMessageSent() start; msgID="+msgId);
       }
+    }
+    
+    public void onMessageAccepted(MMXid recipient, String msgId) {
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "onMessageAccepted() start; recipeint="+recipient+", msgID="+msgId);
+      }
+      // TODO: a server ack is received.
     }
     
     public void onMessageFailed(String msgId) {
@@ -1009,7 +1017,7 @@ public final class MMXClient {
             mMMXListener.onConnectionEvent(MMXClient.this, event);
           } catch (Exception ex) {
             Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                "the callback", ex);
+                    "the callback", ex);
           }
         }
       });
@@ -1100,6 +1108,18 @@ public final class MMXClient {
       Log.d(TAG, "initClient(): starting.");
     }
     SmackAndroid.init(mContext);
+  }
+
+  /**
+   * Generates a message id
+   *
+   * @return a generated message id, null if the connection is unavailable
+   */
+  public String generateMessageId() {
+    if (mConnection != null) {
+      return mConnection.genId();
+    }
+    return null;
   }
 
   private void registerDeviceWithServer() {
@@ -1322,6 +1342,15 @@ public final class MMXClient {
     void onMessageDelivered(MMXClient client, MMXid recipient, String messageId);
 
     /**
+     * Called when a message has been accepted for delivery by the MMX server
+     *
+     * @param client the instance of the MMXClient
+     * @param recipient the recipient for which the message was accepted
+     * @param messageId the message id of the message
+     */
+    void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
+
+    /**
      * Called when a pubsub item is received.
      * @param client The instance of the MMXClient
      * @param topic The topic for the pubsub item that was received
@@ -1436,7 +1465,7 @@ public final class MMXClient {
     void onWakeupReceived(Context applicationContext, Intent intent);
   }
 
-  private synchronized HostnameVerifier getNaiveHostnameVerifier() {
+  public synchronized HostnameVerifier getNaiveHostnameVerifier() {
     if (mNaiveHostnameVerifier == null) {
       mNaiveHostnameVerifier = new AllowAllHostnameVerifier();
     }
@@ -1468,7 +1497,7 @@ public final class MMXClient {
   private SSLContext mNaiveSslContext = null;
   private HostnameVerifier mNaiveHostnameVerifier = null;
 
-  private synchronized SSLContext getNaiveSSLContext() {
+  public synchronized SSLContext getNaiveSSLContext() {
     if (mNaiveSslContext == null) {
       try {
         TrustManager[] tm = new TrustManager[]{new NaiveTrustManager()};

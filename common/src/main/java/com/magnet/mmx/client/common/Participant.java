@@ -18,7 +18,7 @@ public class Participant extends MMXid {
   private boolean mIsSelf;
   
   Participant(String userId, String deviceId, String displayName, boolean isSelf) {
-    super(userId, deviceId);
+    super(userId, deviceId, displayName);
     mIsSelf = isSelf;
   }
   

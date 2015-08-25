@@ -187,7 +187,7 @@ class PersistentQueue implements MMXQueue {
               case MESSAGE:
                 //send the message
                 Item.Message messageItem = (Item.Message) ois.readObject();
-                mClient.getMessageManager().sendPayload(messageItem.getId(), (MMXid[])
+                mClient.getMessageManager().sendPayloadHelper(messageItem.getId(), (MMXid[])
                                 GlobalAddress.convertDestination(messageItem.getDestination()),
                         messageItem.getPayload(), messageItem.getOptions());
                 break;

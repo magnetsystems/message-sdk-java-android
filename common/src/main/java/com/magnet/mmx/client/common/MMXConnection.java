@@ -56,6 +56,7 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.UserCreateMode;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.UserCreate;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.BinCodec;
 import com.magnet.mmx.util.DefaultEncryptor;
 import com.magnet.mmx.util.MMXQueue;
@@ -91,7 +92,6 @@ public class MMXConnection implements ConnectionListener {
   private String mAppId;
   private String mApiKey;
   private MMXid mXID;     // caching the MMX ID (userID/deviceID)
-  private String mUserId; // caching the user ID (without appId)
   private String mConToken; // MD5 of host-port-userID
   private String mUUID;
   private long mSeq;
@@ -106,8 +106,9 @@ public class MMXConnection implements ConnectionListener {
   public final static int AUTH_ANONYMOUS = 0x2;
 
   static {
-    // Register the Message Provider, so it can parse unsolicited messages.
+    // Register the Message Providers, so it can parse unsolicited messages.
     MMXPayloadMsgHandler.registerMsgProvider();
+    MMXSignalMsgHandler.registerMsgProvider();
   }
 
   /**
@@ -219,6 +220,18 @@ public class MMXConnection implements ConnectionListener {
       mCon.sendPacket(presence);
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Set an optional user display name.  It is sent along with the From meta
+   * header.
+   * @param displayName A user display name.
+   */
+  public void setDisplayName(String displayName) {
+    mSettings.setString(MMXSettings.PROP_NAME, displayName);
+    if (mXID != null) {
+      mXID.setDisplayName(displayName);
     }
   }
 
@@ -393,7 +406,6 @@ public class MMXConnection implements ConnectionListener {
       if (mCon.isConnected()) {
         try {
           mCon.disconnect();
-          mUserId = null;
           mXID = null;
           mAnonyAcct = null;
           mManagers.clear();
@@ -526,7 +538,6 @@ public class MMXConnection implements ConnectionListener {
   protected void logout() throws MMXException {
     try {
       mCon.disconnect();
-      mUserId = null;
       mAnonyAcct = null;
       mCon.resetAuthFailure();
       mCon.connect();
@@ -589,7 +600,7 @@ public class MMXConnection implements ConnectionListener {
       // Not authorized: invalid password or account does not exist.
       if ((flags & AUTH_AUTO_CREATE) == 0) {
         if (mConListener != null) {
-          mConListener.onAuthFailed(new MMXid(userId));
+          mConListener.onAuthFailed(new MMXid(userId, null));
         }
         return;
       }
@@ -609,7 +620,7 @@ public class MMXConnection implements ConnectionListener {
 
       // Callback if the auto account creation is success.
       if (mConListener != null) {
-        mConListener.onAccountCreated(new MMXid(userId));
+        mConListener.onAccountCreated(new MMXid(userId, null));
       }
 
       // Account is created, now try to log in again.
@@ -660,7 +671,7 @@ public class MMXConnection implements ConnectionListener {
       // userId is taken
       if (e.getCode() == Constants.STATUS_CODE_500) {
         if (mConListener != null) {
-          mConListener.onAuthFailed(new MMXid(userId));
+          mConListener.onAuthFailed(new MMXid(userId, null));
         }
         return false;
       }
@@ -750,13 +761,15 @@ public class MMXConnection implements ConnectionListener {
       return null;
     }
     if (mXID == null) {
-      mXID = XIDUtil.toXid(getUser());
+      mXID = XIDUtil.toXid(getUser(),
+                           mSettings.getString(MMXSettings.PROP_NAME, null));
     }
     return mXID;
   }
+
   /**
-   * Get the full XID (XEP-0106 compliant) of the login user.
-   * @return
+   * Get the full XID (XEP-0106 compliant) of the login user in String format.
+   * @return A format of userID%appID@domain/resource.
    */
   public String getUser() {
     if (mCon == null) {
@@ -782,13 +795,11 @@ public class MMXConnection implements ConnectionListener {
    * @return
    */
   public String getUserId() {
-    if (mCon == null) {
+    MMXid xid = getXID();
+    if (xid == null) {
       return null;
     }
-    if (mUserId == null) {
-      mUserId = XIDUtil.getUserId(mCon.getUser());
-    }
-    return mUserId;
+    return xid.getUserId();
   }
 
   /**
@@ -863,12 +874,27 @@ public class MMXConnection implements ConnectionListener {
 
   @Override
   public void authenticated(XMPPConnection con) {
+    boolean isMMXUser = XIDUtil.getAppId(con.getUser()) != null;
+    MMXid user = getXID();
+
+    // Fetch the display name if it is an MMX user.
+    if (isMMXUser) {
+      try {
+        UserInfo self = AccountManager.getInstance(this).getUserInfo();
+        if (mXID != null) {
+          mXID.setDisplayName(self.getDisplayName());
+        }
+      } catch (MMXException e) {
+        Log.e(TAG, "Unable to retrieve user profile for "+con.getUser());
+      }
+    }
+
     if (mConListener != null) {
-      mConListener.onAuthenticated(XIDUtil.toXid(con.getUser()));
+      mConListener.onAuthenticated(user);
     }
 
     // If it is not a MMX user, skip asking for missed published items.
-    if (XIDUtil.getAppId(con.getUser()) == null) {
+    if (!isMMXUser) {
       return;
     }
 

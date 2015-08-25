@@ -26,11 +26,16 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserCreate;
+import com.magnet.mmx.protocol.UserId;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.protocol.UserTags;
+import com.magnet.mmx.util.XIDUtil;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Account Manager allows user to change the password, update the display
@@ -203,6 +208,28 @@ public class MMXAccountManager extends MMXManager {
         connection.disconnect();
       }
     }
+  }
+
+  /**
+   * Get user information of multiple users by their user ID's.
+   * @param uids A set of unescaped user ID's.
+   * @return A map of user ID (key) and user Info (value).
+   * @throws MMXException
+   */
+  public Map<String, UserInfo> getUserInfo(Set<String> uids) throws MMXException {
+    checkDestroyed();
+    return mAccountManager.getUserInfo(uids);
+  }
+
+  /**
+   * Get a user information of the specified user ID.
+   * @param uid An un-escaped user ID.
+   * @return A user info.
+   * @throws MMXException User not found.
+   */
+  public UserInfo getUserInfo(String uid) throws MMXException {
+    checkDestroyed();
+    return mAccountManager.getUserInfo(uid);
   }
 
   @Override

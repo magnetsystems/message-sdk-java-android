@@ -23,6 +23,7 @@ import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXMessageStatus;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
+import com.magnet.mmx.client.common.MMXResult;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
@@ -38,6 +39,7 @@ import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.TopicSummary;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
 
@@ -280,6 +282,31 @@ public final class MMXPubSubManager extends MMXManager {
   }
 
   /**
+   * Publish a payload to a topic. The topic must be existing and be created
+   * with {@link com.magnet.mmx.protocol.TopicAction.PublisherType#anyone} or
+   * {@link com.magnet.mmx.protocol.TopicAction.PublisherType#subscribers} for
+   * non-owner; otherwise, TopicPermissionException will be thrown.
+   *
+   * If the MMXClient is not connected, the publishing of this payload will
+   * be queued and published upon the next successful connection.
+   *
+   * NOTE: Use this method if the id is pre-generated
+   *
+   * @param messageId the messageId to use for this message
+   * @param topic a topic object
+   * @param payload a non-null application specific payload
+   * @return a published item identifier
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   */
+  public String publish(String messageId, MMXTopic topic, MMXPayload payload)
+          throws TopicNotFoundException, TopicPermissionException, MMXException {
+    checkDestroyed();
+    return mPubSubManager.publish(messageId, topic, payload);
+  }
+
+  /**
    * @hide
    * Publish an item to a topic under the current user name-space with
    * auto-creation.  If the topic does not exist, it will be created with the
@@ -484,6 +511,35 @@ public final class MMXPubSubManager extends MMXManager {
     return mPubSubManager.listAllSubscriptions();
   }
 
+  /**
+   * @hide
+   * List all (recursively) or one level of personal and/or global
+   * topics at a starting topic.  All non-personal user topics are not
+   * discoverable.
+   * @param startingTopic null for root, or a starting topic name.
+   * @param type Filtering types: global-only, personal-only, or both.
+   * @param recursive true to list recursively; otherwise, false.
+   * @return A list of topics or an empty list.
+   * @throws MMXException
+   */
+  public List<MMXTopicInfo> listTopics(String startingTopic, TopicAction.ListType type,
+                                       boolean recursive) throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.listTopics(startingTopic, type, recursive);
+  }
+  /**
+   * Get the subscribers to a topic.
+   * 
+   * @param topic a topic name
+   * @param limit maximum number of subscribers to be returned
+   * @return A result set with a total count of subscribers.
+   */
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+          throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.getSubscribers(topic, limit);
+  }
+  
   @Override
   void onConnectionChanged() {
     mPubSubManager = PubSubManager.getInstance(getMMXClient().getMMXConnection());

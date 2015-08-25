@@ -49,6 +49,7 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.MessageCommand;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.MsgAck;
 import com.magnet.mmx.protocol.MsgEvents;
 import com.magnet.mmx.protocol.MsgId;
@@ -84,8 +85,9 @@ public class MessageManager {
 //      mCon.getContext().log(TAG, "Event processPacket() pkt="+packet.toXML());
       final MMXMessageListener listener = mCon.getMessageListener();
       if (listener != null) {
-        String[] tokens = parsePubSubMsgId(packet.getPacketID());
-        final String from = (tokens == null) ? packet.getFrom() : tokens[1];
+//        String[] tokens = parsePubSubMsgId(packet.getPacketID());
+//        final String from = (tokens == null) ? packet.getFrom() : tokens[1];
+        final String from = packet.getFrom();
         final String to = packet.getTo();
         EventElement event = packet.getExtension("event", PubSubNamespace.EVENT.getXmlns());
         final NodeExtension nodeExt = event.getEvent();
@@ -178,10 +180,10 @@ public class MessageManager {
           }
         }
 
-        // A message payload is received (partially or completely) along with an
-        // optional delivery receipt request.
-        if (listener != null && (orgMsgId == null || msg.getPayload() != null
-            || msg.getPayload().getAllMetaData() != null)) {
+        // A mmx stanza is received (partially or completely) along with an
+        // optional delivery receipt request.  We don't support a delivery
+        // receipt request without mmx stanza yet.
+        if (listener != null && msg.getPayload() != null) {
           if (msg.assemble(mCon.getContext())) {
 //            // The message is from off-line storage.
 //            DelayInfo delay = packet.getExtension("delay", "urn:xmpp:delay");
@@ -200,8 +202,28 @@ public class MessageManager {
           }
         }
       } catch (Throwable e) {
-        e.printStackTrace();
+        Log.e(TAG, xmppmsg.toString(), e);
       }
+    }
+  };
+
+  // Reliable message sent callback
+  private PacketListener mMsgSignalPacketListener = new PacketListener() {
+    @Override
+    public void processPacket(final Packet packet) throws NotConnectedException {
+      mCon.getExecutor().post(new Runnable() {
+        @Override
+        public void run() {
+          final MMXMessageListener listener = mCon.getMessageListener();
+          MMXSignalMsgHandler.MMXPacketExtension extension = packet.getExtension(
+              Constants.MMX, Constants.MMX_NS_MSG_SIGNAL);
+          MmxHeaders mmxMeta = extension.getMmxMeta();
+          ServerAck serverAck = ServerAck.parse(mmxMeta);
+          // TODO: how to do the callback for the server ack?
+          mCon.getMessageListener().onMessageAccepted(serverAck.getReceiver(),
+                serverAck.getMsgId());
+        }
+      });
     }
   };
 
@@ -218,6 +240,7 @@ public class MessageManager {
 //    }
 //  };
 
+  // Unreliable message sent callback
   private PacketListener mMsgPayloadSentListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
@@ -301,6 +324,26 @@ public class MessageManager {
     }
   }
 
+  private static class PacketCopy extends Packet {
+    private CharSequence text;
+
+    /**
+     * Create a copy of a packet with the text to send. The passed text must be
+     * a valid text to send to the server, no validation will be done on the
+     * passed text.
+     *
+     * @param text the whole text of the packet to send
+     */
+    public PacketCopy(CharSequence text) {
+      this.text = text;
+    }
+
+    @Override
+    public CharSequence toXML() {
+      return text;
+    }
+  }
+
   protected MessageManager(MMXConnection con) {
     mCon = con;
     mAckExecutor = new QueueExecutor("MMX Ack Sender", true);
@@ -330,9 +373,14 @@ public class MessageManager {
     PacketFilter extFilter = new OrFilter(
         new PacketExtensionFilter(Constants.MMX, Constants.MMX_NS_MSG_PAYLOAD),
         new PacketExtensionFilter(DeliveryReceipt.ELEMENT, DeliveryReceipt.NAMESPACE));
-    PacketFilter packetFilter = new AndFilter(extFilter, msgFilter);
+    PacketFilter payloadFilter = new AndFilter(extFilter, msgFilter);
     mCon.getXMPPConnection().addPacketListener(mMsgPayloadPacketListener,
-                                               packetFilter);
+                                               payloadFilter);
+
+    PacketFilter signalFilter = new AndFilter(new PacketExtensionFilter(
+                    Constants.MMX, Constants.MMX_NS_MSG_SIGNAL), msgFilter);
+    mCon.getXMPPConnection().addPacketListener(mMsgSignalPacketListener,
+                                              signalFilter);
 
     // Any MMX or XMPP error messages.
     mCon.getXMPPConnection().addPacketListener(mErrorMsgPacketListener,
@@ -420,6 +468,11 @@ public class MessageManager {
     if (options != null && options.isReceiptEnabled()) {
       msg.addExtension(new DeliveryReceiptRequest());
     }
+
+    // Save recipients (because of display name) in mmxmeta stanza
+    payload.setFrom(mCon.getXID());
+    payload.setTo(to);
+
     msg.addExtension(new MMXPacketExtension(payload));
     // The normal type and an empty body will disable off-line storage for this
     // message in MMX server.  The "." is just the smallest body
@@ -431,9 +484,19 @@ public class MessageManager {
 
     try {
       if (xids.length > 1) {
-        // Use XEP-0033 to address multiple recipients.
-        List<String> list = Arrays.asList(xids);
-        MultipleRecipientManager.send(xmppCon, msg, list, null, null);
+        // TODO: mmx interceptor has not implemented message status tracking in
+        // multicast router, use XEP-0033 only for unreliable msgs.  It may have
+        // performance problem for large set of recipients and large payload.
+        if (options != null && options.isDroppable()) {
+          // Use XEP-0033 to address multiple recipients.
+          List<String> list = Arrays.asList(xids);
+          MultipleRecipientManager.send(xmppCon, msg, list, null, null);
+        } else {
+          for (String xid : xids) {
+            msg.setTo(xid);
+            xmppCon.sendPacket(new PacketCopy(msg.toXML()));
+          }
+        }
       } else {
         msg.setTo(xids[0]);
         xmppCon.sendPacket(msg);
@@ -553,15 +616,15 @@ public class MessageManager {
     return result;
   }
 
-  // This is specific to Openfire implementation.  Its pubsub msg ID format is:
-  // nodeID__subscriberBaredJID__uniqeID
-  private static String[] parsePubSubMsgId(String msgId) {
-    if (msgId == null) {
-      return null;
-    }
-    String[] tokens = msgId.split("__");
-    return ((tokens == null) || (tokens.length != 3)) ? null : tokens;
-  }
+//  // This is specific to Openfire implementation.  Its pubsub msg ID format is:
+//  // nodeID__subscriberBaredJID__uniqeID
+//  private static String[] parsePubSubMsgId(String msgId) {
+//    if (msgId == null) {
+//      return null;
+//    }
+//    String[] tokens = msgId.split("__");
+//    return ((tokens == null) || (tokens.length != 3)) ? null : tokens;
+//  }
 
   // Generate a delivery receipt ID based on the sender XID and msg ID.
   static String genReceiptId(String from, String msgId) {

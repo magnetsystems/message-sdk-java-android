@@ -66,6 +66,8 @@ import com.magnet.mmx.protocol.TopicAction.RetractAllRequest;
 import com.magnet.mmx.protocol.TopicAction.RetractRequest;
 import com.magnet.mmx.protocol.TopicAction.SubscribeRequest;
 import com.magnet.mmx.protocol.TopicAction.SubscribeResponse;
+import com.magnet.mmx.protocol.TopicAction.SubscribersRequest;
+import com.magnet.mmx.protocol.TopicAction.SubscribersResponse;
 import com.magnet.mmx.protocol.TopicAction.SummaryRequest;
 import com.magnet.mmx.protocol.TopicAction.SummaryResponse;
 import com.magnet.mmx.protocol.TopicAction.TopicQueryResponse;
@@ -74,6 +76,7 @@ import com.magnet.mmx.protocol.TopicAction.TopicTags;
 import com.magnet.mmx.protocol.TopicAction.UnsubscribeRequest;
 import com.magnet.mmx.protocol.TopicInfo;
 import com.magnet.mmx.protocol.TopicSummary;
+import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
 import com.magnet.mmx.util.TagUtil;
@@ -117,7 +120,8 @@ public class PubSubManager {
   private final static String FIELD_SEND_ITEM_SUBSCRIBE = "pubsub#send_item_subscribe";
   private final static String LAST_DELIVERY_FILE = "com.magnet.pubsub-";
   private final static String USER_TOPIC_NOT_ALLOWED = "User topic is not allowed";
-  private final static boolean USER_TOPIC_SUPPORTED = false;
+  private final static boolean SHOW_USER_TOPICS = false;
+  private final static boolean SHOW_USER_TOPIC_SUBSCRIPTIONS = true;
   private MMXConnection mCon;
   private MappedByteBuffer mBuffer;
   private String mAppPrefix;
@@ -201,13 +205,32 @@ public class PubSubManager {
    */
   public String publish(MMXTopic topic, MMXPayload payload)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
+    return publish(null, topic, payload);
+  }
+
+  /**
+   * Publish a payload to a topic. The topic must be existing and be created
+   * with {@link PublisherType#anyone} or {@link PublisherType#subscribers} for
+   * non-owner; otherwise, TopicPermissionException will be thrown.
+   * @param messageId the message id for the published message
+   * @param topic A topic object.
+   * @param payload A non-null application specific payload.
+   * @return A published item ID.
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   * @see {@link com.magnet.mmx.protocol.Headers#Headers()}
+   * @see {@link MMXMessageListener#onItemReceived(MMXMessage, MMXTopicId)}
+   */
+  public String publish(String messageId, MMXTopic topic, MMXPayload payload)
+          throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
     String topicPath = TopicHelper.normalizePath(topic.getName());
     String realTopic = (topic.getUserId() != null) ?
-        makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
-    return publishToTopic(null, realTopic, topicPath, payload);
+            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
+    return publishToTopic(messageId, realTopic, topicPath, payload);
   }
 
   /**
@@ -268,12 +291,17 @@ public class PubSubManager {
                               MMXPayload.getMaxSizeAllowed()+" bytes",
                               MMXException.REQUEST_TOO_LARGE);
     }
+
     MMXQueue queue = mCon.getQueue();
     String itemId = id != null ? id : mCon.genId();
     if (mCon.isConnected()) {
       try {
-        // TODO: does the smack cache the node?  It still returns the node
-        // if the node was deleted using custom IQ.  Need investigation.
+        // XMPP does not include publisher during delivery; MMX includes the
+        // authenticated (after online) publisher to the item.
+        payload.setFrom(mCon.getXID());
+
+        // TODO: smack caches the node.  It returns the node if the node is
+        // deleted using custom IQ.  It can be a memory leak.
         LeafNode node = getNode(realTopic, topic);
         node.send(new PayloadItem<MMXPayloadMsgHandler.MMXPacketExtension>(itemId,
                 new MMXPayloadMsgHandler.MMXPacketExtension(payload)));
@@ -559,7 +587,7 @@ public class PubSubManager {
    * @throws MMXException
    */
   public List<MMXSubscription> listAllSubscriptions() throws MMXException {
-    return listSubscriptions(null, USER_TOPIC_SUPPORTED ?
+    return listSubscriptions(null, SHOW_USER_TOPIC_SUBSCRIPTIONS ?
         ListType.both : ListType.global);
   }
 
@@ -576,7 +604,7 @@ public class PubSubManager {
     if (topic != null) {
       topicName = TopicHelper.normalizePath(topic.getName());
     }
-    return listSubscriptions(topicName, USER_TOPIC_SUPPORTED ?
+    return listSubscriptions(topicName, SHOW_USER_TOPIC_SUBSCRIPTIONS ?
         ListType.both : ListType.global);
   }
 
@@ -612,14 +640,52 @@ public class PubSubManager {
   }
 
   /**
+   * Get all subscribers to a topic.
+   * @param topic A topic object.
+   * @param limit -1 for unlimited, or > 0.
+   * @return A result set.
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   */
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+      throws TopicNotFoundException, TopicPermissionException, MMXException {
+    if (topic instanceof MMXPersonalTopic) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+    }
+    String topicPath = TopicHelper.normalizePath(topic.getName());
+    SubscribersRequest rqt = new SubscribersRequest(
+        Utils.escapeNode(topic.getUserId()), topicPath, limit);
+    PubSubIQHandler<SubscribersRequest, SubscribersResponse> iqHandler =
+        new PubSubIQHandler<SubscribersRequest, SubscribersResponse>();
+    try {
+      iqHandler.sendSetIQ(mCon, Constants.PubSubCommand.getSubscribers.toString(),
+        rqt, SubscribersResponse.class, iqHandler);
+      SubscribersResponse resp = iqHandler.getResult();
+      return new MMXResult<List<UserInfo>>(resp.getSubscribers(),
+                                                 resp.getTotal());
+    } catch (MMXException e) {
+      if (e.getCode() == StatusCode.NOT_FOUND) {
+        throw new TopicNotFoundException(e.getMessage());
+      }
+      if (e.getCode() == StatusCode.FORBIDDEN) {
+        throw new TopicPermissionException(e.getMessage());
+      }
+      throw e;
+    } catch (Throwable e) {
+      throw new MMXException(e.getMessage(), e);
+    }
+  }
+
+  /**
    * List all global topics in this application.
    * @return A list of topics or an empty list.
    * @throws MMXException
    */
   public List<MMXTopicInfo> listTopics() throws MMXException {
     return listTopics(null,
-        USER_TOPIC_SUPPORTED ? ListType.both : ListType.global,
-        USER_TOPIC_SUPPORTED ? true : false);
+        SHOW_USER_TOPICS ? ListType.both : ListType.global,
+        SHOW_USER_TOPICS ? true : false);
   }
 
   /**

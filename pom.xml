@@ -3,15 +3,8 @@
 
   <modelVersion>4.0.0</modelVersion>
 
-  <!--parent>
-    <groupId>com.magnet.mmx</groupId>
-    <artifactId>mmx-root</artifactId>
-    <version>1.2.3</version>
-    <relativePath>../pom.xml</relativePath>
-  </parent-->
-
   <groupId>com.magnet.mmx</groupId>
-  <version>1.2.3</version>
+  <version>1.5.7</version>
   <packaging>pom</packaging>
   <artifactId>mmx-client-root</artifactId>
 
@@ -41,4 +34,17 @@
     <module>android</module>
     <module>j2se</module>
   </modules>
+
+  <distributionManagement>
+    <repository>
+      <id>libs-release-local</id>
+      <name>Releases</name>
+      <url>${env.MAVEN_RELEASES_URL}</url>
+    </repository>
+    <snapshotRepository>
+      <id>libs-snapshot-local</id>
+      <name>Snapshots</name>
+      <url>${env.MAVEN_SNAPSHOTS_URL}</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
