@@ -44,7 +44,6 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.OSType;
 import com.magnet.mmx.protocol.PushType;
-import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.DefaultEncryptor;
 
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
@@ -58,6 +57,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
@@ -459,6 +459,18 @@ public final class MMXClient {
     if (newConfig.getHost() == null || newConfig.getPort() == -1) {
       throw new IllegalArgumentException("The supplied MMXClientConfig does not specify the " +
               "host or port.  host=" + newConfig.getHost() + ", port=" + newConfig.getPort());
+    }
+    SecurityLevel sec = newConfig.getSecurityLevel();
+    if (sec != SecurityLevel.STRICT) {
+      Log.w(TAG, "WARNING!!!  The security level is NOT set to STRICT.  Security level = " + sec);
+      if (sec == SecurityLevel.RELAXED) {
+        Log.w(TAG, "WARNING!!!  Even though this connection will be over SSL, this security level bypasses " +
+                "certain security checks related to hostname verification and certificate verification.  " +
+                "This is a potential security risk and should only be used for non-production environments.");
+      } else {
+        Log.w(TAG, "WARNING!!!  This security level does not enforce any TLS.  This is a potential security risk " +
+                "and should only be used for non-production environments.");
+      }
     }
     mSettings = buildConnectionSettings(newConfig);
     mConfig = newConfig;

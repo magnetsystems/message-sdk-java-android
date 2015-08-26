@@ -52,12 +52,14 @@ public class MMXChannel {
    * Failure codes for the MMXChannel class.
    */
   public static class FailureCode extends MMX.FailureCode {
-    FailureCode(int value) {
-      super(value);
+    FailureCode(int value, String description) {
+      super(value, description);
     }
 
+    FailureCode(MMX.FailureCode code) { super(code); }
+
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      return new FailureCode(code.getValue());
+      return new FailureCode(code);
     }
   }
 

@@ -50,15 +50,17 @@ public class MMXUser {
    * Failure codes for the MMXUser class.
    */
   public static class FailureCode extends MMX.FailureCode {
-    public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101);
-    public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102);
+    public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101, "REGISTRATION_INVALID_USERNAME");
+    public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102, "REGISTRATION_USER_ALREADY_EXISTS");
 
-    FailureCode(int value) {
-      super(value);
+    FailureCode(int value, String description) {
+      super(value, description);
     }
 
+    FailureCode(MMX.FailureCode code) { super(code); };
+
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      return new FailureCode(code.getValue());
+      return new FailureCode(code);
     }
   }
 

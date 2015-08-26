@@ -39,20 +39,39 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
    */
   public static class FailureCode {
-    public static final FailureCode DEVICE_ERROR = new FailureCode(1);
-    public static final FailureCode DEVICE_CONNECTION_FAILED = new FailureCode(2);
-    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(3);
-    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(4);
-    public static final FailureCode SERVER_EXCEPTION = new FailureCode(5);
-    private int mValue;
+    public static final FailureCode DEVICE_ERROR = new FailureCode(1, "DEVICE_ERROR");
+    public static final FailureCode DEVICE_CONNECTION_FAILED = new FailureCode(2, "DEVICE_CONNECTION_FAILED");
+    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(3, "SERVER_AUTH_FAILED");
+    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(4, "SERVER_BAD_STATUS");
+    public static final FailureCode SERVER_EXCEPTION = new FailureCode(5, "SERVER_EXCEPTION");
+    private final int mValue;
+    private final String mDescription;
+    private final String mToString;
 
-    FailureCode(int value) {
+    FailureCode(int value, String description) {
       mValue = value;
+      mDescription = description;
+      mToString = FailureCode.class.getSimpleName() +
+              '(' + mValue + ',' + mDescription + ')';
     }
 
+    FailureCode(FailureCode code) {
+      this(code.getValue(), code.getDescription());
+    }
+
+    /**
+     * The integer code of this failure
+     * @return the integer code
+     */
     public final int getValue() {
       return mValue;
     }
+
+    /**
+     * The description of this failure
+     * @return the description
+     */
+    public final String getDescription() { return mDescription; }
 
     @Override
     public boolean equals(Object o) {
@@ -71,7 +90,7 @@ public final class MMX {
     }
 
     public String toString() {
-      return "FailureCode=" + mValue;
+      return mToString;
     }
   }
 
