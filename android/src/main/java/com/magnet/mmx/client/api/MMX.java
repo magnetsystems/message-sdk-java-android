@@ -29,6 +29,7 @@ import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The main entry point for Magnet Message.
@@ -41,9 +42,10 @@ public final class MMX {
   public static class FailureCode {
     public static final FailureCode DEVICE_ERROR = new FailureCode(1, "DEVICE_ERROR");
     public static final FailureCode DEVICE_CONNECTION_FAILED = new FailureCode(2, "DEVICE_CONNECTION_FAILED");
-    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(3, "SERVER_AUTH_FAILED");
-    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(4, "SERVER_BAD_STATUS");
-    public static final FailureCode SERVER_EXCEPTION = new FailureCode(5, "SERVER_EXCEPTION");
+    public static final FailureCode DEVICE_CONCURRENT_LOGIN = new FailureCode(3, "DEVICE_CONCURRENT_LOGIN");
+    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(51, "SERVER_AUTH_FAILED");
+    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(52, "SERVER_BAD_STATUS");
+    public static final FailureCode SERVER_EXCEPTION = new FailureCode(53, "SERVER_EXCEPTION");
     private final int mValue;
     private final String mDescription;
     private final String mToString;
@@ -99,7 +101,14 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.EventListener#onLoginRequired(LoginReason)
    */
   public enum LoginReason {
-    DISCONNECTED
+    /**
+     * @deprecated
+     */
+    DISCONNECTED,
+    /**
+     * If current credentials are invalid for any reason
+     */
+    CREDENTIALS_EXPIRED,
   }
 
   /**
@@ -191,6 +200,7 @@ public final class MMX {
   private static final String TAG = MMX.class.getSimpleName();
   private static final String SHARED_PREFS_NAME = MMX.class.getName();
   private static final String PREF_WAKEUP_INTENT_URI = "wakeupIntentUri";
+  private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
   private SharedPreferences mSharedPrefs = null;
   private Context mContext = null;
   private MMXClient mClient = null;
@@ -245,8 +255,10 @@ public final class MMX {
     @Override
     public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
       switch (connectionEvent) {
-        case DISCONNECTED:
-          notifyLoginRequired(LoginReason.DISCONNECTED);
+        case AUTHENTICATION_FAILURE:
+          if (!mLoggingIn.get()) {
+            notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
+          }
           break;
       }
       super.onConnectionEvent(mmxClient, connectionEvent);
@@ -342,6 +354,12 @@ public final class MMX {
    */
   public static void login(String username, byte[] password,
                            final OnFinishedListener<Void> listener) {
+    if (!sInstance.mLoggingIn.compareAndSet(false, true)) {
+      Log.d(TAG, "login() already logging in, returning failure");
+      listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+      return;
+    }
+
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         Log.d(TAG, "login() received connection event: " + event);
@@ -367,6 +385,7 @@ public final class MMX {
             break;
         }
         if (unregisterListener) {
+          sInstance.mLoggingIn.set(false);
           getGlobalListener().unregisterListener(this);
         }
       }
