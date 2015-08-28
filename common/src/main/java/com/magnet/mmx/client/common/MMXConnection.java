@@ -78,6 +78,7 @@ import com.magnet.mmx.util.XIDUtil;
  *
  */
 public class MMXConnection implements ConnectionListener {
+  public final static int NOT_AVAILABLE = -255;
   private final static String TAG = "MMXConnection";
   private final HashMap<String, Object> mManagers = new HashMap<String, Object>();
   private MMXContext mContext;
@@ -204,26 +205,6 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Put this client (session) online so it can start receiving messages. If the
-   * session is offline, no messages will be delivered to this client.
-   *
-   * @param online
-   *          true for online; false for offline.
-   * @throws MMXException
-   * @deprecated {@link #setMessageFlow(int)}
-   */
-  @Deprecated
-  public void setOnline(boolean online) throws MMXException {
-    Presence presence = new Presence(online ? Presence.Type.available
-        : Presence.Type.unavailable);
-    try {
-      mCon.sendPacket(presence);
-    } catch (Throwable e) {
-      throw new MMXException(e.getMessage(), e);
-    }
-  }
-
-  /**
    * Set an optional user display name.  It is sent along with the From meta
    * header.
    * @param displayName A user display name.
@@ -236,25 +217,30 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Control the message flow. Messages targeting to bared JID will be delivered
-   * to the highest priority connected device. If multiple connected devices
-   * have the same priority, messages will be delivered to all of them. If the
-   * priority is negative, messages will be queued in MMX server until one of
-   * the connected device has a non-negative priority.
-   *
-   * @param priority
-   *          between -128 and 128.
+   * Set the priority of this connection.  The priority controls the message
+   * flow.  Messages targeting to a user (bared JID) will be delivered according
+   * to the highest priority.  If same user with multiple connected devices have
+   * the same priority, messages will be delivered to all of them.  If the
+   * priority is between -1 and -128 inclusively, messages targeting to the
+   * end-point (full JID) will be delivered.  A special priority
+   * {@link #NOT_AVAILABLE} will disable the message delivery completely to the
+   * end-point that it will appear as off-line.
+   * @param priority {@link #NOT_AVAILABLE}, or between -128 and 128
    * @throws MMXException
    */
-  public void setMessageFlow(int priority) throws MMXException {
+  public void setPriority(int priority) throws MMXException {
     Presence presence;
-    if (priority >= 0) {
+    if (priority == NOT_AVAILABLE) {
+      presence = new Presence(Presence.Type.unavailable);
+    } else if (priority >= 0 && priority <= 128) {
       presence = new Presence(Presence.Type.available, "Online", priority,
           Mode.available);
-    } else {
+    } else if (priority < 0 && priority >= -128) {
       // Type.unavailable will make the connection invisible.
       presence = new Presence(Presence.Type.available, "Blocking", priority,
           Mode.dnd);
+    } else {
+      throw new IllegalArgumentException("Priority must be >= -128 and <= 128");
     }
     try {
       mCon.sendPacket(presence);

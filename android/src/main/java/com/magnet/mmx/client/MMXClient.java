@@ -312,6 +312,7 @@ public final class MMXClient {
   private final Handler mMessagingHandler;
   private ConnectionInfo mConnectionInfo = null;
   private PersistentQueue mQueue = null;
+  private int mPriority;
 
   //managers
   private HashMap<Class, MMXManager> mManagers = new HashMap<Class, MMXManager>();
@@ -577,7 +578,7 @@ public final class MMXClient {
     if (mConnection == null) {
       throw new MMXException("Not connecting to MMX server");
     }
-    mConnection.setMessageFlow(-1);
+    mConnection.setPriority(MMXConnection.NOT_AVAILABLE);
   }
   
   /**
@@ -588,7 +589,23 @@ public final class MMXClient {
     if (mConnection == null) {
       throw new MMXException("Not connecting to MMX server");
     }
-    mConnection.setMessageFlow(0);
+    mConnection.setPriority(mPriority);
+  }
+  
+  /**
+   * Set the priority of this client for receiving the incoming messages.
+   * Messages targeting to a user with priority between -128 and -1 will not be
+   * delivered.  However, messages target to an end-point will be delivered
+   * if its priority is between -128 and 128.
+   * @param priority Must be between -128 and 128.
+   * @throws MMXException
+   */
+  public void setPriority(int priority) throws MMXException {
+    if (mConnection == null) {
+      throw new MMXException("Not connecting to MMX server");
+    }
+    mConnection.setPriority(priority);
+    mPriority = priority;
   }
 
   /**
