@@ -58,11 +58,9 @@ dependencies {
 
      // this gets resolved from the Android SDK install of google play services
      // and doesn't work on Jenkins currently.
-    compile 'com.google.android.gms:play-services-base:7.8.0'
-    compile 'com.google.android.gms:play-services-location:7.8.0'
-    compile 'com.google.android.gms:play-services-gcm:7.8.0'
+    compile 'com.google.android.gms:play-services-base:7.+'
+    compile 'com.google.android.gms:play-services-gcm:7.+'
 
-    compile 'com.android.support:support-v4:22.2.1'
     compile 'com.magnet.mmx:mmx-common-api:1.6.0-SNAPSHOT'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p2'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'

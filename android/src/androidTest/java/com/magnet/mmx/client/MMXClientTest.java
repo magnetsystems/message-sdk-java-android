@@ -511,20 +511,6 @@ public class MMXClientTest extends InstrumentationTestCase {
     disconnect(false, listener);
   }
 
-  public void testPublishLocation() {
-    ClientTestListener listener = new ClientTestListener();
-    connect(USER1, listener);
-    assertTrue(mmxClient.isConnected());
-
-    try {
-      mmxClient.updateLocation();
-    } catch (Throwable e) {
-      Log.e(TAG, "testPublishLocation(): caught exception", e);
-      fail();
-    }
-    disconnect(false, listener);
-  }
-
   public void testUserUpdate() {
     String EMAIL = "user1@localhost.com";
     String DISPLAYNAME = "User1 At LocalHost";
