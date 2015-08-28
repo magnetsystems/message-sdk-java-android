@@ -22,23 +22,18 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.location.Location;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
-import com.google.android.gms.location.LocationServices;
 import com.magnet.mmx.client.common.*;
 import com.magnet.mmx.protocol.AuthData;
 import com.magnet.mmx.protocol.CarrierEnum;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.DevReg;
-import com.magnet.mmx.protocol.GeoLoc;
 import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
@@ -57,10 +52,8 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -1556,138 +1549,6 @@ public final class MMXClient {
     @Override
     public Socket createSocket(InetAddress inetAddress, int i, InetAddress inetAddress2, int i2) throws IOException {
       return mBaseFactory.createSocket(inetAddress, i, inetAddress2, i2);
-    }
-  }
-
-  /**
-   * Publishes the current location to the user's built-in topic.
-   * Uses play services to determine location.  The application must declare
-   * the location permissions in order to use this method (these are automatically added
-   * when using the gradle build).
-   *
-   * <code><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/></code>
-   * <code><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/></code>
-   *
-   * Note:  This method is not blocking and will execute the publish location request when available.
-   * The location is timestamped at the time of the publishLocation() call.
-   *
-   * @return false if Google Play Services is unavailable.  True if the publish call is submitted successfully
-   */
-  public boolean updateLocation() {
-    if (playServicesConnected()) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          MMXPlayServicesCallback callback = new MMXPlayServicesCallback();
-          GoogleApiClient googleApiClient = new GoogleApiClient.Builder(mContext)
-                  .addApi(LocationServices.API)
-                  .addConnectionCallbacks(callback)
-                  .addOnConnectionFailedListener(callback).build();
-          googleApiClient.connect();
-          synchronized (callback) {
-            try {
-              callback.wait(5000);
-              if (callback.mIsConnected) {
-                Location currentLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
-                if (currentLocation == null) {
-                  Log.e(TAG, "publishLocation(): Unable to retrieve location from locationClient.  " +
-                          "Ensure that the proper permissions(android.permission.ACCESS_COARSE_LOCATION, " +
-                          "android.permission.ACCESS_FINE_LOCATION) have been declared in the " +
-                          "AndroidManifest.xml file.  Skipping...");
-                } else {
-                  Date locationDate = new Date(currentLocation.getTime());
-                  if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "publishLocation(): location "+
-                          "  lat=" + currentLocation.getLatitude() +
-                          ", long=" + currentLocation.getLongitude() +
-                          ", accuracy=" + currentLocation.getAccuracy() +
-                          ", provider=" + currentLocation.getProvider() +
-                          ", time=" + locationDate);
-                  }
-                  GeoLoc geo = new GeoLoc();
-                  geo.setAccuracy((int) currentLocation.getAccuracy());
-                  geo.setLat((float) currentLocation.getLatitude());
-                  geo.setLng((float) currentLocation.getLongitude());
-                  String publishedId = MMXGeoLogger.updateGeoLocation(MMXClient.this, geo);
-                  if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "publishLocation(): completed.  id=" + publishedId);
-                  }
-                }
-              } else {
-                Log.w(TAG, "publishLocation(): unable to connection location client");
-              }
-            } catch (InterruptedException e) {
-              Log.e(TAG, "publishLocation(): caught exception waiting for location client", e);
-            } catch (MMXException e) {
-              Log.e(TAG, "publishLocation(): caught exception while publishing location", e);
-            } finally {
-              googleApiClient.disconnect();
-            }
-          }
-        }
-      });
-      return true;
-    } else {
-      Log.e(TAG, "publishLocation(): Unable to publish location because play services is not available.");
-      return false;
-    }
-  }
-
-  private boolean playServicesConnected() {
-    // Check that Google Play services is available
-    int resultCode =
-            GooglePlayServicesUtil.
-                    isGooglePlayServicesAvailable(mContext);
-    // If Google Play services is available
-    if (ConnectionResult.SUCCESS == resultCode) {
-      // In debug mode, log the status
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "playServicesConnected():  Google Play services is available.");
-      }
-      // Continue
-      return true;
-      // Google Play services was not available for some reason.
-      // resultCode holds the error code.
-    } else {
-      // log an error
-      Log.e(TAG, "playServicesConnected(): Google Play services is NOT AVAILABLE.");
-      return false;
-    }
-  }
-
-  private static class MMXPlayServicesCallback implements
-          GoogleApiClient.ConnectionCallbacks,
-          GoogleApiClient.OnConnectionFailedListener {
-    private static final String TAG = MMXPlayServicesCallback.class.getSimpleName();
-    private boolean mIsConnected = false;
-
-    public void onConnected(Bundle bundle) {
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onConnected(): start");
-      }
-      synchronized (this) {
-        mIsConnected = true;
-        this.notify();
-      }
-    }
-
-    public void onConnectionSuspended(int i) {
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onConnectionSuspended(): start");
-      }
-      synchronized (this) {
-        mIsConnected = false;
-        this.notify();
-      }
-    }
-
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onConnectionFailed(): start");
-      }
-      synchronized (this) {
-        mIsConnected = false;
-        this.notify();
-      }
     }
   }
 
