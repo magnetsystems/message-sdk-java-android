@@ -176,8 +176,7 @@ public class MMXAccountManager extends MMXManager {
     if (needsConnect) {
       try {
         connection.connect(null, client.getHostnameVerifierOverride(),
-                client.getSocketFactoryOverride(), client.getSSLContextOverride(),
-                false);
+                client.getSocketFactoryOverride(), client.getSSLContextOverride());
       } catch (MMXException e) {
         Log.e(TAG, "createAccount(): exception caught during connect", e);
         return new MMXStatus().setCode(MMXStatus.INTERNAL_ERROR).setMessage(e.getMessage());
