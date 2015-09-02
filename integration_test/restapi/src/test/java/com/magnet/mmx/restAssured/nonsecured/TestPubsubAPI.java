@@ -153,7 +153,7 @@ public class TestPubsubAPI extends TestCase {
 
         // Publish item to topic
         payload = "{\n" +
-                " \"content\":\"publish test message to global topic1\",\n" +
+                " \"content\":{\"text\":\"publish test message to global topic1\"},\n" +
                 " \"messageType\":\"normal\",\n" +
                 " \"contentType\":\"text\"\n" +
                 "}";
@@ -232,7 +232,7 @@ public class TestPubsubAPI extends TestCase {
 
     // Publish item to topic
     String payload = "{\n" +
-        " \"content\":\"publish test message to global topic\",\n" +
+        " \"content\":{\"text\":\"publish test message to global topic1\"},\n" +
         " \"messageType\":\"normal\",\n" +
         " \"contentType\":\"text\"\n" +
         "}";
