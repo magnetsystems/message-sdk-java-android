@@ -25,11 +25,14 @@ import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.common.*;
+import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
 
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.jivesoftware.smack.packet.XMPPError;
 
 /**
  * The main entry point for Magnet Message.
@@ -40,12 +43,30 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
    */
   public static class FailureCode {
-    public static final FailureCode DEVICE_ERROR = new FailureCode(1, "DEVICE_ERROR");
-    public static final FailureCode DEVICE_CONNECTION_FAILED = new FailureCode(2, "DEVICE_CONNECTION_FAILED");
-    public static final FailureCode DEVICE_CONCURRENT_LOGIN = new FailureCode(3, "DEVICE_CONCURRENT_LOGIN");
-    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(51, "SERVER_AUTH_FAILED");
-    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(52, "SERVER_BAD_STATUS");
-    public static final FailureCode SERVER_EXCEPTION = new FailureCode(53, "SERVER_EXCEPTION");
+    /**
+     * A client error.
+     */
+    public static final FailureCode DEVICE_ERROR = new FailureCode(10, "DEVICE_ERROR");
+    /**
+     * The MMX service is not available due to network issue or server issue.
+     */
+    public static final FailureCode SERVICE_UNAVAILABLE = new FailureCode(11, "SERVICE_UNAVAILABLE");
+    /**
+     * Concurrent logins are attempted.
+     */
+    public static final FailureCode DEVICE_CONCURRENT_LOGIN = new FailureCode(12, "DEVICE_CONCURRENT_LOGIN");
+    /**
+     * Server authentication failure.
+     */
+    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(20, "SERVER_AUTH_FAILED");
+    /**
+     * A bad request submitted to the server.
+     */
+    public static final FailureCode BAD_REQUEST = new FailureCode(400, "BAD_REQUEST");
+    /**
+     * A server error.
+     */
+    public static final FailureCode SERVER_ERROR = new FailureCode(500, "SERVER_ERROR");
     private final int mValue;
     private final String mDescription;
     private final String mToString;
@@ -53,7 +74,7 @@ public final class MMX {
     FailureCode(int value, String description) {
       mValue = value;
       mDescription = description;
-      mToString = FailureCode.class.getSimpleName() +
+      mToString = this.getClass().getSimpleName() +
               '(' + mValue + ',' + mDescription + ')';
     }
 
@@ -106,9 +127,20 @@ public final class MMX {
      */
     DISCONNECTED,
     /**
-     * If current credentials are invalid for any reason
+     * If current credentials are invalid.  Possible action: prompt user for
+     * new credential, account may be disabled.
      */
     CREDENTIALS_EXPIRED,
+    /**
+     * If the service is unavailable.  Possible action: check the data
+     * connectivity, retry to login later.
+     */
+    SERVICE_UNAVAILABLE,
+    /**
+     * If service is available and user credential has been resumed.  No actions
+     * are needed.
+     */
+    SERVICE_AVAILABLE,
   }
 
   /**
@@ -124,7 +156,7 @@ public final class MMX {
     abstract public boolean onMessageReceived(MMXMessage message);
 
     /**
-     * Called when an acknowledgement is received.  The default implementation of this is a
+     * Called when an acknowledgment is received.  The default implementation of this is a
      * no-op.
      *
      * @param from the user who acknowledged the message
@@ -170,6 +202,20 @@ public final class MMX {
      */
     public boolean onLoginRequired(LoginReason reason) {
       //default implementation is a no-op
+      return false;
+    }
+    
+    /**
+     * Called when an error from the server is received.  The default implementation
+     * of this method is to log the error.
+     * @param messageId the id of a message that caused the error
+     * @param code a failure code
+     * @param text an optional diagnostic text message
+     * @return true to consume this event, false for additional listeners to be called
+     */
+    public boolean onMessageSendError(String messageId, MMXMessage.FailureCode code, String text) {
+      //default implementation is to log it
+      Log.e(TAG, "onMessageSendError() message ID="+messageId+", code="+code+", text="+text);
       return false;
     }
   }
@@ -260,8 +306,43 @@ public final class MMX {
             notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
           }
           break;
+        case CONNECTED:
+          if (!mLoggingIn.get()) {
+            try {
+              sInstance.mCurrentUser = MMXUser.fromMMXid(mmxClient.getClientId());
+              notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
+            } catch (MMXException e) {
+              // Ignored; it should not happen.
+            }
+          }
+          break;
+        case CONNECTION_FAILED:
+          if (!mLoggingIn.get()) {
+            sInstance.mCurrentUser = null;
+            notifyLoginRequired(LoginReason.SERVICE_UNAVAILABLE);
+          }
+          break;
       }
       super.onConnectionEvent(mmxClient, connectionEvent);
+    }
+    
+    @Override
+    public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
+      XMPPError xmppErr;
+      MMXError mmxErr;
+      MMXMessage.FailureCode fcode = null;
+      if ((mmxErr = error.getMMXError()) != null) {
+        if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue())
+          fcode = MMXMessage.FailureCode.INVALID_RECIPIENT;
+        else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue())
+          fcode = MMXMessage.FailureCode.CONTENT_TOO_LARGE;
+        notifyMessageSendError(mmxErr.getMsgId(), fcode, mmxErr.getMessage());
+      } else if ((xmppErr = error.getXMPPError()) != null) {
+        fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
+        notifyMessageSendError(error.getId(), fcode, xmppErr.getCondition());
+      } else {
+        Log.w(TAG, "onErrorReceived(): custom error is not supported; error="+error.getCustomError());
+      }
     }
   };
 
@@ -380,7 +461,8 @@ public final class MMX {
             }
             break;
           case CONNECTION_FAILED:
-            listener.onFailure(MMX.FailureCode.DEVICE_CONNECTION_FAILED, null);
+            sInstance.mCurrentUser = null;
+            listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
             unregisterListener = true;
             break;
         }
@@ -532,6 +614,26 @@ public final class MMX {
     }
   }
 
+  private static void notifyMessageSendError(String msgId, MMXMessage.FailureCode code, String text) {
+    checkState();
+    synchronized (sInstance.mListeners) {
+      if (sInstance.mListeners.isEmpty()) {
+        throw new IllegalStateException("Error dropped because there were no listeners registered.");
+      }
+      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      while (listeners.hasNext()) {
+        EventListener listener = listeners.next();
+        try {
+          if (listener.onMessageSendError(msgId, code, text)) {
+            //listener returning true means consume the message
+            break;
+          }
+        } catch (Exception ex) {
+          Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
+        }
+      }
+    }
+  }
   private static void notifyMessageReceived(MMXMessage message) {
     checkState();
     synchronized (sInstance.mListeners) {

@@ -60,7 +60,11 @@ public class MMXUser {
     FailureCode(MMX.FailureCode code) { super(code); };
 
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      return new FailureCode(code);
+      if (throwable instanceof MMXException) {
+        return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
+      } else {
+        return new FailureCode(code);
+      }
     }
   }
 
@@ -179,7 +183,9 @@ public class MMXUser {
   }
 
   /**
-   * Register a user with the specified username and password
+   * Register a user with the specified username and password.  Possible failure
+   * codes are: {@link FailureCode#REGISTRATION_INVALID_USERNAME},
+   * {@link FailureCode#REGISTRATION_USER_ALREADY_EXISTS}.
    *
    * @param password the password
    * @param listener the listener, true for success, false otherwise
@@ -243,25 +249,29 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        FailureCode code = FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR, exception);
-        if (exception != null) {
-          if (exception instanceof SSLHandshakeException) {
-            Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
-                    "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
-                    "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
-            code = FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_CONNECTION_FAILED, exception);
-          } else if (exception instanceof IllegalArgumentException) {
-            code = FailureCode.REGISTRATION_INVALID_USERNAME;
-          } else if (exception instanceof MMXException) {
-            Log.d(TAG, "register(): exception caught", exception);
-            code = FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception);
-          }
+        if (listener == null) {
+          return;
+        }
+        FailureCode code;
+        if (exception instanceof SSLHandshakeException) {
+          Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
+                  "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
+                  "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
+          code = FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVICE_UNAVAILABLE, exception);
+        } else if (exception instanceof IllegalArgumentException) {
+          code = FailureCode.REGISTRATION_INVALID_USERNAME;
+        } else {
+          Log.d(TAG, "register(): exception caught", exception);
+          code = FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, exception);
         }
         listener.onFailure(code, exception);
       }
 
       @Override
       public void onResult(Integer result) {
+        if (listener == null) {
+          return;
+        }
         Log.d(TAG, "register(): result=" + result);
         switch (result) {
           case 201:
@@ -272,7 +282,7 @@ public class MMXUser {
             listener.onFailure(FailureCode.REGISTRATION_USER_ALREADY_EXISTS, null);
             break;
           default:
-            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
             break;
         }
       }
@@ -297,7 +307,7 @@ public class MMXUser {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_EXCEPTION, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
         }
       }
 
@@ -336,7 +346,7 @@ public class MMXUser {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
         }
       }
 
@@ -369,11 +379,16 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(Map<String, UserInfo> result) {
+        if (listener == null) {
+          return;
+        }
         HashMap<String, MMXUser> results = new HashMap<String, MMXUser>();
         for (Map.Entry<String, UserInfo> entry : result.entrySet()) {
           results.put(entry.getKey(), fromUserInfo(entry.getValue()));

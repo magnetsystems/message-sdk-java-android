@@ -52,6 +52,15 @@ public class MMXChannel {
    * Failure codes for the MMXChannel class.
    */
   public static class FailureCode extends MMX.FailureCode {
+    public static final FailureCode CHANNEL_EXISTS = new FailureCode(409, "CHANNEL_EXISTS");
+    public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
+    public static final FailureCode CHANNEL_FORBIDDEN = new FailureCode(403, "CHANNEL_FORBIDDEN");
+    public static final FailureCode CHANNEL_NOT_FOUND = new FailureCode(404, "CHANNEL_NOT_FOUND");
+    public static final FailureCode CHANNEL_NOT_AUTHORIZED = new FailureCode(401, "CHANNEL_NOT_AUTHROIZED");
+    public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(404, "SUBSCRIPTION_NOT_FOUND");
+    public static final FailureCode SUBSCRIPTION_INVALID_ID = new FailureCode(406, "SUBSCRIPTION_INVALID_ID");
+    public static final FailureCode INVALID_INVITEE = new FailureCode(400, "INVALID_INVITEE");
+    
     FailureCode(int value, String description) {
       super(value, description);
     }
@@ -59,7 +68,15 @@ public class MMXChannel {
     FailureCode(MMX.FailureCode code) { super(code); }
 
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      return new FailureCode(code);
+      if (throwable != null)
+        Log.d(TAG, "fromMMXFailureCode() ex="+throwable.getClass().getName());
+      else
+        Log.d(TAG, "fromMMXFailureCode() ex=null");
+      if (throwable instanceof MMXException) {
+        return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
+      } else {
+        return new FailureCode(code);
+      }
     }
   }
 
@@ -298,7 +315,8 @@ public class MMXChannel {
   }
 
   /**
-   * The tags for this channel.
+   * The tags for this channel.  Possible failure code is:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel.
    *
    * @param listener the success/failure listener for this call
    */
@@ -314,7 +332,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
       }
 
       @Override
@@ -326,7 +344,9 @@ public class MMXChannel {
   }
 
   /**
-   * Set the tags for this channel.
+   * Set the tags for this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#SERVER_ERROR} for server error.
    *
    * @param tags the tags for this channel or null to remove all tags
    * @param listener the success/failure listener for this call
@@ -341,7 +361,7 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
       }
 
       @Override
@@ -350,7 +370,7 @@ public class MMXChannel {
           listener.onSuccess(null);
         } else {
           Log.e(TAG, "setTags(): received bad status from server: " + result);
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
         }
 
       }
@@ -370,7 +390,9 @@ public class MMXChannel {
   }
 
   /**
-   * Retrieve all of the messages for this channel
+   * Retrieve all of the messages for this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
    *
    * @param startDate filter based on start date, or null for no filter
    * @param endDate filter based on end date, or null for no filter
@@ -401,11 +423,16 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(ListResult<com.magnet.mmx.client.common.MMXMessage> result) {
+        if (listener == null) {
+          return;
+        }
         ArrayList<MMXMessage> resultList = new ArrayList<MMXMessage>();
         if (result != null && result.items.size() > 0) {
           //convert MMXMessages
@@ -461,6 +488,8 @@ public class MMXChannel {
 
   /**
    * Create the channel.  The default behavior is to create a private channel.
+   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
    *
    * @param listener the listner for the newly created channel
    * @see Builder#setPublic(boolean)
@@ -478,11 +507,16 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(final MMXTopic createResult) {
+        if (listener == null) {
+          return;
+        }
         MMXChannel.this.ownerUsername(MMX.getCurrentUser().getUsername());
         listener.onSuccess(MMXChannel.fromMMXTopic(createResult));
       }
@@ -491,7 +525,9 @@ public class MMXChannel {
   }
 
   /**
-   * Delete the topic
+   * Delete the topic.  Possible failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND}
+   * for no such channel, {@link FailureCode#CHANNEL_FORBIDDEN} for
+   * insufficient rights.
    *
    * @param listener the listener for success or failure
    */
@@ -505,16 +541,21 @@ public class MMXChannel {
 
       @Override
       public void onResult(MMXStatus result) {
+        if (listener == null) {
+          return;
+        }
         if (result.getCode() == MMXStatus.SUCCESS) {
           listener.onSuccess(null);
         } else {
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
         }
       }
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
     };
     task.execute();
@@ -535,12 +576,16 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(String result) {
-        listener.onSuccess(result);
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
       }
     };
     task.execute();
@@ -562,12 +607,16 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(Boolean result) {
-        listener.onSuccess(result);
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
       }
     };
     task.execute();
@@ -579,6 +628,7 @@ public class MMXChannel {
    * @param messageContent the message content to publish
    * @param listener the listener for the message id
    * @return the message id for this published message
+   * @deprecated Use {@link #publish(Map, OnFinishedListener)}
    */
   public String publish(Map<String, String> messageContent,
                       final MMXMessage.OnFinishedListener<String> listener) {
@@ -589,7 +639,24 @@ public class MMXChannel {
     return message.send(listener);
   }
 
-
+  /**
+   * Publishes a message to this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   *
+   * @param messageContent the message content to publish
+   * @param listener the listener for the message id
+   * @return the message id for this published message
+   */
+  public String publish(Map<String, String> messageContent,
+      final OnFinishedListener<String> listener) {
+    MMXMessage message = new MMXMessage.Builder()
+            .channel(this)
+            .content(messageContent)
+            .build();
+    return message.publish(listener);
+  }
 
   /**
    * Sends an invitation to the specified user for this channel.
@@ -606,7 +673,9 @@ public class MMXChannel {
   }
 
   /**
-   * Retrieves all the subscribers for this channel.
+   * Retrieves all the subscribers for this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
    *
    * @param limit the maximum number of subscribers to return
    * @param listener the listener for the subscribers
@@ -622,11 +691,16 @@ public class MMXChannel {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(MMXResult<List<UserInfo>> result) {
+        if (listener == null) {
+          return;
+        }
         ArrayList<MMXUser> users = new ArrayList<MMXUser>();
         for (UserInfo userInfo : result.getResult()) {
           users.add(MMXUser.fromUserInfo(userInfo));
@@ -638,7 +712,9 @@ public class MMXChannel {
   }
 
   /**
-   * Find the channel that starts with the specified text.
+   * Find the channel that starts with the specified text.  If there are no
+   * matching names, {@link OnFinishedListener#onSuccess(Object)} with an
+   * empty list will be invoked.
    *
    * @param startsWith the search string
    * @param limit the maximum number of results to return
@@ -661,19 +737,23 @@ public class MMXChannel {
       @Override
       public void onResult(ListResult<MMXChannel> result) {
         //build the query result
-        listener.onSuccess(result);
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
       }
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
     };
     task.execute();
   }
 
   /**
-   * Query for the specified tags (inclusive)
+   * Query for the specified tags (inclusive.)  If there are no matching tags
    *
    * @param tags the tags to match
    * @param listener the listener for the query results
@@ -695,12 +775,16 @@ public class MMXChannel {
       @Override
       public void onResult(ListResult<MMXChannel> result) {
         //build the query result
-        listener.onSuccess(result);
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
       }
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
     };
     task.execute();
@@ -721,12 +805,16 @@ public class MMXChannel {
 
       @Override
       public void onResult(List<MMXChannel> result) {
-        listener.onSuccess(result);
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
       }
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
     };
     task.execute();
@@ -951,7 +1039,7 @@ public class MMXChannel {
 
         public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
           }
         }
       });
@@ -984,7 +1072,7 @@ public class MMXChannel {
             @Override
             public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
               if (listener != null) {
-                listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
+                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
               }
             }
           });
@@ -993,7 +1081,7 @@ public class MMXChannel {
         @Override
         public void onFailure(FailureCode code, Throwable ex) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
           }
         }
       });
@@ -1021,7 +1109,7 @@ public class MMXChannel {
         @Override
         public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, ex), ex);
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
           }
         }
       });

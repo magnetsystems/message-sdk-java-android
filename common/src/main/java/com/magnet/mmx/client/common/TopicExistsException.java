@@ -25,7 +25,7 @@ public class TopicExistsException extends MMXException {
    * @param msg The topic name.
    */
   public TopicExistsException(String msg) {
-    super(msg);
+    super(msg, CONFLICT);
   }
-  
+
 }

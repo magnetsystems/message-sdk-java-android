@@ -15,6 +15,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected static final String USERNAME_PREFIX = "mmxusertest";
   protected static final byte[] PASSWORD = "test".getBytes();
   protected static final String DISPLAY_NAME_PREFIX = "MMX TestUser";
+  protected static final String NO_SUCH_USERNAME_PREFIX = "nosuchuser";
 
   private final MMX.OnFinishedListener<Void> mLoginLogoutListener =
           new MMX.OnFinishedListener<Void>() {

@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.magnet.mmx.client.api.MMXChannel.FailureCode;
+
 public class MMXChannelTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXChannelTest.class.getSimpleName();
 
@@ -52,6 +54,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .setPublic(true)
             .build();
     helpCreate(channel);
+    helpCreateError(channel, MMXChannel.FailureCode.CHANNEL_EXISTS);
     helpFind(channelName, 1);
     helpSubscribe(channel, 1);
     helpPublish(channel);
@@ -68,12 +71,14 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .summary(channelSummary)
             .build();
     helpCreate(channel);
+    helpCreateError(channel, MMXChannel.FailureCode.CHANNEL_EXISTS);
     helpFind(channelName, 0); // 0 because private channels should not show up on search
     helpSubscribe(channel, 1);
     helpPublish(channel);
     helpChannelSummary(channelName, 0, 0); // 0 and 0 because this method will not be able to find private channels
     helpUnsubscribe(channel);
     helpDelete(channel);
+
   }
 
   public void testPrivateChannelInvite() {
@@ -194,118 +199,216 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpDelete(privateChannel);
   }
 
+  public void testErrorHandling() {
+    String existChannelName = "exist-channel";
+    MMXChannel existChannel = new MMXChannel.Builder()
+            .name(existChannelName)
+            .setPublic(true)
+            .build();
+    helpCreate(existChannel);
+    helpCreateError(existChannel, MMXChannel.FailureCode.CHANNEL_EXISTS);
+    helpDelete(existChannel);
+    
+    String noSuchChannelName = "no-such-channel";
+    MMXChannel noSuchChannel = new MMXChannel.Builder()
+            .name(noSuchChannelName)
+            .build();
+    helpFindError(noSuchChannelName, 0);
+    helpChannelSummaryError(noSuchChannelName, 0);
+    helpSubscribeError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
+    helpPublishError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
+    helpUnsubscribeError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
+    helpDeleteError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
+  }
+  
   //**************
   //HELPER METHODS
   //**************
   private void helpCreate(MMXChannel channel) {
-    final AtomicBoolean createResult = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, Void> createResult = new ExecMonitor<Boolean, Void>();
     channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
-        createResult.set(true);
-        synchronized (createResult) {
-          createResult.notify();
-        }
+        createResult.invoked(true);
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        createResult.set(false);
-        synchronized (createResult) {
-          createResult.notify();
-        }
+        createResult.invoked(false);
       }
     });
-    synchronized (createResult) {
-      try {
-        createResult.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(createResult.get());
+    if (createResult.waitFor(10000) == Status.INVOKED)
+      assertTrue(createResult.getReturnValue());
+    else
+      fail("Channel creation timed out");
   }
+  
+  enum Status {
+    INVOKED,
+    FAILED,
+    TIMEDOUT,
+  }
+  
+  static class ExecMonitor<S, F> {
+    private S mRtnValue;
+    private F mFailedValue;
+    private Status mStatus = Status.TIMEDOUT;
+    
+    // Only be called if waitFor() returns EXECED
+    public S getReturnValue() {
+      return mRtnValue;
+    }
+    
+    // Only be called if waitFor() returns FAILED
+    public F getFailedValue() {
+      return mFailedValue;
+    }
+    
+    public synchronized void invoked(S value) {
+      mStatus = Status.INVOKED;
+      mRtnValue = value;
+      notify();
+
+    }
+    
+    public synchronized void failed(F value) {
+      mStatus = Status.FAILED;
+      mFailedValue = value;
+      notify();
+    }
+    
+    public synchronized Status waitFor(long timeout) {
+      if (mStatus == Status.TIMEDOUT) {
+        // Not executed yet, wait for result.
+        try {
+          wait(timeout);
+        } catch (InterruptedException e) {
+          // Ignored
+        }
+      }
+      return mStatus;
+    }
+  }
+  
+  private void helpCreateError(MMXChannel channel, final FailureCode expected) {
+    final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
+    channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
+      @Override
+      public void onSuccess(MMXChannel result) {
+        obj.failed("Unexpected success on creating an existing channel");
+      }
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        obj.invoked(code);
+      }
+    });
+    if (obj.waitFor(10000) == Status.FAILED)
+      fail(obj.getFailedValue());
+    else
+      assertEquals(expected, obj.getReturnValue());
+  }
+
 
   private void helpFind(String channelName, int expectedCount) {
     //find
-    final AtomicInteger findResult = new AtomicInteger(0);
+    final ExecMonitor<Integer, FailureCode> findResult = new ExecMonitor<Integer, FailureCode>();
     MMXChannel.findByName(channelName, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
-        findResult.set(result.totalCount);
-        synchronized (findResult) {
-          findResult.notify();
-        }
+        findResult.invoked(result.totalCount);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (findResult) {
-          findResult.notify();
-        }
+        findResult.failed(code);
       }
     });
-    synchronized (findResult) {
-      try {
-        findResult.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
+    Status status = findResult.waitFor(10000);
+    if (status == Status.INVOKED)
+      assertEquals(expectedCount, findResult.getReturnValue().intValue());
+    else if (status == Status.FAILED)
+      fail("Find channel failed: "+findResult.getFailedValue());
+    else
+      fail("Find channel timed out");
+  }
+  
+  private void helpFindError(String channelName, final int expected) {
+    final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
+    MMXChannel.findByName(channelName, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      @Override
+      public void onSuccess(ListResult<MMXChannel> result) {
+        obj.invoked(result);
       }
-    }
-    assertEquals(expectedCount, findResult.intValue());
+      @Override
+      public void onFailure(FailureCode code, Throwable ex) {
+        obj.failed("Unexpected failure on finding a non-existing channel");
+      }
+    });
+    Status status = obj.waitFor(10000);
+    if (status == Status.FAILED)
+      fail(obj.getFailedValue());
+    else if (status == Status.INVOKED)
+      assertEquals(expected, obj.getReturnValue().totalCount);
+    else
+      fail("Find non-existing channel timeout");
   }
 
   private void helpSubscribe(MMXChannel channel, int expectedSubscriberCount) {
     //subscribe
-    final AtomicBoolean subResult = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, FailureCode> subResult = new ExecMonitor<Boolean, FailureCode>();
     channel.subscribe(new MMXChannel.OnFinishedListener<String>() {
       public void onSuccess(String result) {
-        subResult.set(true);
-        synchronized (subResult) {
-          subResult.notify();
-        }
+        subResult.invoked(true);
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (subResult) {
-          subResult.notify();
-        }
-
+        subResult.failed(code);
       }
     });
-    synchronized (subResult) {
-      try {
-        subResult.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(subResult.get());
+    Status status = subResult.waitFor(10000);
+    if (status == Status.INVOKED)
+      assertTrue(subResult.getReturnValue());
+    else if (status == Status.FAILED)
+      fail("Channel subscription failed: "+subResult.getFailedValue());
+    else
+      fail("Channel subscription timed out");
 
-    final AtomicInteger getSubsResult = new AtomicInteger(0);
+    final ExecMonitor<Integer, FailureCode> getSubsResult = new ExecMonitor<Integer, FailureCode>();
     channel.getAllSubscribers(100, new MMXChannel.OnFinishedListener<ListResult<MMXUser>>() {
       public void onSuccess(ListResult<MMXUser> result) {
-        getSubsResult.set(result.totalCount);
-        synchronized (getSubsResult) {
-          getSubsResult.notify();
-        }
+        getSubsResult.invoked(result.totalCount);
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (getSubsResult) {
-          getSubsResult.notify();
-        }
+        getSubsResult.failed(code);
       }
     });
-    synchronized (getSubsResult) {
-      try {
-        getSubsResult.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
+    status = getSubsResult.waitFor(10000);
+    if (status == Status.INVOKED)
+      assertEquals(expectedSubscriberCount, getSubsResult.getReturnValue().intValue());
+    else if (status == Status.FAILED)
+      fail("Get subscrivers failed: "+getSubsResult.getFailedValue());
+    else
+      fail("Get subscrivers timed out");
+  }
+  
+  private void helpSubscribeError(MMXChannel channel, final FailureCode expected) {
+    final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
+    channel.subscribe(new MMXChannel.OnFinishedListener<String>() {
+      @Override
+      public void onSuccess(String result) {
+        obj.failed("Unexpected success on subscribing a non-existing channel");
       }
-    }
-    assertEquals(expectedSubscriberCount, getSubsResult.intValue());
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        obj.invoked(code);
+      }
+    });
+    if (obj.waitFor(10000) == Status.FAILED)
+      fail(obj.getFailedValue());
+    else
+      assertEquals(expected, obj.getReturnValue());
   }
 
   private void helpPublish(MMXChannel channel) {
@@ -341,7 +444,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     final StringBuffer pubId = new StringBuffer();
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
-    String id = channel.publish(content, new MMXMessage.OnFinishedListener<String>() {
+    String id = channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         pubId.append(result);
         synchronized (pubId) {
@@ -349,7 +452,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
 
-      public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
         synchronized (pubId) {
           pubId.notify();
@@ -368,129 +471,181 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
     MMX.unregisterListener(messageListener);
   }
+  
+  private void helpPublishError(MMXChannel channel, final FailureCode expected) {
+    final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
+    HashMap<String, String> content = new HashMap<String, String>();
+    content.put("foo", "bar");
+    String id = channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
+      @Override
+      public void onSuccess(String result) {
+        obj.failed("Unexpected success on publishing to a non-existing channel");
+      }
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        obj.invoked(code);
+      }
+    });
+    if (obj.waitFor(10000) == Status.FAILED)
+      fail(obj.getFailedValue());
+    else
+      assertEquals(expected, obj.getReturnValue());
+  }
 
   private void helpChannelSummary(String channelName, int expectedChannelCount, int expectedItemCount) {
     //get topic again
     final AtomicInteger itemCount = new AtomicInteger(0);
-    final AtomicInteger channelCount = new AtomicInteger(0);
+    final ExecMonitor<Integer, FailureCode> channelCount = new ExecMonitor<Integer, FailureCode>();
     MMXChannel.findByName(channelName, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
-        channelCount.set(result.totalCount);
         if (result.items.size() > 0) {
           itemCount.set(result.items.get(0).getNumberOfMessages());
         }
-        synchronized (channelCount) {
-          channelCount.notify();
-        }
+        channelCount.invoked(result.totalCount);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (channelCount) {
-          channelCount.notify();
-        }
+        channelCount.failed(code);
       }
     });
-    synchronized (channelCount) {
-      try {
-        channelCount.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertEquals(expectedChannelCount, channelCount.intValue());
-    assertEquals(expectedItemCount, itemCount.intValue());
+    Status status = channelCount.waitFor(10000);
+    if (status == Status.INVOKED) {
+      assertEquals(expectedChannelCount, channelCount.getReturnValue().intValue());
+      assertEquals(expectedItemCount, itemCount.intValue());
+    } else if (status == Status.FAILED)
+      fail("Channel summary failed: "+channelCount.getFailedValue());
+    else
+      fail("Channel summary timed out");
   }
+  
+  private void helpChannelSummaryError(String channelName, int expected) {
+    final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
+    MMXChannel.findByName(channelName, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      @Override
+      public void onSuccess(ListResult<MMXChannel> result) {
+        obj.invoked(result);
+      }
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        obj.failed("Unexpected failure on channel summary of a non-existing channel");
+      }
+    });
+    Status status = obj.waitFor(10000);
+    if (status == Status.FAILED)
+      fail(obj.getFailedValue());
+    else if (status == Status.INVOKED)
+      assertEquals(expected, obj.getReturnValue().totalCount);
+    else
+      fail("Getting channel summary timed out");
+  }
+
 
   private void helpUnsubscribe(MMXChannel channel) {
     //unsubscribe
-    final AtomicBoolean unsubResult = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, FailureCode> unsubResult = new ExecMonitor<Boolean, FailureCode>();
     channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
       @Override
       public void onSuccess(Boolean result) {
-        unsubResult.set(result);
-        synchronized (unsubResult) {
-          unsubResult.notify();
-        }
+        unsubResult.invoked(result);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (unsubResult) {
-          unsubResult.notify();
-        }
+        unsubResult.failed(code);
       }
     });
-    synchronized (unsubResult) {
-      try {
-        unsubResult.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(unsubResult.get());
+    Status status = unsubResult.waitFor(10000);
+    if (status == Status.INVOKED)
+      assertTrue(unsubResult.getReturnValue());
+    else if (status == Status.FAILED)
+      fail("Channel unsubscription failed: "+unsubResult.getFailedValue());
+    else
+      fail("Channel unsubscription timed out");
   }
+  
+  private void helpUnsubscribeError(MMXChannel channel, final FailureCode expected) {
+    final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
+    channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
+      @Override
+      public void onSuccess(Boolean result) {
+        obj.failed("Unexpected success on unsubscribing a non-existing channel");
+      }
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        obj.invoked(code);
+      }
+    });
+    if (obj.waitFor(10000) == Status.FAILED)
+      fail(obj.getFailedValue());
+    else
+      assertEquals(expected, obj.getReturnValue());
+  }
+
 
   private void helpDelete(MMXChannel channel) {
     //delete
-    final AtomicBoolean deleteResult = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, Void> deleteResult = new ExecMonitor<Boolean, Void>();
     channel.delete(new MMXChannel.OnFinishedListener<Void>() {
       @Override
       public void onSuccess(Void result) {
-        deleteResult.set(true);
-        synchronized (deleteResult) {
-          deleteResult.notify();
-        }
+        deleteResult.invoked(true);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (deleteResult) {
-          deleteResult.notify();
-        }
+        deleteResult.invoked(false);
       }
     });
-    synchronized (deleteResult) {
-      try {
-        deleteResult.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
+    if (deleteResult.waitFor(10000) == Status.INVOKED)
+      assertTrue(deleteResult.getReturnValue());
+    else
+      fail("Channel deletion timed out");
+  }
+  
+  private void helpDeleteError(MMXChannel channel, final FailureCode expected) {
+    final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
+    channel.delete(new MMXChannel.OnFinishedListener<Void>() {
+      @Override
+      public void onSuccess(Void result) {
+        obj.failed("Unexpected success on deleting a non-existing channel");
       }
-    }
-    assertTrue(deleteResult.get());
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        obj.invoked(code);
+      }
+    });
+    if (obj.waitFor(10000) == Status.FAILED)
+      fail(obj.getFailedValue());
+    else
+      assertEquals(expected, obj.getReturnValue());
   }
 
   private void helpFetch(MMXChannel channel, int expectedCount) {
     //test basic fetch
-    final AtomicInteger fetchCount = new AtomicInteger(0);
+    final ExecMonitor<Integer, FailureCode> fetchCount = new ExecMonitor<Integer, FailureCode>();
     channel.getItems(null, null, 100, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
       @Override
       public void onSuccess(ListResult<MMXMessage> result) {
-        fetchCount.set(result.totalCount);
-        synchronized (fetchCount) {
-          fetchCount.notify();
-        }
+        fetchCount.invoked(result.totalCount);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (fetchCount) {
-          fetchCount.notify();
-        }
+        fetchCount.failed(code);
       }
     });
-    synchronized (fetchCount) {
-      try {
-        fetchCount.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertEquals(expectedCount, fetchCount.get());
+    Status status = fetchCount.waitFor(10000);
+    if (status == Status.INVOKED)
+      assertEquals(expectedCount, fetchCount.getReturnValue().intValue());
+    else if (status == Status.FAILED)
+      fail("Fetch from channel failed: "+fetchCount.getFailedValue());
+    else
+      fail("Fetch from channel timed out");
   }
 }

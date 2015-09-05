@@ -16,6 +16,8 @@ package com.magnet.mmx.client.api;
 
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
@@ -31,10 +33,15 @@ import java.util.Set;
  * The message class
  */
 public class MMXMessage {
+  private static final String TAG = MMXMessage.class.getSimpleName();
+
   /**
    * Failure codes for the MMXMessage class.
    */
   public static class FailureCode extends MMX.FailureCode {
+    public static final FailureCode INVALID_RECIPIENT = new FailureCode(400, "INVALID_RECIPIENT");
+    public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
+    
     FailureCode(int value, String description) {
       super(value, description);
     }
@@ -42,7 +49,15 @@ public class MMXMessage {
     FailureCode(MMX.FailureCode code) { super(code); }
 
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      return new FailureCode(code);
+      if (throwable != null)
+        Log.d(TAG, "fromMMXFailureCode() ex="+throwable.getClass().getName());
+      else
+        Log.d(TAG, "fromMMXFailureCode() ex=null");
+      if (throwable instanceof MMXException) {
+        return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
+      } else {
+        return new FailureCode(code);
+      }
     }
   }
 
@@ -173,11 +188,16 @@ public class MMXMessage {
     }
 
     /**
-     * Builds the MMXMessage
+     * Validate and builds the MMXMessage
      *
      * @return the MMXMessage
+     * @throws IllegalArgmentException
      */
     public MMXMessage build() {
+      //validate message
+      if (mMessage.mChannel == null && mMessage.mRecipients.size() == 0) {
+        throw new IllegalArgumentException("No channel and no recipients are specified");
+      }
       return mMessage;
     }
   }
@@ -361,22 +381,56 @@ public class MMXMessage {
     return mReceiptId;
   }
 
+  // Publish this message to a channel.  This code should belong to MMXChannel.
+  String publish(final MMXChannel.OnFinishedListener<String> listener) {
+    final String generatedMessageId = MMX.getMMXClient().generateMessageId();
+    final String type = getType() != null ? getType() : null;
+    final MMXPayload payload = new MMXPayload(type, "");
+    for (Map.Entry<String, String> entry : mContent.entrySet()) {
+      payload.setMetaData(entry.getKey(), entry.getValue());
+    }
+    MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(),
+        MMX.getHandler()) {
+      @Override
+      public String doRun(MMXClient mmxClient) throws Throwable {
+        String publishedId = mmxClient.getPubSubManager().publish(
+            generatedMessageId, mChannel.getMMXTopic(), payload);
+        if (!generatedMessageId.equals(publishedId)) {
+          throw new RuntimeException(
+              "SDK Error: The returned published message id does not match the generated message id.");
+        }
+        return publishedId;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
+              MMXChannel.FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+
+      @Override
+      public void onResult(String result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    id(generatedMessageId);
+    task.execute();
+    return generatedMessageId;
+  }
+  
   /**
-   * Send the current message.  If the message has both a topic and
-   * other recipients, the OnFinishedListener will be called with the
-   * message id for the message to the recipients.  If this message only
-   * has a topic, the listener will be called with the id of the published
-   * message.
+   * Send the current message.  If the message has other recipients, the
+   * OnFinishedListener will be called with the message id for the message to
+   * the recipients.  If this message only has a topic, the listener will be
+   * called with the id of the published message.
    *
    * @param listener the listener for this method call
    */
   public String send(final OnFinishedListener<String> listener) {
-    //validate message
-    if (mChannel != null && mRecipients.size() > 0) {
-      throw new IllegalArgumentException("Cannot send to both a channel and recipients");
-    } else if (mChannel == null && mRecipients.size() == 0) {
-      throw new IllegalArgumentException("Unable to send.  No channel and no recipients");
-    }
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
     final String type = getType() != null ? getType() : null;
     final MMXPayload payload = new MMXPayload(type, "");
@@ -388,23 +442,40 @@ public class MMXMessage {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
-          String publishedId = mmxClient.getPubSubManager().publish(generatedMessageId, mChannel.getMMXTopic(), payload);
+          String publishedId = mmxClient.getPubSubManager().publish(
+              generatedMessageId, mChannel.getMMXTopic(), payload);
           if (!generatedMessageId.equals(publishedId)) {
-            throw new RuntimeException("SDK Error: The returned published message id does not match the generated message id.");
+            throw new RuntimeException(
+                "SDK Error: The returned published message id does not match the generated message id.");
           }
           return publishedId;
         }
 
         @Override
         public void onException(Throwable exception) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+          if (listener != null) {
+            listener.onFailure(FailureCode.fromMMXFailureCode(
+                FailureCode.DEVICE_ERROR, exception), exception);
+          }
         }
 
         @Override
         public void onResult(String result) {
-          listener.onSuccess(result);
+          if (listener != null) {
+            listener.onSuccess(result);
+          }
         }
       };
+//      return publish(new MMXChannel.OnFinishedListener<String>() {
+//        public void onSuccess(String result) {
+//          listener.onSuccess(result);
+//        }
+//
+//        public void onFailure(MMXChannel.FailureCode ccode, Throwable throwable) {
+//          FailureCode code = ccode2mcode(ccode);
+//          listener.onFailure(code, throwable);
+//        }
+//      });
     } else {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
@@ -434,12 +505,16 @@ public class MMXMessage {
 
         @Override
         public void onException(Throwable exception) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+          if (listener != null) {
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          }
         }
 
         @Override
         public void onResult(String result) {
-          listener.onSuccess(result);
+          if (listener != null) {
+            listener.onSuccess(result);
+          }
         }
       };
     }
@@ -524,12 +599,16 @@ public class MMXMessage {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(Void result) {
-        listener.onSuccess(null);
+        if (listener != null) {
+          listener.onSuccess(null);
+        }
       }
     };
     task.execute();

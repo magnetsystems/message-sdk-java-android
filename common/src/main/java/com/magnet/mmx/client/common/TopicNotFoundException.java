@@ -24,6 +24,6 @@ public class TopicNotFoundException extends MMXException {
    * @param msg The topic name.
    */
   public TopicNotFoundException(String msg) {
-    super(msg);
+    super(msg, NOT_FOUND);
   }
 }

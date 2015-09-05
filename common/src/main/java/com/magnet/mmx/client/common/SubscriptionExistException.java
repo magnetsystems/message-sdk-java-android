@@ -24,6 +24,6 @@ public class SubscriptionExistException extends MMXException {
    * @param msg The topic name.
    */
   public SubscriptionExistException(String msg) {
-    super(msg);
+    super(msg, CONFLICT);
   }
 }
