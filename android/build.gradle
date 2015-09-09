@@ -317,6 +317,15 @@ task uploadRelease(type: Upload) {
     }
 }
 
+task uploadReleasePublic(type: Upload) {
+    configuration = configurations.archives
+    repositories.mavenDeployer {
+        repository(url: "http://repo.magnet.com:8081/artifactory/libs-release-local") {
+            authentication(userName: "${releaseUser}", password: "${releasePassword}")
+        }
+    }
+}
+
 uploadArchives {
     repositories.mavenDeployer {
         configuration = configurations.deployerJars
