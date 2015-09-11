@@ -82,11 +82,20 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   public void testPrivateChannelInvite() {
-    String channelName = "private-channel" + System.currentTimeMillis();
+    helpTestChannelInvite(false);
+  }
+
+  public void testPublicChannelInvite() {
+    helpTestChannelInvite(true);
+  }
+
+  public void helpTestChannelInvite(boolean isPublic) {
+    String channelName = (isPublic ? "public-channel" : "private-channel") + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
     MMXChannel channel = new MMXChannel.Builder()
             .name(channelName)
             .summary(channelSummary)
+            .setPublic(isPublic)
             .build();
     helpCreate(channel);
 
@@ -200,7 +209,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   public void testErrorHandling() {
-    String existChannelName = "exist-channel";
+    String existChannelName = "exist-channel" + System.currentTimeMillis();
     MMXChannel existChannel = new MMXChannel.Builder()
             .name(existChannelName)
             .setPublic(true)
@@ -228,7 +237,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     final ExecMonitor<Boolean, Void> createResult = new ExecMonitor<Boolean, Void>();
     channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
-        createResult.invoked(true);
+        Log.e(TAG, "helpCreate.onSuccess ");
+        createResult.invoked(result.getOwnerUsername() != null);
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
@@ -236,10 +246,12 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         createResult.invoked(false);
       }
     });
-    if (createResult.waitFor(10000) == Status.INVOKED)
+    if (createResult.waitFor(10000) == Status.INVOKED) {
       assertTrue(createResult.getReturnValue());
-    else
+      assertNotNull(channel.getOwnerUsername());
+    } else {
       fail("Channel creation timed out");
+    }
   }
   
   enum Status {
@@ -296,6 +308,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public void onSuccess(MMXChannel result) {
         obj.failed("Unexpected success on creating an existing channel");
       }
+
       @Override
       public void onFailure(FailureCode code, Throwable throwable) {
         obj.invoked(code);
@@ -338,6 +351,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public void onSuccess(ListResult<MMXChannel> result) {
         obj.invoked(result);
       }
+
       @Override
       public void onFailure(FailureCode code, Throwable ex) {
         obj.failed("Unexpected failure on finding a non-existing channel");
@@ -528,6 +542,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public void onSuccess(ListResult<MMXChannel> result) {
         obj.invoked(result);
       }
+
       @Override
       public void onFailure(FailureCode code, Throwable throwable) {
         obj.failed("Unexpected failure on channel summary of a non-existing channel");
@@ -574,6 +589,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public void onSuccess(Boolean result) {
         obj.failed("Unexpected success on unsubscribing a non-existing channel");
       }
+
       @Override
       public void onFailure(FailureCode code, Throwable throwable) {
         obj.invoked(code);
@@ -614,6 +630,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public void onSuccess(Void result) {
         obj.failed("Unexpected success on deleting a non-existing channel");
       }
+
       @Override
       public void onFailure(FailureCode code, Throwable throwable) {
         obj.invoked(code);
