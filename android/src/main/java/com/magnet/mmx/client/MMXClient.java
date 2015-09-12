@@ -15,35 +15,6 @@
 
 package com.magnet.mmx.client;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.Build;
-import android.os.Handler;
-import android.os.HandlerThread;
-
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
-import com.magnet.mmx.client.common.*;
-import com.magnet.mmx.protocol.AuthData;
-import com.magnet.mmx.protocol.CarrierEnum;
-import com.magnet.mmx.protocol.Constants;
-import com.magnet.mmx.protocol.DevReg;
-import com.magnet.mmx.protocol.MMXError;
-import com.magnet.mmx.protocol.MMXStatus;
-import com.magnet.mmx.protocol.MMXTopic;
-import com.magnet.mmx.protocol.OSType;
-import com.magnet.mmx.protocol.PushType;
-import com.magnet.mmx.util.DefaultEncryptor;
-
-import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
-import org.jivesoftware.smack.SmackAndroid;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -63,6 +34,46 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
+import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.jivesoftware.smack.SmackAndroid;
+
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
+import com.magnet.mmx.client.common.DeviceManager;
+import com.magnet.mmx.client.common.Invitation;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXConnection;
+import com.magnet.mmx.client.common.MMXContext;
+import com.magnet.mmx.client.common.MMXErrorMessage;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXMessage;
+import com.magnet.mmx.client.common.MMXMessageListener;
+import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MMXSettings;
+import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.AuthData;
+import com.magnet.mmx.protocol.CarrierEnum;
+import com.magnet.mmx.protocol.Constants;
+import com.magnet.mmx.protocol.DevReg;
+import com.magnet.mmx.protocol.MMXError;
+import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.OSType;
+import com.magnet.mmx.protocol.PushType;
+import com.magnet.mmx.util.DefaultEncryptor;
 
 /**
  * The primary entry point for interacting with MMX.  The named MMXClient instances are
@@ -333,7 +344,7 @@ public final class MMXClient {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onMessageAccepted() start; recipeint="+recipient+", msgID="+msgId);
       }
-      // TODO: a server ack is received.
+      notifyMessageAccepted(recipient, msgId);
     }
     
     public void onMessageFailed(String msgId) {
@@ -1107,6 +1118,21 @@ public final class MMXClient {
     }
   }
 
+  private void notifyMessageAccepted(final MMXid recipient, final String messageId) {
+    synchronized (this) {
+      mMessagingHandler.post(new Runnable() {
+        public void run() {
+          try {
+            mMMXListener.onMessageAccepted(MMXClient.this, recipient, messageId);
+          } catch (Exception ex) {
+            Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+                "the callback", ex);
+          }
+        }
+      });
+    }
+  }
+  
   /**
    * Register with the gcm service.  This will retrieve the gcm token if it doesn't already
    * exist.
@@ -1176,6 +1202,23 @@ public final class MMXClient {
                 }
               }
             }
+          } else {
+            // Provide better diagnostic why MMX Wakeup is not working.
+            int i = 0;
+            StringBuilder sb = new StringBuilder("MMX Wakeup is disabled:");
+            if (!connectionInfo.isGcmWakeupEnabled) {
+              sb.append(i==0?" ":", ").append("GCM Wakeup is explicitly disabled in the config");
+              ++i;
+            }
+            if (playServicesResult != ConnectionResult.SUCCESS) {
+              sb.append(i==0?" ":", ").append(GooglePlayServicesUtil.getErrorString(playServicesResult));
+              ++i;
+            }
+            if (gcmSenderId == null || gcmSenderId.isEmpty()) {
+              sb.append(i==0?" ":", ").append("GCM Sender ID is not specified");
+              ++i;
+            }
+            Log.w(TAG, sb.toString());
           }
 
           //Register this device with MMX server.

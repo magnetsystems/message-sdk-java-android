@@ -14,13 +14,17 @@
  */
 package com.magnet.mmx.client;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import android.os.Handler;
 
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
-import com.magnet.mmx.client.common.MMXMessageStatus;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
 import com.magnet.mmx.client.common.MMXResult;
@@ -32,22 +36,15 @@ import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.client.common.TopicExistsException;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.client.common.TopicPermissionException;
-import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
-import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * The MMXPubSubManager allows users to create or delete topics, subscribe or
@@ -237,6 +234,20 @@ public final class MMXPubSubManager extends MMXManager {
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     checkDestroyed();
     return mPubSubManager.getItemsByIds(topic, itemIds);
+  }
+  
+  /**
+   * Delete the items published by the current user.
+   * @param topic a topic object
+   * @param itemIds A list of published item identifiers
+   * @return A map of item identifier as key and status code as value.
+   * @throws TopicNotFoundException
+   * @throws MMXException
+   */
+  public Map<String, Integer> deleteItemsByIds(MMXTopic topic, List<String> itemIds)
+      throws TopicNotFoundException, MMXException {
+    checkDestroyed();
+    return mPubSubManager.retract(topic, itemIds);
   }
   
   /**

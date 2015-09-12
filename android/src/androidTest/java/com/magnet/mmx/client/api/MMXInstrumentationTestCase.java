@@ -1,12 +1,12 @@
 package com.magnet.mmx.client.api;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import android.content.Context;
 import android.test.InstrumentationTestCase;
 
 import com.magnet.mmx.client.ClientTestConfigImpl;
 import com.magnet.mmx.client.common.Log;
-
-import java.util.concurrent.atomic.AtomicBoolean;
 
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
@@ -16,6 +16,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected static final byte[] PASSWORD = "test".getBytes();
   protected static final String DISPLAY_NAME_PREFIX = "MMX TestUser";
   protected static final String NO_SUCH_USERNAME_PREFIX = "nosuchuser";
+  protected static final String WRONG_USERNAME_PREFIX = "wronguser";
 
   private final MMX.OnFinishedListener<Void> mLoginLogoutListener =
           new MMX.OnFinishedListener<Void>() {

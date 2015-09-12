@@ -14,6 +14,12 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
@@ -22,12 +28,6 @@ import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
-
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * The message class
@@ -39,7 +39,7 @@ public class MMXMessage {
    * Failure codes for the MMXMessage class.
    */
   public static class FailureCode extends MMX.FailureCode {
-    public static final FailureCode INVALID_RECIPIENT = new FailureCode(400, "INVALID_RECIPIENT");
+    public static final FailureCode INVALID_RECIPIENT = new FailureCode(404, "INVALID_RECIPIENT");
     public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
     
     FailureCode(int value, String description) {
@@ -423,10 +423,18 @@ public class MMXMessage {
   }
   
   /**
-   * Send the current message.  If the message has other recipients, the
-   * OnFinishedListener will be called with the message id for the message to
-   * the recipients.  If this message only has a topic, the listener will be
-   * called with the id of the published message.
+   * Send the current message to server.  If the message is addressed to
+   * recipients, the {@link OnFinishedListener#onSuccess(Object)} will be called
+   * with the message id for the message to all valid recipients.  If there are
+   * any invalid recipients in the message, a partial failure code
+   * {@link FailureCode#INVALID_RECIPIENT} in 
+   * {@link OnFinishedListener#onFailure(FailureCode, Throwable)} will be
+   * invoked.  The message ID and a set of invalid recipients can be retrieved
+   * from {@link MMXUser.InvalidUserException#getUsers()}. If this message is
+   * addressed to a channel, the listener will be called with the id of the
+   * published message.  Common failure codes are 
+   * {@link FailureCode#CONTENT_TOO_LARGE}, {@link FailureCode#BAD_REQUEST}, or
+   * FailureCode#DEVICE_ERROR.
    *
    * @param listener the listener for this method call
    */
@@ -466,16 +474,6 @@ public class MMXMessage {
           }
         }
       };
-//      return publish(new MMXChannel.OnFinishedListener<String>() {
-//        public void onSuccess(String result) {
-//          listener.onSuccess(result);
-//        }
-//
-//        public void onFailure(MMXChannel.FailureCode ccode, Throwable throwable) {
-//          FailureCode code = ccode2mcode(ccode);
-//          listener.onFailure(code, throwable);
-//        }
-//      });
     } else {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
@@ -512,9 +510,7 @@ public class MMXMessage {
 
         @Override
         public void onResult(String result) {
-          if (listener != null) {
-            listener.onSuccess(result);
-          }
+          // No-op.  Wait until a server ack or an error message is received.
         }
       };
     }
@@ -581,7 +577,8 @@ public class MMXMessage {
   }
 
   /**
-   * Acknowledge this message.  This will invoke
+   * Acknowledge this message.  This will send a delivery receipt back to the
+   * original sender.
    *
    * @param listener the listener for this call
    * @see OnFinishedListener
@@ -654,6 +651,7 @@ public class MMXMessage {
   private class RecipientListenerPair {
     private final Set<String> recipients;
     private final OnFinishedListener<String> listener;
+    private Exception exception;
 
     private RecipientListenerPair(Set<String> recipients,
                                   OnFinishedListener<String> listener) {
@@ -661,7 +659,7 @@ public class MMXMessage {
       this.listener = listener;
     }
 
-    private synchronized boolean onAckReceived(String recipient) {
+    private synchronized boolean onAckOrErrorReceived(String recipient) {
       recipients.remove(recipient);
       return recipients.size() == 0;
     }
@@ -674,9 +672,39 @@ public class MMXMessage {
     synchronized (sMessageSendListeners) {
       RecipientListenerPair listenerPair = sMessageSendListeners.get(messageId);
       if (listenerPair != null) {
-        if (listenerPair.onAckReceived(recipient.getUserId())) {
+        if (listenerPair.onAckOrErrorReceived(recipient.getUserId())) {
           sMessageSendListeners.remove(messageId);
-          listenerPair.listener.onSuccess(messageId);
+          // If there are any invalid recipients, onFailure will be invoke for backward
+          // compatibility.  Otherwise, we have to introduce a new method like
+          // "onResult(String messageId, Set<MMXUser> invalidRecipients)".
+          if (listenerPair.exception != null)
+            listenerPair.listener.onFailure(FailureCode.INVALID_RECIPIENT, listenerPair.exception);
+          else
+            listenerPair.listener.onSuccess(messageId);
+        }
+      }
+    }
+  }
+  
+  static void handleMessageSendError(MMXid recipient, String messageId, 
+                            MMXMessage.FailureCode code, Throwable throwable) {
+    synchronized (sMessageSendListeners) {
+      RecipientListenerPair listenerPair = sMessageSendListeners.get(messageId);
+      if (listenerPair != null) {
+        if (code.equals(FailureCode.INVALID_RECIPIENT) && recipient != null) {
+          // Save all invalid recipients into a single exception.
+          if (listenerPair.exception == null) {
+            listenerPair.exception = new MMXUser.InvalidUserException(
+                "Invalid recipient", messageId);
+          }
+          ((MMXUser.InvalidUserException) listenerPair.exception).addUser(
+              new MMXUser.Builder().username(recipient.getUserId()).build());
+          throwable = listenerPair.exception;
+        }
+        if (recipient == null || listenerPair.onAckOrErrorReceived(recipient.getUserId())) {
+          sMessageSendListeners.remove(messageId);
+          // It is possible that throwable is null.
+          listenerPair.listener.onFailure(code, throwable);
         }
       }
     }

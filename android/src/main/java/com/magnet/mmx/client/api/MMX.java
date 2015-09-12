@@ -14,25 +14,31 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.jivesoftware.smack.packet.XMPPError;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
 import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
-import com.magnet.mmx.client.common.*;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXErrorMessage;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
-
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.jivesoftware.smack.packet.XMPPError;
 
 /**
  * The main entry point for Magnet Message.
@@ -69,13 +75,11 @@ public final class MMX {
     public static final FailureCode SERVER_ERROR = new FailureCode(500, "SERVER_ERROR");
     private final int mValue;
     private final String mDescription;
-    private final String mToString;
+    private String mToString;
 
     FailureCode(int value, String description) {
       mValue = value;
       mDescription = description;
-      mToString = this.getClass().getSimpleName() +
-              '(' + mValue + ',' + mDescription + ')';
     }
 
     FailureCode(FailureCode code) {
@@ -99,12 +103,9 @@ public final class MMX {
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-
+      if ((o == null) || !(o instanceof FailureCode)) return false;
       FailureCode that = (FailureCode) o;
-
       return mValue == that.mValue;
-
     }
 
     @Override
@@ -113,6 +114,10 @@ public final class MMX {
     }
 
     public String toString() {
+      if (mToString == null) {
+        mToString = this.getClass().getSimpleName() +
+                    '(' + mValue + ',' + mDescription + ')';
+      }
       return mToString;
     }
   }
@@ -202,20 +207,6 @@ public final class MMX {
      */
     public boolean onLoginRequired(LoginReason reason) {
       //default implementation is a no-op
-      return false;
-    }
-    
-    /**
-     * Called when an error from the server is received.  The default implementation
-     * of this method is to log the error.
-     * @param messageId the id of a message that caused the error
-     * @param code a failure code
-     * @param text an optional diagnostic text message
-     * @return true to consume this event, false for additional listeners to be called
-     */
-    public boolean onMessageSendError(String messageId, MMXMessage.FailureCode code, String text) {
-      //default implementation is to log it
-      Log.e(TAG, "onMessageSendError() message ID="+messageId+", code="+code+", text="+text);
       return false;
     }
   }
@@ -330,18 +321,27 @@ public final class MMX {
     public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
       XMPPError xmppErr;
       MMXError mmxErr;
-      MMXMessage.FailureCode fcode = null;
       if ((mmxErr = error.getMMXError()) != null) {
-        if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue())
+        MMXMessage.FailureCode fcode;
+        if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue()) {
           fcode = MMXMessage.FailureCode.INVALID_RECIPIENT;
-        else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue())
+          String userId = (mmxErr.getParams() == null) ? null : (mmxErr.getParams())[0];
+          MMXMessage.handleMessageSendError(userId == null ? null : new MMXid(userId, null),
+              mmxErr.getMsgId(), fcode, null);
+        } else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue()) {
           fcode = MMXMessage.FailureCode.CONTENT_TOO_LARGE;
-        notifyMessageSendError(mmxErr.getMsgId(), fcode, mmxErr.getMessage());
+          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(), fcode, new MMXException(
+              mmxErr.getMessage(), fcode.getValue()));
+        } else {
+          Log.e(TAG, "onErrorReceived(): unexpected MMX error="+mmxErr);
+          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(),
+              MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null),
+              new MMXException(mmxErr.getMessage(), mmxErr.getCode()));
+        }
       } else if ((xmppErr = error.getXMPPError()) != null) {
-        fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
-        notifyMessageSendError(error.getId(), fcode, xmppErr.getCondition());
+        Log.e(TAG, "onErrorReceived(): unsupported XMPP error="+xmppErr);
       } else {
-        Log.w(TAG, "onErrorReceived(): custom error is not supported; error="+error.getCustomError());
+        Log.w(TAG, "onErrorReceived(): unsupported custom error="+error.getCustomError());
       }
     }
   };
@@ -392,6 +392,8 @@ public final class MMX {
    */
   static synchronized void init(Context context, MMXClientConfig config) {
     if (sInstance == null) {
+      Log.i(TAG, "App="+context.getPackageName()+", MMX SDK="+BuildConfig.VERSION_NAME+
+            ", protocol="+Constants.MMX_VERSION_MAJOR+"."+Constants.MMX_VERSION_MINOR);
       sInstance = new MMX(context, config);
     } else {
       Log.w(TAG, "MMX.init():  MMX has already been initialized.  Ignoring this call.");
@@ -613,27 +615,7 @@ public final class MMX {
       return sInstance.mListeners.remove(listener);
     }
   }
-
-  private static void notifyMessageSendError(String msgId, MMXMessage.FailureCode code, String text) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
-        throw new IllegalStateException("Error dropped because there were no listeners registered.");
-      }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onMessageSendError(msgId, code, text)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
-        }
-      }
-    }
-  }
+  
   private static void notifyMessageReceived(MMXMessage message) {
     checkState();
     synchronized (sInstance.mListeners) {

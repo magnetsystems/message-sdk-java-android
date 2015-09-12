@@ -14,20 +14,6 @@
  */
 package com.magnet.mmx.client.api;
 
-import com.magnet.mmx.client.MMXAccountManager;
-import com.magnet.mmx.client.MMXClient;
-import com.magnet.mmx.client.MMXClientConfig;
-import com.magnet.mmx.client.MMXTask;
-import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.client.common.MMXException;
-import com.magnet.mmx.client.common.MMXid;
-import com.magnet.mmx.protocol.SearchAction;
-import com.magnet.mmx.protocol.UserInfo;
-import com.magnet.mmx.protocol.UserQuery;
-import com.magnet.mmx.util.XIDUtil;
-
-import org.json.JSONObject;
-
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -36,9 +22,25 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLHandshakeException;
+
+import org.json.JSONObject;
+
+import com.magnet.mmx.client.MMXAccountManager;
+import com.magnet.mmx.client.MMXClient;
+import com.magnet.mmx.client.MMXClientConfig;
+import com.magnet.mmx.client.MMXTask;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.SearchAction;
+import com.magnet.mmx.protocol.StatusCode;
+import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.protocol.UserQuery;
+import com.magnet.mmx.util.XIDUtil;
 
 /**
  * The MMXUser class
@@ -65,6 +67,33 @@ public class MMXUser {
       } else {
         return new FailureCode(code);
       }
+    }
+  }
+  
+  /**
+   * Exception for a group of invalid users.  This exception is returned if the
+   * recipients of a message are invalid.
+   */
+  public static class InvalidUserException extends MMXException {
+    private String mMsgId;
+    private Set<MMXUser> mUsers = new HashSet<MMXUser>();
+    
+    public InvalidUserException(String msg, String messageId) {
+      super(msg, StatusCode.NOT_FOUND);
+      mMsgId = messageId;
+    }
+    
+    public String getMessageId() {
+      return mMsgId;
+    }
+    
+    public InvalidUserException addUser(MMXUser user) {
+      mUsers.add(user);
+      return this;
+    }
+    
+    public Set<MMXUser> getUsers() {
+      return mUsers;
     }
   }
 
@@ -322,14 +351,17 @@ public class MMXUser {
   }
 
   /**
-   * Finds users whose display name starts with the specified text
+   * Find users whose display name starts with the specified text.  If the user
+   * does not have a display name, the user cannot be found.  Although display 
+   * name is optional during the new user registration, it is very useful
+   * to have the display name set {@link Builder#displayName(String)}.
    *
    * @param startsWith the search string
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
    */
   public static void findByName(final String startsWith, final int limit,
-                                      final OnFinishedListener<ListResult<MMXUser>> listener) {
+                                  final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
@@ -434,6 +466,11 @@ public class MMXUser {
     return mUsername.hashCode();
   }
 
+  @Override
+  public String toString() {
+    return "[name="+mUsername+", display="+mDisplayName+"]";
+  }
+  
   /**
    * Validates the specified userId.  Returns true for a valid userId.
    * @param userId the user id to validate

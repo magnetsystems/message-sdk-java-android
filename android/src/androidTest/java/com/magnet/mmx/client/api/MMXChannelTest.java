@@ -1,11 +1,25 @@
+/*   Copyright (c) 2015 Magnet Systems, Inc.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 package com.magnet.mmx.client.api;
-
-import android.util.Log;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import android.util.Log;
 
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 
@@ -236,57 +250,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         createResult.invoked(false);
       }
     });
-    if (createResult.waitFor(10000) == Status.INVOKED)
+    if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED)
       assertTrue(createResult.getReturnValue());
     else
       fail("Channel creation timed out");
-  }
-  
-  enum Status {
-    INVOKED,
-    FAILED,
-    TIMEDOUT,
-  }
-  
-  static class ExecMonitor<S, F> {
-    private S mRtnValue;
-    private F mFailedValue;
-    private Status mStatus = Status.TIMEDOUT;
-    
-    // Only be called if waitFor() returns EXECED
-    public S getReturnValue() {
-      return mRtnValue;
-    }
-    
-    // Only be called if waitFor() returns FAILED
-    public F getFailedValue() {
-      return mFailedValue;
-    }
-    
-    public synchronized void invoked(S value) {
-      mStatus = Status.INVOKED;
-      mRtnValue = value;
-      notify();
-
-    }
-    
-    public synchronized void failed(F value) {
-      mStatus = Status.FAILED;
-      mFailedValue = value;
-      notify();
-    }
-    
-    public synchronized Status waitFor(long timeout) {
-      if (mStatus == Status.TIMEDOUT) {
-        // Not executed yet, wait for result.
-        try {
-          wait(timeout);
-        } catch (InterruptedException e) {
-          // Ignored
-        }
-      }
-      return mStatus;
-    }
   }
   
   private void helpCreateError(MMXChannel channel, final FailureCode expected) {
@@ -301,7 +268,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(10000) == Status.FAILED)
+    if (obj.waitFor(10000) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
       assertEquals(expected, obj.getReturnValue());
@@ -322,10 +289,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         findResult.failed(code);
       }
     });
-    Status status = findResult.waitFor(10000);
-    if (status == Status.INVOKED)
+    ExecMonitor.Status status = findResult.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED)
       assertEquals(expectedCount, findResult.getReturnValue().intValue());
-    else if (status == Status.FAILED)
+    else if (status == ExecMonitor.Status.FAILED)
       fail("Find channel failed: "+findResult.getFailedValue());
     else
       fail("Find channel timed out");
@@ -343,10 +310,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.failed("Unexpected failure on finding a non-existing channel");
       }
     });
-    Status status = obj.waitFor(10000);
-    if (status == Status.FAILED)
+    ExecMonitor.Status status = obj.waitFor(10000);
+    if (status == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
-    else if (status == Status.INVOKED)
+    else if (status == ExecMonitor.Status.INVOKED)
       assertEquals(expected, obj.getReturnValue().totalCount);
     else
       fail("Find non-existing channel timeout");
@@ -365,10 +332,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         subResult.failed(code);
       }
     });
-    Status status = subResult.waitFor(10000);
-    if (status == Status.INVOKED)
+    ExecMonitor.Status status = subResult.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED)
       assertTrue(subResult.getReturnValue());
-    else if (status == Status.FAILED)
+    else if (status == ExecMonitor.Status.FAILED)
       fail("Channel subscription failed: "+subResult.getFailedValue());
     else
       fail("Channel subscription timed out");
@@ -385,9 +352,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
     });
     status = getSubsResult.waitFor(10000);
-    if (status == Status.INVOKED)
+    if (status == ExecMonitor.Status.INVOKED)
       assertEquals(expectedSubscriberCount, getSubsResult.getReturnValue().intValue());
-    else if (status == Status.FAILED)
+    else if (status == ExecMonitor.Status.FAILED)
       fail("Get subscrivers failed: "+getSubsResult.getFailedValue());
     else
       fail("Get subscrivers timed out");
@@ -405,7 +372,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(10000) == Status.FAILED)
+    if (obj.waitFor(10000) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
       assertEquals(expected, obj.getReturnValue());
@@ -486,7 +453,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(10000) == Status.FAILED)
+    if (obj.waitFor(10000) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
       assertEquals(expected, obj.getReturnValue());
@@ -511,11 +478,11 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         channelCount.failed(code);
       }
     });
-    Status status = channelCount.waitFor(10000);
-    if (status == Status.INVOKED) {
+    ExecMonitor.Status status = channelCount.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED) {
       assertEquals(expectedChannelCount, channelCount.getReturnValue().intValue());
       assertEquals(expectedItemCount, itemCount.intValue());
-    } else if (status == Status.FAILED)
+    } else if (status == ExecMonitor.Status.FAILED)
       fail("Channel summary failed: "+channelCount.getFailedValue());
     else
       fail("Channel summary timed out");
@@ -533,10 +500,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.failed("Unexpected failure on channel summary of a non-existing channel");
       }
     });
-    Status status = obj.waitFor(10000);
-    if (status == Status.FAILED)
+    ExecMonitor.Status status = obj.waitFor(10000);
+    if (status == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
-    else if (status == Status.INVOKED)
+    else if (status == ExecMonitor.Status.INVOKED)
       assertEquals(expected, obj.getReturnValue().totalCount);
     else
       fail("Getting channel summary timed out");
@@ -558,10 +525,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         unsubResult.failed(code);
       }
     });
-    Status status = unsubResult.waitFor(10000);
-    if (status == Status.INVOKED)
+    ExecMonitor.Status status = unsubResult.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED)
       assertTrue(unsubResult.getReturnValue());
-    else if (status == Status.FAILED)
+    else if (status == ExecMonitor.Status.FAILED)
       fail("Channel unsubscription failed: "+unsubResult.getFailedValue());
     else
       fail("Channel unsubscription timed out");
@@ -579,7 +546,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(10000) == Status.FAILED)
+    if (obj.waitFor(10000) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
       assertEquals(expected, obj.getReturnValue());
@@ -601,7 +568,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         deleteResult.invoked(false);
       }
     });
-    if (deleteResult.waitFor(10000) == Status.INVOKED)
+    if (deleteResult.waitFor(10000) == ExecMonitor.Status.INVOKED)
       assertTrue(deleteResult.getReturnValue());
     else
       fail("Channel deletion timed out");
@@ -619,7 +586,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(10000) == Status.FAILED)
+    if (obj.waitFor(10000) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
       assertEquals(expected, obj.getReturnValue());
@@ -640,10 +607,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         fetchCount.failed(code);
       }
     });
-    Status status = fetchCount.waitFor(10000);
-    if (status == Status.INVOKED)
+    ExecMonitor.Status status = fetchCount.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED)
       assertEquals(expectedCount, fetchCount.getReturnValue().intValue());
-    else if (status == Status.FAILED)
+    else if (status == ExecMonitor.Status.FAILED)
       fail("Fetch from channel failed: "+fetchCount.getFailedValue());
     else
       fail("Fetch from channel timed out");

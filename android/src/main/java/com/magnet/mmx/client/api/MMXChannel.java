@@ -14,6 +14,15 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;
@@ -33,14 +42,6 @@ import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * The MMXChannel class representing the Topic/Feed/PubSub model.
@@ -445,6 +446,89 @@ public class MMXChannel {
     };
     task.execute();
   }
+  
+  /**
+   * @hide
+   * Retrieve the messages from this channel by message ID.
+   * @param ids A set of message ID's
+   * @param listener the listener for the results of this operation
+   */
+  public void getItemsByIds(final Set<String> ids, final OnFinishedListener<Map<String, MMXMessage>> listener) {
+    final MMXTopic topic = getMMXTopic();
+    MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> task =
+            new MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Map<String, com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        List<String> idList = Arrays.asList(ids.toArray(new String[ids.size()]));
+        Map<String, com.magnet.mmx.client.common.MMXMessage> messages =
+                psm.getItemsByIds(topic, idList);
+        return messages;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+
+      @Override
+      public void onResult(Map<String, com.magnet.mmx.client.common.MMXMessage> result) {
+        if (listener == null) {
+          return;
+        }
+        Map<String, MMXMessage> resultMap = new HashMap<String, MMXMessage>();
+        if (result != null && result.size() > 0) {
+          //convert MMXMessages
+          for (Map.Entry<String, com.magnet.mmx.client.common.MMXMessage> entry : result.entrySet()) {
+            resultMap.put(entry.getKey(), MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
+          }
+        }
+        listener.onSuccess(resultMap);
+      }
+    };
+    task.execute();
+  }
+  
+  /**
+   * @hide
+   * Delete the messages from this channel by the message ID.  Only the publisher
+   * of the message can delete it.  The results contain a map of message ID as
+   * key and status code as value.
+   * @param ids A set of message ID's
+   * @param listener the listener for the results of this operation
+   */
+  public void deleteItemsByIds(final Set<String> ids,
+                              final OnFinishedListener<Map<String, Integer>> listener) {
+    final MMXTopic topic = getMMXTopic();
+    MMXTask<Map<String, Integer>> task =
+            new MMXTask<Map<String, Integer>> (MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Map<String, Integer> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        List<String> idList = Arrays.asList(ids.toArray(new String[ids.size()]));
+        Map<String, Integer> results = psm.deleteItemsByIds(topic, idList);
+        return results;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(
+              FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+
+      @Override
+      public void onResult(Map<String, Integer> result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    task.execute();
+  }
 
   /**
    * Set the subscribed flag for this channel
@@ -673,6 +757,22 @@ public class MMXChannel {
   }
 
   /**
+   * A convenient method to send an invitation to multiple users for this channel.
+   * The listener will be invoked one per invitee.
+   * @param invitees A set of invitees
+   * @param invitationText the text to include in the invite
+   * @param listener the listener for success/failure of this operation
+   */
+  public void inviteUsers(final Set<MMXUser> invitees, final String invitationText,
+                          final OnFinishedListener<MMXInvite> listener) {
+    for (MMXUser invitee : invitees) {
+      MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
+      MMXInvite invite = new MMXInvite(inviteInfo, false);
+      invite.send(listener);
+    }
+  }
+
+  /**
    * Retrieves all the subscribers for this channel.  Possible failure codes are:
    * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
    * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
@@ -846,21 +946,18 @@ public class MMXChannel {
       return new ArrayList<MMXChannel>();
     }
 
-    //FIXME: This is expensive if there are a lot of topics but for now we will allow it until we get server support
-    HashSet<MMXTopic> topics = new HashSet<MMXTopic>();
+    // TODO: need a single call to get multiple topic info.  But it is OK if
+    // user does not too many subscriptions.
+    List<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>(subscriptions.size());
     for (MMXSubscription subscription : subscriptions) {
-      topics.add(subscription.getTopic());
-    }
-
-    List<MMXTopicInfo> topicInfos = psm.listTopics(null, TopicAction.ListType.both, true);
-    //narrow down this list of topicInfos
-    ArrayList<MMXTopicInfo> filteredTopicInfos = new ArrayList<MMXTopicInfo>();
-    for (MMXTopicInfo info : topicInfos) {
-      if (topics.contains(info.getTopic())) {
-        filteredTopicInfos.add(info);
+      try {
+        MMXTopicInfo topicInfo = psm.getTopic(subscription.getTopic());
+        topicInfos.add(topicInfo);
+      } catch (Throwable e) {
+        Log.e(TAG, "Unable to get info of "+subscription.getTopic(), e);
       }
     }
-    return fromTopicInfos(filteredTopicInfos, subscriptions);
+    return fromTopicInfos(topicInfos, subscriptions);
   }
 
   private static List<MMXChannel> fromTopicInfos(List<MMXTopicInfo> topicInfos,
