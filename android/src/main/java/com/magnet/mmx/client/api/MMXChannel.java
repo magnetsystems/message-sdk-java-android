@@ -601,8 +601,9 @@ public class MMXChannel {
         if (listener == null) {
           return;
         }
-        MMXChannel.this.ownerUsername(MMX.getCurrentUser().getUsername());
-        listener.onSuccess(MMXChannel.fromMMXTopic(createResult));
+        String currentUsername = MMX.getCurrentUser().getUsername();
+        MMXChannel.this.ownerUsername(currentUsername);
+        listener.onSuccess(MMXChannel.fromMMXTopic(createResult).ownerUsername(currentUsername));
       }
     };
     task.execute();
