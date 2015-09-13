@@ -947,17 +947,11 @@ public class MMXChannel {
       return new ArrayList<MMXChannel>();
     }
 
-    // TODO: need a single call to get multiple topic info.  But it is OK if
-    // user does not too many subscriptions.
-    List<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>(subscriptions.size());
+    List<MMXTopic> topics = new ArrayList<MMXTopic>(subscriptions.size());
     for (MMXSubscription subscription : subscriptions) {
-      try {
-        MMXTopicInfo topicInfo = psm.getTopic(subscription.getTopic());
-        topicInfos.add(topicInfo);
-      } catch (Throwable e) {
-        Log.e(TAG, "Unable to get info of "+subscription.getTopic(), e);
-      }
+      topics.add(subscription.getTopic());
     }
+    List<MMXTopicInfo> topicInfos = psm.getTopics(topics);
     return fromTopicInfos(topicInfos, subscriptions);
   }
 
@@ -978,9 +972,11 @@ public class MMXChannel {
     HashMap<MMXTopic, MMXTopicInfo> topicInfoMap = new HashMap<MMXTopic, MMXTopicInfo>();
     ArrayList<MMXTopic> topics = new ArrayList<MMXTopic>(topicInfos.size());
     for (MMXTopicInfo info : topicInfos) {
-      MMXTopic topic = info.getTopic();
-      topics.add(topic);
-      topicInfoMap.put(topic, info);
+      if (info != null) {
+        MMXTopic topic = info.getTopic();
+        topics.add(topic);
+        topicInfoMap.put(topic, info);
+      }
     }
     List<TopicSummary> summaries = psm.getTopicSummary(topics, null, null);
 
@@ -988,8 +984,8 @@ public class MMXChannel {
     for (TopicSummary summary : summaries) {
       MMXTopic topic = summary.getTopicNode();
       MMXTopicInfo info = topicInfoMap.get(topic);
-
-      channels.add(new MMXChannel.Builder()
+      if (info != null) {
+        channels.add(new MMXChannel.Builder()
                       .lastTimeActive(summary.getLastPubTime())
                       .name(topic.getName())
                       .numberOfMessages(summary.getCount())
@@ -997,8 +993,8 @@ public class MMXChannel {
                       .subscribed(subMap.containsKey(topic))
                       .summary(info.getDescription())
                       .setPublic(!topic.isUserTopic())
-                      .build()
-      );
+                      .build());
+      }
     }
     return channels;
   }

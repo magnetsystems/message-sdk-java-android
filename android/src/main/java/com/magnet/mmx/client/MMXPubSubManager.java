@@ -397,6 +397,18 @@ public final class MMXPubSubManager extends MMXManager {
   }
   
   /**
+   * Get multiple topic detail information by topic names.  If a topic name
+   * is not found, a null entry in the result list will be returned.
+   * @param topics A list of topic names
+   * @return A list of detail topic information.
+   * @throws MMXException
+   */
+  public List<MMXTopicInfo> getTopics(List<MMXTopic> topics) throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.getTopics(topics);
+  }
+  
+  /**
    * Get the configurable options of a topic.  The returned options can be 
    * updated by calling {@link #updateOptions(MMXTopic, com.magnet.mmx.protocol.MMXTopicOptions)}.
    *

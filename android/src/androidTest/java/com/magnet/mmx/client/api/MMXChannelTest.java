@@ -27,36 +27,12 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXChannelTest.class.getSimpleName();
 
   public void postSetUp() {
-    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
     String suffix = String.valueOf(System.currentTimeMillis());
-    String username = USERNAME_PREFIX + suffix;
-    String displayName = DISPLAY_NAME_PREFIX + suffix;
-    registerUser(username, displayName, PASSWORD);
-
-    //login with credentials
-    MMX.login(username, PASSWORD, loginLogoutListener);
-    synchronized (loginLogoutListener) {
-      try {
-        loginLogoutListener.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(MMX.getMMXClient().isConnected());
-    MMX.enableIncomingMessages(true);
+    helpLogin(USERNAME_PREFIX, DISPLAY_NAME_PREFIX, suffix, true);
   }
 
   public void tearDown() {
-    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
-    MMX.logout(loginLogoutListener);
-    synchronized (loginLogoutListener) {
-      try {
-        loginLogoutListener.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertFalse(MMX.getMMXClient().isConnected());
+    helpLogout();
   }
 
   public void testPublicChannel() {
@@ -193,30 +169,25 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpCreate(publicChannel);
 
     //should have autosubscribed since we created them
-    final AtomicInteger subCount = new AtomicInteger(0);
+    final ExecMonitor<Integer, FailureCode> subCount = new ExecMonitor<Integer, FailureCode>();
     MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
       public void onSuccess(List<MMXChannel> result) {
-        subCount.set(result.size());
-        synchronized (subCount) {
-          subCount.notify();
-        }
+        subCount.invoked(result.size());
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (subCount) {
-          subCount.notify();
-        }
+        subCount.failed(code);
       }
     });
-    synchronized (subCount) {
-      try {
-        subCount.wait();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+    ExecMonitor.Status status = subCount.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED) {
+      assertEquals(2, subCount.getReturnValue().intValue());
+    } else if (status == ExecMonitor.Status.FAILED) {
+      fail("getAllSubscriptions() failed: "+subCount.getFailedValue());
+    } else {
+      fail("getAllSubscriptions() timed out");
     }
-    assertEquals(2, subCount.intValue());
 
     helpDelete(publicChannel);
     helpDelete(privateChannel);
@@ -242,6 +213,58 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpPublishError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
     helpUnsubscribeError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
     helpDeleteError(noSuchChannel, MMXChannel.FailureCode.CHANNEL_NOT_FOUND);
+  }
+  
+  public void testGetSubscribedPrivateChannel() {
+    final String USERNAME_1 = "user1";
+    final String DISPLAY_NAME_1 = "User 1";
+    final String USERNAME_2 = "user2";
+    final String DISPLAY_NAME_2 = "User 2";
+    final String CHANNEL_NAME = "channel1";
+    
+    helpLogout();
+    
+    // Register and login as user1, create and auto-subscribe a private channel.
+    String suffix = String.valueOf(System.currentTimeMillis());
+    helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, true);
+    MMXChannel channel = new MMXChannel.Builder().name(CHANNEL_NAME)
+          .setPublic(false).summary("Private Channel 1").build();
+    helpCreate(channel);
+    helpLogout();
+    
+    // Register and login as user2, subscribe to the private channel.  It
+    // should have 2 subscribers: user1 and user2.
+    helpLogin(USERNAME_2, DISPLAY_NAME_2, suffix, true);
+    helpSubscribe(channel, 2);
+    // Get the subscribed channel information.
+    final ExecMonitor<List<MMXChannel>, FailureCode> channels = new ExecMonitor<List<MMXChannel>, FailureCode>();
+    MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
+      public void onSuccess(List<MMXChannel> result) {
+        channels.invoked(result);
+      }
+
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        channels.failed(code);
+      }
+    });
+    ExecMonitor.Status status = channels.waitFor(10000);
+    if (status == ExecMonitor.Status.FAILED) {
+      fail("getAllSubscriptions failed: "+channels.getFailedValue());
+    } else if (status == ExecMonitor.Status.WAITING) {
+      fail("getAllSubscriptions timed out");
+    } else {
+      List<MMXChannel> subChannels = channels.getReturnValue();
+      assertNotNull(subChannels);
+      assertEquals(1, subChannels.size());
+      assertEquals(USERNAME_1+suffix, subChannels.get(0).getOwnerUsername());
+    }
+    helpLogout();
+    
+    // Login as user1 again and delete the channel.
+    helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, false);
+    helpDelete(channel);
+    helpLogout();
   }
   
   //**************
@@ -631,5 +654,40 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       fail("Fetch from channel failed: "+fetchCount.getFailedValue());
     else
       fail("Fetch from channel timed out");
+  }
+
+  private void helpLogin(String userNamePrefix, String displayNamePrefix,
+        String suffix, boolean regUser) {
+    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
+    String username = userNamePrefix + suffix;
+    String displayName = displayNamePrefix + suffix;
+    if (regUser) {
+      registerUser(username, displayName, PASSWORD);
+    }
+
+    //login with credentials
+    MMX.login(username, PASSWORD, loginLogoutListener);
+    synchronized (loginLogoutListener) {
+      try {
+        loginLogoutListener.wait(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertTrue(MMX.getMMXClient().isConnected());
+    MMX.enableIncomingMessages(true);
+  }
+
+  private void helpLogout() {
+    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
+    MMX.logout(loginLogoutListener);
+    synchronized (loginLogoutListener) {
+      try {
+        loginLogoutListener.wait(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertFalse(MMX.getMMXClient().isConnected());
   }
 }
