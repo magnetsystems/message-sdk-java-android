@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.magnet.mmx</groupId>
     <artifactId>mmx-client-root</artifactId>
-    <version>1.8.2</version>
+    <version>1.8.3</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
