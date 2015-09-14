@@ -60,7 +60,7 @@ public class MMXChannel {
     public static final FailureCode CHANNEL_NOT_AUTHORIZED = new FailureCode(401, "CHANNEL_NOT_AUTHROIZED");
     public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(404, "SUBSCRIPTION_NOT_FOUND");
     public static final FailureCode SUBSCRIPTION_INVALID_ID = new FailureCode(406, "SUBSCRIPTION_INVALID_ID");
-    public static final FailureCode INVALID_INVITEE = new FailureCode(400, "INVALID_INVITEE");
+    public static final FailureCode INVALID_INVITEE = new FailureCode(403, "INVALID_INVITEE");
     
     FailureCode(int value, String description) {
       super(value, description);
@@ -744,7 +744,8 @@ public class MMXChannel {
   }
 
   /**
-   * Sends an invitation to the specified user for this channel.
+   * Sends an invitation to the specified user for this channel.  Possible
+   * failure code is: {@link FailureCode#INVALID_INVITEE}
    *
    * @param invitee the invitee
    * @param invitationText the text to include in the invite
@@ -759,7 +760,8 @@ public class MMXChannel {
 
   /**
    * A convenient method to send an invitation to multiple users for this channel.
-   * The listener will be invoked one per invitee.
+   * The listener will be invoked one per invitee.  If the invitee is invalid,
+   * the failure code will be {@link FailureCode#INVALID_INVITEE}.
    * @param invitees A set of invitees
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
