@@ -114,9 +114,9 @@ public class MMXChannel {
     }
 
     /**
-     * Set the name of this channel
+     * Set the name of this channel. It is a required property.
      *
-     * @param name the name
+     * @param name the non-null name
      * @return this Builder object
      */
     public Builder name(String name) {
@@ -125,9 +125,9 @@ public class MMXChannel {
     }
 
     /**
-     * Set the summary of this channel
+     * Set the summary of this channel.  It is a required property.
      *
-     * @param summary the summary
+     * @param summary the non-null summary
      * @return this Builder object
      */
     public Builder summary(String summary) {
@@ -603,7 +603,8 @@ public class MMXChannel {
         }
         String currentUsername = MMX.getCurrentUser().getUsername();
         MMXChannel.this.ownerUsername(currentUsername);
-        listener.onSuccess(MMXChannel.fromMMXTopic(createResult).ownerUsername(currentUsername));
+        listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
+            .ownerUsername(currentUsername).summary(MMXChannel.this.mSummary));
       }
     };
     task.execute();

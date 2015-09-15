@@ -271,21 +271,23 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //HELPER METHODS
   //**************
   private void helpCreate(MMXChannel channel) {
-    final ExecMonitor<Boolean, Void> createResult = new ExecMonitor<Boolean, Void>();
+    final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
     channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         Log.e(TAG, "helpCreate.onSuccess ");
-        createResult.invoked(result.getOwnerUsername() != null);
+        createResult.invoked(result);
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        createResult.invoked(false);
+        createResult.invoked(null);
       }
     });
     if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED) {
-      assertTrue(createResult.getReturnValue());
-      assertNotNull(channel.getOwnerUsername());
+      MMXChannel result = createResult.getReturnValue();
+      assertNotNull(result);
+      assertEquals(channel.getOwnerUsername(), result.getOwnerUsername());
+      assertEquals(channel.getSummary(), result.getSummary());
     } else {
       fail("Channel creation timed out");
     }
