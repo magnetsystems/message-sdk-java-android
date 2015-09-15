@@ -598,12 +598,15 @@ public class MMXChannel {
 
       @Override
       public void onResult(final MMXTopic createResult) {
-        if (listener == null) {
-          return;
-        }
         String currentUsername = MMX.getCurrentUser().getUsername();
         MMXChannel.this.ownerUsername(currentUsername);
-        listener.onSuccess(MMXChannel.fromMMXTopic(createResult).ownerUsername(currentUsername));
+
+        if (listener != null) {
+          listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
+                          .ownerUsername(currentUsername)
+                          .summary(mSummary)
+          );
+        }
       }
     };
     task.execute();
