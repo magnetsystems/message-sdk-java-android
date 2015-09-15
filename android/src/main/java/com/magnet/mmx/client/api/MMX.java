@@ -264,7 +264,7 @@ public final class MMX {
         MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
         notifyInviteResponseReceived(inviteResponse);
       } else {
-        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage));
+        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage).receiptId(receiptId));
       }
     }
 

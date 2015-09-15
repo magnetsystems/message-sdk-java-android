@@ -50,6 +50,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     MMX.enableIncomingMessages(true);
     final ExecMonitor<HashMap<String, Object>, Void> receivedResult = new ExecMonitor<HashMap<String, Object>, Void>();
     final StringBuffer senderBuffer = new StringBuffer();
+    final ExecMonitor<String, Void> acknowledgeResult = new ExecMonitor<String, Void>();
     MMX.EventListener messageListener = new MMX.EventListener() {
       public boolean onMessageReceived(MMXMessage message) {
         Log.d(TAG, "onMessageReceived(): " + message.getId());
@@ -59,10 +60,13 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
           receivedContent.put(entry.getKey(), entry.getValue());
         }
         receivedResult.invoked(receivedContent);
+        //do the acknowledgement
+        message.acknowledge(null);
         return false;
       }
 
       public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+        acknowledgeResult.invoked(messageId);
         return false;
       }
     };
@@ -106,6 +110,14 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     }
     assertEquals("bar", receivedResult.getReturnValue().get("foo"));
     assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
+
+    //check acknowledgement
+
+    status = acknowledgeResult.waitFor(10000);
+    if (status == ExecMonitor.Status.WAITING) {
+      fail("testSenddMessage() receive acknowledgement timed out");
+    }
+    assertEquals(messageId, acknowledgeResult.getReturnValue());
 
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);
