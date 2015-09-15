@@ -87,7 +87,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .summary(channelSummary)
             .setPublic(isPublic)
             .build();
-    helpCreate(channel);
+    MMXChannel channelFromCallback = helpCreate(channel);
 
     final AtomicBoolean inviteResponseValue = new AtomicBoolean(false);
     final StringBuffer inviteResponseText = new StringBuffer();
@@ -145,6 +145,34 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals("foobar", inviteTextBuffer.toString());
     assertTrue(inviteResponseValue.get());
     assertEquals("foobar response", inviteResponseText.toString());
+
+    //test invite from the callback channel
+    final AtomicBoolean inviteFromCallbackSent = new AtomicBoolean(false);
+    channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMXChannel.OnFinishedListener<MMXChannel.MMXInvite>() {
+      @Override
+      public void onSuccess(MMXChannel.MMXInvite result) {
+        inviteFromCallbackSent.set(true);
+        synchronized (inviteSent) {
+          inviteFromCallbackSent.notify();
+        }
+      }
+
+      @Override
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        synchronized (inviteFromCallbackSent) {
+          inviteFromCallbackSent.notify();
+        }
+      }
+    });
+    synchronized (inviteFromCallbackSent) {
+      try {
+        inviteFromCallbackSent.wait(10000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertTrue(inviteFromCallbackSent.get());
 
     helpDelete(channel);
   }
@@ -270,7 +298,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //**************
   //HELPER METHODS
   //**************
-  private void helpCreate(MMXChannel channel) {
+  private MMXChannel helpCreate(MMXChannel channel) {
     final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
     channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
@@ -283,14 +311,18 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         createResult.invoked(null);
       }
     });
+    MMXChannel result = null;
     if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED) {
-      MMXChannel result = createResult.getReturnValue();
+      result = createResult.getReturnValue();
       assertNotNull(result);
+      assertNotNull(result.getOwnerUsername());
       assertEquals(channel.getOwnerUsername(), result.getOwnerUsername());
       assertEquals(channel.getSummary(), result.getSummary());
+      assertEquals(channel.getName(), result.getName());
     } else {
       fail("Channel creation timed out");
     }
+    return result;
   }
   
   private void helpCreateError(MMXChannel channel, final FailureCode expected) {
