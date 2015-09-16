@@ -192,6 +192,17 @@ public class MMXChannel {
     }
 
     /**
+     * Set the creation date for this channel
+     *
+     * @param creationDate the creation date
+     * @return this Builder object
+     */
+    public Builder creationDate(Date creationDate) {
+      mChannel.creationDate(creationDate);
+      return this;
+    }
+
+    /**
      * Build the channel object
      *
      * @return the channel
@@ -208,6 +219,7 @@ public class MMXChannel {
   private Date mLastTimeActive;
   private boolean mPublic;
   private Boolean mSubscribed;
+  private Date mCreationDate;
 
   /**
    * Default constructor
@@ -310,10 +322,30 @@ public class MMXChannel {
   /**
    * The last active time for this channel
    *
-   * @return the ast active time, null if not yet retrieved
+   * @return the last active time, null if not yet retrieved
    */
   public Date getLastTimeActive() {
     return mLastTimeActive;
+  }
+
+  /**
+   * Set the creation date for this channel
+   *
+   * @param creationDate
+   * @return this MMXChannel object
+   */
+  MMXChannel creationDate(Date creationDate) {
+    mCreationDate = creationDate;
+    return this;
+  }
+
+  /**
+   * The creation date for this channel
+   *
+   * @return the creation date
+   */
+  public Date getCreationDate() {
+    return mCreationDate;
   }
 
   /**
@@ -600,9 +632,23 @@ public class MMXChannel {
         String currentUsername = MMX.getCurrentUser().getUsername();
         MMXChannel.this.ownerUsername(currentUsername);
         if (listener != null) {
-          listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                          .ownerUsername(currentUsername)
-                          .summary(mSummary));
+          try {
+            MMXTopicInfo topicInfo = MMX.getMMXClient().getPubSubManager().getTopic(createResult);
+            ArrayList<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>();
+            topicInfos.add(topicInfo);
+            List<MMXChannel> channels = fromTopicInfos(topicInfos, null);
+            if (channels.size() != 1) {
+              throw new IllegalStateException("Invalid number of results.");
+            }
+            listener.onSuccess(channels.get(0));
+          } catch (Exception ex) {
+            Log.i(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
+                    "falling back to less-populated channel.");
+            listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
+                    .ownerUsername(currentUsername)
+                    .summary(mSummary));
+          }
+
         }
       }
     };
@@ -1063,16 +1109,18 @@ public class MMXChannel {
     for (TopicSummary summary : summaries) {
       MMXTopic topic = summary.getTopicNode();
       MMXTopicInfo info = topicInfoMap.get(topic);
+      String description = info.getDescription();
       if (info != null) {
         channels.add(new MMXChannel.Builder()
-                      .lastTimeActive(summary.getLastPubTime())
-                      .name(topic.getName())
-                      .numberOfMessages(summary.getCount())
-                      .ownerUsername(info.getCreator().getUserId())
-                      .subscribed(subMap.containsKey(topic))
-                      .summary(info.getDescription())
-                      .setPublic(!topic.isUserTopic())
-                      .build());
+                .lastTimeActive(summary.getLastPubTime())
+                .name(topic.getName())
+                .numberOfMessages(summary.getCount())
+                .ownerUsername(info.getCreator().getUserId())
+                .subscribed(subMap.containsKey(topic))
+                .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
+                .setPublic(!topic.isUserTopic())
+                .creationDate(info.getCreationDate())
+                .build());
       }
     }
     return channels;

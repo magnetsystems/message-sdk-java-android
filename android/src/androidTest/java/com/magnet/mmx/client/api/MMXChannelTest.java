@@ -421,6 +421,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       assertEquals(channel.getOwnerUsername(), result.getOwnerUsername());
       assertEquals(channel.getSummary(), result.getSummary());
       assertEquals(channel.getName(), result.getName());
+      assertEquals(channel.isPublic(), result.isPublic());
+      assertNotNull(result.getCreationDate());
     } else {
       fail("Channel creation timed out");
     }
