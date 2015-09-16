@@ -52,9 +52,9 @@ import org.jivesoftware.smack.sasl.SASLError;
 import org.jivesoftware.smack.sasl.SASLErrorException;
 
 import com.magnet.mmx.client.common.GlobalAddress.User;
-import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.UserCreateMode;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.UserCreate;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.BinCodec;
@@ -695,13 +695,13 @@ public class MMXConnection implements ConnectionListener {
     account.setEmail(mSettings.getString(MMXSettings.PROP_EMAIL, null));
     try {
       MMXStatus status = AccountManager.getInstance(this).createAccount(account);
-      if (status.getCode() == Constants.STATUS_CODE_200) {
+      if (status.getCode() == StatusCode.SUCCESS) {
         return true;
       }
       throw new MMXException(status.getMessage(), status.getCode());
     } catch (MMXException e) {
       // userId is taken
-      if (e.getCode() == Constants.STATUS_CODE_500) {
+      if ((e.getCode() == StatusCode.INTERNAL_ERROR) || (e.getCode() == StatusCode.CONFLICT)) {
         if (mConListener != null) {
           mConListener.onAuthFailed(new MMXid(userId, null));
         }

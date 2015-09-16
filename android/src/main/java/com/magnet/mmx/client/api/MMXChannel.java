@@ -40,6 +40,7 @@ import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
+import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 
@@ -373,21 +374,19 @@ public class MMXChannel {
           Log.e(TAG, "setTags(): received bad status from server: " + result);
           listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
         }
-
       }
     };
     task.execute();
   }
 
   MMXTopic getMMXTopic() {
-    if (!isPublic()) {
-      if (getOwnerUsername() == null) {
-        return new MMXPersonalTopic(getName());
-      } else {
-        return new MMXUserTopic(getOwnerUsername(), getName());
-      }
+    if (isPublic()) {
+      return new MMXGlobalTopic(getName());
+    } else if (getOwnerUsername() == null) {
+      return new MMXPersonalTopic(getName());
+    } else {
+      return new MMXUserTopic(getOwnerUsername(), getName());
     }
-    return new MMXGlobalTopic(getName());
   }
 
   /**
@@ -575,7 +574,7 @@ public class MMXChannel {
    * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
    * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
    *
-   * @param listener the listner for the newly created channel
+   * @param listener the listener for the newly created channel
    * @see Builder#setPublic(boolean)
    */
   public void create(final OnFinishedListener<MMXChannel> listener) {
@@ -816,13 +815,90 @@ public class MMXChannel {
   }
 
   /**
-   * Find the channel that starts with the specified text.  If there are no
-   * matching names, {@link OnFinishedListener#onSuccess(Object)} with an
-   * empty list will be invoked.
+   * Get a public channel with an exact name.
+   * @param name A public channel name.
+   * @param listener the listener for getting the channel.
+   */
+  public static void getPublicChannelByName(final String name,
+                            final OnFinishedListener<MMXChannel> listener) {
+    getChannelByName(name, true, listener);
+  }
+  
+  /**
+   * Get a private channel with an exact name.
+   * @param name A private channel name.
+   * @param listener the listener for getting the channel
+   */
+  public static void getPrivateChannelByName(final String name,
+                            final OnFinishedListener<MMXChannel> listener) {
+    getChannelByName(name, false, listener);
+  }
+  
+  // Get a public or private channel with an exact name.
+  private static void getChannelByName(final String name, final boolean isPublic,
+                  final OnFinishedListener<MMXChannel> listener) {
+    MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        MMXTopicInfo info = psm.getTopic(isPublic ? 
+            new MMXGlobalTopic(name) : new MMXPersonalTopic(name));
+        List<MMXTopicInfo> infos = Arrays.asList(new MMXTopicInfo[] { info });
+        return fromTopicInfos(infos, null).get(0);
+      }
+      
+      @Override
+      public void onResult(MMXChannel result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    task.execute();
+  }
+  
+  /**
+   * Get all private channels created by the current user.
+   * @param listener
+   */
+  public static void getAllPrivateChannels(final OnFinishedListener<List<MMXChannel>> listener) {
+    MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(
+        MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        MMXPubSubManager psm = mmxClient.getPubSubManager();
+        List<MMXTopicInfo> infos = psm.listTopics(null, ListType.personal, false);
+        return fromTopicInfos(infos, null);
+      }
+      
+      @Override
+      public void onResult(List<MMXChannel> result) {
+        //build the query result
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+    };
+    task.execute();
+  }
+  
+  /**
+   * Find the channels that start with the specified text.  Currently only
+   * public channels can be discovered.  If there are no matching names,
+   * {@link OnFinishedListener#onSuccess(Object)} with an empty list will be
+   * invoked.
    *
    * @param startsWith the search string
    * @param limit the maximum number of results to return
    * @param listener the listener for the query results
+   * @see #getAllPrivateChannels(OnFinishedListener)
    */
   public static void findByName(final String startsWith, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {

@@ -1,10 +1,10 @@
 package com.magnet.mmx.client.api;
 
-import android.util.Log;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import android.util.Log;
 
 public class MMXUserTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXUserTest.class.getSimpleName();
@@ -26,10 +26,10 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     }
     assertTrue(MMX.getMMXClient().isConnected());
 
-    //test findByName()
+    //test findByDisplayName()
     final AtomicInteger totalCount = new AtomicInteger(0);
     final StringBuffer displayNameBuffer = new StringBuffer();
-    MMXUser.findByName(displayName, 10, new MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
+    MMXUser.findByDisplayName(displayName, 10, new MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
       @Override
       public void onSuccess(ListResult<MMXUser> result) {
         totalCount.set(result.totalCount);
@@ -58,12 +58,12 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     assertEquals(1, totalCount.get());
     assertEquals(displayName, displayNameBuffer.toString());
 
-    //test findByNames()
+    //test getByUsernames()
     HashSet<String> names = new HashSet<String>();
     names.add(username);
     totalCount.set(0);
     displayNameBuffer.delete(0, displayNameBuffer.length());
-    MMXUser.findByNames(names, new MMXUser.OnFinishedListener<HashMap<String, MMXUser>>() {
+    MMXUser.getByUsernames(names, new MMXUser.OnFinishedListener<HashMap<String, MMXUser>>() {
       public void onSuccess(HashMap<String, MMXUser> result) {
         totalCount.set(result.size());
         MMXUser user = result.get(username);
@@ -101,4 +101,12 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     assertFalse(MMX.getMMXClient().isConnected());
   }
 
+  public void testRegisterShortUserName() {
+    // This test case is only for REST API.  Custom IQ has no such restriction.
+    String userName = "siva";
+    String displayName = "Siva";
+    byte[] passwd = "password".getBytes();
+    helpRegisterUser(userName, displayName, passwd, ExecMonitor.Status.FAILED,
+        MMXUser.FailureCode.REGISTRATION_INVALID_USERNAME);
+  }
 }

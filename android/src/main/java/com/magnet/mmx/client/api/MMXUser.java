@@ -54,7 +54,8 @@ public class MMXUser {
   public static class FailureCode extends MMX.FailureCode {
     public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101, "REGISTRATION_INVALID_USERNAME");
     public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102, "REGISTRATION_USER_ALREADY_EXISTS");
-
+    public static final FailureCode REGISTRATION_NO_DISPLAY_NAME = new FailureCode(103, "REGISTRATION_NO_DISPLAY_NAME"); 
+    
     FailureCode(int value, String description) {
       super(value, description);
     }
@@ -225,7 +226,10 @@ public class MMXUser {
       @Override
       public Integer doRun(MMXClient mmxClient) throws Throwable {
         if (!XIDUtil.validateUserId(getUsername())) {
-          throw new IllegalArgumentException("Username is invalid"); //FIXME:  Change this to a custom-type
+          throw new MMXException("Username is invalid", FailureCode.REGISTRATION_INVALID_USERNAME.getValue());
+        }
+        if (getDisplayName() == null || getDisplayName().isEmpty()) {
+          throw new MMXException("Display name is not specified", FailureCode.REGISTRATION_NO_DISPLAY_NAME.getValue());
         }
         Log.d(TAG, "register(): begin");
         MMXClientConfig config = MMX.getMMXClient().getConnectionInfo().clientConfig;
@@ -287,8 +291,6 @@ public class MMXUser {
                   "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
                   "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
           code = FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVICE_UNAVAILABLE, exception);
-        } else if (exception instanceof IllegalArgumentException) {
-          code = FailureCode.REGISTRATION_INVALID_USERNAME;
         } else {
           Log.d(TAG, "register(): exception caught", exception);
           code = FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, exception);
@@ -306,6 +308,10 @@ public class MMXUser {
           case 201:
             //success
             listener.onSuccess(null);
+            break;
+          case 400:
+            // most likely that username is too short
+            listener.onFailure(FailureCode.REGISTRATION_INVALID_USERNAME, null);
             break;
           case 409:
             listener.onFailure(FailureCode.REGISTRATION_USER_ALREADY_EXISTS, null);
@@ -359,8 +365,25 @@ public class MMXUser {
    * @param startsWith the search string
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
+   * @deprecated {@link #findByDisplayName(String, int, OnFinishedListener)}
    */
+  @Deprecated
   public static void findByName(final String startsWith, final int limit,
+      final OnFinishedListener<ListResult<MMXUser>> listener) {
+    findByDisplayName(startsWith, limit, listener);
+  }
+  
+  /**
+   * Find users whose display name starts with the specified text.  If the user
+   * does not have a display name, the user cannot be found.  Although display 
+   * name is optional during the new user registration, it is very useful
+   * to have the display name set {@link Builder#displayName(String)}.
+   *
+   * @param startsWith the search string
+   * @param limit the maximum number of users to return
+   * @param listener listener for success or failure
+   */
+  public static void findByDisplayName(final String startsWith, final int limit,
                                   final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -393,13 +416,29 @@ public class MMXUser {
   }
 
   /**
-   * Retrieve the MMXUser objects or the specified set of usernames.  This is an case-insensitive
-   * exact-match search.
+   * Retrieve the MMXUser objects by the specified set of usernames.  The
+   * usernames are case-insensitive.
    *
    * @param usernames the usernames to lookup
    * @param listener the listener for the results of this operation
+   * @see #getUsername()
+   * @deprecated {@link #getByUserNames(HashSet, OnFinishedListener)}
    */
+  @Deprecated
   public static void findByNames(final HashSet<String> usernames,
+      final OnFinishedListener<HashMap<String, MMXUser>> listener) {
+    getByUsernames(usernames, listener);
+  }
+  
+  /**
+   * Retrieve the MMXUser objects by the specified set of usernames.  The
+   * usernames are case-insensitive.
+   *
+   * @param usernames the usernames to lookup
+   * @param listener the listener for the results of this operation
+   * @see #getUsername()
+   */
+  public static void getByUsernames(final HashSet<String> usernames,
                                  final OnFinishedListener<HashMap<String, MMXUser>> listener) {
     MMXTask<Map<String, UserInfo>> task =
             new MMXTask<Map<String, UserInfo>>(MMX.getMMXClient(), MMX.getHandler()) {

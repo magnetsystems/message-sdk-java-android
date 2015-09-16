@@ -49,6 +49,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpSubscribe(channel, 1);
     helpPublish(channel);
     helpChannelSummary(channelName, 1, 1);
+    helpGetPublicChannel(channelName, 1);
     helpUnsubscribe(channel);
     helpDelete(channel);
   }
@@ -66,9 +67,36 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpSubscribe(channel, 1);
     helpPublish(channel);
     helpChannelSummary(channelName, 0, 0); // 0 and 0 because this method will not be able to find private channels
+    helpGetPrivateChannel(channelName, 1);
     helpUnsubscribe(channel);
     helpDelete(channel);
+  }
 
+  public void testSomeonePrivateChannel() {
+    helpLogout();
+
+    String suffix = String.valueOf(System.currentTimeMillis());
+    String userName1 = "user1";
+    String displayName1 = "User1";
+    String userName2 = "user2";
+    String displayName2 = "User2";
+
+    helpLogin(userName1, displayName1, suffix, true);
+    String channelName = "private-channel" + System.currentTimeMillis();
+    String channelSummary = channelName + " Summary";
+    MMXChannel channel = new MMXChannel.Builder()
+            .name(channelName)
+            .summary(channelSummary)
+            .build();
+    helpCreate(channel);
+    helpLogout();
+
+    helpLogin(userName2, displayName2, suffix, true);
+    helpFind(channelName, 0);   // expect 0 because someone private channel cannot be searched
+    helpLogout();
+
+    helpLogin(userName1, displayName1, suffix, false);
+    helpDelete(channel);
   }
 
   public void testPrivateChannelInvite() {
@@ -293,6 +321,57 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, false);
     helpDelete(channel);
     helpLogout();
+  }
+  
+  /**
+   * Create 3 private channels and 1 public channel.  Publish 2 items to each
+   * private channel.  Get all private channels and it should be 3.  Validate each private
+   * channel to have 2 items.
+   */
+  public void testGetAllPrivateChannels() {
+    MMXChannel pubChannel = new MMXChannel.Builder().name("ch4").summary("Ch4")
+        .setPublic(true).build();
+    MMXChannel[] channels = {
+        new MMXChannel.Builder().name("ch1").summary("Ch1").build(),
+        new MMXChannel.Builder().name("ch2").summary("Ch2").build(),
+        new MMXChannel.Builder().name("ch3").summary("Ch3").build() };
+
+    helpCreate(pubChannel);   // public channel
+    for (int i = 0; i < 3; i++) {
+      helpCreate(channels[i]);
+      helpPublish(channels[i]);
+      helpPublish(channels[i]);
+    }
+
+    // getting all private channels
+    final ExecMonitor<List<MMXChannel>, FailureCode> channelsRes = new ExecMonitor<List<MMXChannel>, FailureCode>();
+    MMXChannel.getAllPrivateChannels(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
+      public void onSuccess(List<MMXChannel> result) {
+        channelsRes.invoked(result);
+      }
+
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        channelsRes.failed(code);
+      }
+    });
+    ExecMonitor.Status status = channelsRes.waitFor(10000);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
+    List<MMXChannel> priChannels = channelsRes.getReturnValue();
+    assertNotNull(priChannels);
+    assertEquals(channels.length, priChannels.size());  // 3 private channels
+    for (int i = 0; i < 3; i++) {
+      assertEquals(2, priChannels.get(i).getNumberOfMessages().intValue());
+      assertNotNull(priChannels.get(i).getName());
+      assertNotNull(priChannels.get(i).getSummary());
+      assertNotNull(priChannels.get(i).getOwnerUsername());
+      assertFalse(priChannels.get(i).isPublic());
+      assertTrue(priChannels.get(i).isSubscribed());
+    }
+
+    helpDelete(pubChannel);
+    for (int i = 0; i < 3; i++) {
+      helpDelete(channels[i]);
+    }
   }
   
   //**************
@@ -690,6 +769,48 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       fail("Fetch from channel timed out");
   }
 
+  private void helpGetPrivateChannel(String name, int expectedMsgs) {
+    final ExecMonitor<MMXChannel, FailureCode> getRes = new ExecMonitor<MMXChannel, FailureCode>();
+    MMXChannel.getPrivateChannelByName(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
+      public void onSuccess(MMXChannel result) {
+        getRes.invoked(result);
+      }
+      
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        getRes.failed(code);
+      }
+    });
+    assertEquals(ExecMonitor.Status.INVOKED, getRes.waitFor(10000));
+    MMXChannel priChannel = getRes.getReturnValue();
+    assertEquals(expectedMsgs, priChannel.getNumberOfMessages().intValue());
+    assertNotNull(priChannel.getName());
+    assertNotNull(priChannel.getSummary());
+    assertNotNull(priChannel.getOwnerUsername());
+    assertFalse(priChannel.isPublic());
+    assertTrue(priChannel.isSubscribed());
+  }
+  
+  private void helpGetPublicChannel(String name, int expectedMsgs) {
+    final ExecMonitor<MMXChannel, FailureCode> getRes = new ExecMonitor<MMXChannel, FailureCode>();
+    MMXChannel.getPublicChannelByName(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
+      public void onSuccess(MMXChannel result) {
+        getRes.invoked(result);
+      }
+      
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        getRes.failed(code);
+      }
+    });
+    assertEquals(ExecMonitor.Status.INVOKED, getRes.waitFor(10000));
+    MMXChannel pubChannel = getRes.getReturnValue();
+    assertEquals(expectedMsgs, pubChannel.getNumberOfMessages().intValue());
+    assertNotNull(pubChannel.getName());
+    assertNotNull(pubChannel.getSummary());
+    assertNotNull(pubChannel.getOwnerUsername());
+    assertTrue(pubChannel.isPublic());
+    assertTrue(pubChannel.isSubscribed());
+  }
+  
   private void helpLogin(String userNamePrefix, String displayNamePrefix,
         String suffix, boolean regUser) {
     MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
