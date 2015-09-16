@@ -948,6 +948,15 @@ public class MMXChannel {
    */
   public static void findByName(final String startsWith, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    if (startsWith == null || startsWith.equals("")) {
+      IllegalArgumentException ex = new IllegalArgumentException("Cannot find by NULL or empty string");
+      if (listener == null) {
+        throw ex;
+      } else {
+        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.BAD_REQUEST, null), ex);
+      }
+      return;
+    }
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override

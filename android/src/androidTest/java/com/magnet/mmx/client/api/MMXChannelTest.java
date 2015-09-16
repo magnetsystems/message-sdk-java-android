@@ -396,6 +396,50 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       helpDelete(channels[i]);
     }
   }
+
+  public void testFindError() {
+    //find
+    final ExecMonitor<Integer, FailureCode> findNullResult = new ExecMonitor<Integer, FailureCode>();
+    MMXChannel.findByName(null, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      public void onSuccess(ListResult<MMXChannel> result) {
+        findNullResult.invoked(result.totalCount);
+      }
+
+      @Override
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        findNullResult.failed(code);
+      }
+    });
+    ExecMonitor.Status status = findNullResult.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED)
+      fail("Find channel should have failed for findByName(null)");
+    else if (status == ExecMonitor.Status.FAILED)
+      assertEquals(MMX.FailureCode.BAD_REQUEST, findNullResult.getFailedValue());
+    else
+      fail("Find channel timed out");
+
+    //test empty
+    final ExecMonitor<Integer, FailureCode> findEmptyResult = new ExecMonitor<Integer, FailureCode>();
+    MMXChannel.findByName("", 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      public void onSuccess(ListResult<MMXChannel> result) {
+        findEmptyResult.invoked(result.totalCount);
+      }
+
+      @Override
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        findEmptyResult.failed(code);
+      }
+    });
+    status = findEmptyResult.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED)
+      fail("Find channel should have failed for findByName(null)");
+    else if (status == ExecMonitor.Status.FAILED)
+      assertEquals(MMX.FailureCode.BAD_REQUEST, findNullResult.getFailedValue());
+    else
+      fail("Find channel timed out");
+  }
   
   //**************
   //HELPER METHODS
