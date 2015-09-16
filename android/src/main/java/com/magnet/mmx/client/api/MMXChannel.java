@@ -62,7 +62,7 @@ public class MMXChannel {
     public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(404, "SUBSCRIPTION_NOT_FOUND");
     public static final FailureCode SUBSCRIPTION_INVALID_ID = new FailureCode(406, "SUBSCRIPTION_INVALID_ID");
     public static final FailureCode INVALID_INVITEE = new FailureCode(403, "INVALID_INVITEE");
-    
+
     FailureCode(int value, String description) {
       super(value, description);
     }
@@ -1145,7 +1145,9 @@ public class MMXChannel {
         content.put(KEY_TEXT, getComment());
       }
       content.put(KEY_CHANNEL_NAME, mChannel.getName());
-      content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
+      if (mChannel.getSummary() != null) {
+        content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
+      }
       content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
       content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
       return content;
@@ -1194,7 +1196,14 @@ public class MMXChannel {
 
     private void send(final OnFinishedListener<MMXInvite> listener) {
       if (mIncoming) {
+        //coding error
         throw new RuntimeException("Cannot call send on an incoming invitation.");
+      } else if (mInviteInfo.mChannel.getOwnerUsername() == null) {
+        //coding error
+        throw new RuntimeException("Cannot invite for an invalid channel.  " +
+                "Likely cause is that this MMXChannel instance was created using " +
+                "the MMXChannel.Builder() object instead of being returned from " +
+                "a method call (i.e. findBy() or create()");
       }
       HashSet<MMXUser> recipients = new HashSet<MMXUser>();
       recipients.add(mInviteInfo.getInvitee());
