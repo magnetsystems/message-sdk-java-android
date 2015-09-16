@@ -26,6 +26,26 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     }
     assertTrue(MMX.getMMXClient().isConnected());
 
+    final ExecMonitor<ListResult<MMXUser>, MMXUser.FailureCode> findRes = new ExecMonitor<ListResult<MMXUser>, MMXUser.FailureCode>();
+    MMXUser.OnFinishedListener<ListResult<MMXUser>> listener = new
+        MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
+      public void onSuccess(ListResult<MMXUser> result) {
+        findRes.invoked(result);
+      }
+      
+      public void onFailure(MMXUser.FailureCode code, Throwable ex) {
+        Log.e(TAG, "failed on find users: code="+code, ex);
+        findRes.failed(code);
+      }
+    };
+    MMXUser.getAllUsers(10, listener);
+    assertEquals(ExecMonitor.Status.INVOKED, findRes.waitFor(10000));
+    assertTrue(findRes.getReturnValue().items.size() > 0);
+    
+    findRes.reset(null, null);
+    MMXUser.findByDisplayName("", 10, listener);
+    assertEquals(ExecMonitor.Status.FAILED, findRes.waitFor(10000));
+    
     //test findByDisplayName()
     final AtomicInteger totalCount = new AtomicInteger(0);
     final StringBuffer displayNameBuffer = new StringBuffer();
@@ -100,7 +120,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     }
     assertFalse(MMX.getMMXClient().isConnected());
   }
-
+  
   public void testRegisterShortUserName() {
     // This test case is only for REST API.  Custom IQ has no such restriction.
     String userName = "siva";

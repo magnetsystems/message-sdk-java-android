@@ -213,8 +213,10 @@ public class MMXUser {
   }
 
   /**
-   * Register a user with the specified username and password.  Possible failure
-   * codes are: {@link FailureCode#REGISTRATION_INVALID_USERNAME},
+   * Register a user with the specified username and password.  If the display
+   * name is not set, it will be populated with the username and it can be
+   * updated by {@link #changeDisplayName(String, OnFinishedListener)}.  Possible
+   * failure codes are: {@link FailureCode#REGISTRATION_INVALID_USERNAME},
    * {@link FailureCode#REGISTRATION_USER_ALREADY_EXISTS}.
    *
    * @param password the password
@@ -228,8 +230,8 @@ public class MMXUser {
         if (!XIDUtil.validateUserId(getUsername())) {
           throw new MMXException("Username is invalid", FailureCode.REGISTRATION_INVALID_USERNAME.getValue());
         }
-        if (getDisplayName() == null || getDisplayName().isEmpty()) {
-          throw new MMXException("Display name is not specified", FailureCode.REGISTRATION_NO_DISPLAY_NAME.getValue());
+        if (mDisplayName == null || mDisplayName.isEmpty()) {
+          displayName(getUsername());
         }
         Log.d(TAG, "register(): begin");
         MMXClientConfig config = MMX.getMMXClient().getConnectionInfo().clientConfig;
@@ -326,12 +328,20 @@ public class MMXUser {
   }
 
   /**
-   * Change the current logged-in user's password
+   * Change the current logged-in user's password.  The password cannot be null.
    *
    * @param newPassword the new password
+   * @param listener the listener for the task of changing password
+   * @see MMX#getCurrentUser()
    */
   public void changePassword(final byte[] newPassword,
                              final OnFinishedListener<Void> listener) {
+    if (!this.equals(MMX.getCurrentUser())) {
+      throw new RuntimeException("Must be the current user to change the password");
+    }
+    if (newPassword == null) {
+      throw new NullPointerException("Password cannot be null");
+    }
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
@@ -355,7 +365,52 @@ public class MMXUser {
     };
     task.execute();
   }
+  
+  /**
+   * Change the current logged-in user's display name.  The display name cannot
+   * be null or empty.
+   * 
+   * @param newDisplayName the new display name
+   * @param listener the listener for the task of changing the display name
+   * @see MMX#getCurrentUser()
+   */
+  public void changeDisplayName(final String newDisplayName,
+                                final OnFinishedListener<Void> listener) {
+    if (!this.equals(MMX.getCurrentUser())) {
+      throw new RuntimeException("Must be the current user to change the display name");
+    }
+    if (newDisplayName == null) {
+      throw new NullPointerException("Display name cannot be null");
+    }
+    MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Void doRun(MMXClient mmxClient) throws Throwable {
+        if (newDisplayName.isEmpty()) {
+          throw new MMXException("Display name cannot be empty", FailureCode.BAD_REQUEST.getValue());
+        }
+        // Only update the display name; other info will not be affected.
+        UserInfo info = new UserInfo().setDisplayName(newDisplayName);
+        mmxClient.getAccountManager().updateAccount(info);
+        return null;
+      }
 
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+
+      @Override
+      public void onResult(Void result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    task.execute();
+  }
+  
   /**
    * Find users whose display name starts with the specified text.  If the user
    * does not have a display name, the user cannot be found.  Although display 
@@ -375,11 +430,9 @@ public class MMXUser {
   
   /**
    * Find users whose display name starts with the specified text.  If the user
-   * does not have a display name, the user cannot be found.  Although display 
-   * name is optional during the new user registration, it is very useful
-   * to have the display name set {@link Builder#displayName(String)}.
+   * does not have a display name, the user cannot be found.
    *
-   * @param startsWith the search string
+   * @param startsWith the search string which must not be null or empty
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
    */
@@ -388,6 +441,9 @@ public class MMXUser {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
+        if (startsWith == null || startsWith.isEmpty()) {
+          throw new MMXException("Search string cannot be null or empty", FailureCode.BAD_REQUEST.getValue());
+        }
         UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
         UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
         List<UserInfo> userInfos = response.getUsers();
@@ -468,6 +524,16 @@ public class MMXUser {
       }
     };
     task.execute();
+  }
+  
+  /**
+   * Get all users.
+   * @param limit the maximum number of users to return
+   * @param listener listener for success or failure
+   */
+  public static void getAllUsers(int limit, 
+                      final OnFinishedListener<ListResult<MMXUser>> listener) {
+    findByDisplayName("%", limit, listener);
   }
 
   static MMXUser fromUserInfo(UserInfo userInfo) {
