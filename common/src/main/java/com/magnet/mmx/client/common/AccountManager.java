@@ -192,7 +192,14 @@ public class AccountManager {
           UserMMXIQHandler<UserInfo, MMXStatus>();
       iqHandler.sendSetIQ(mCon, Constants.UserCommand.update.toString(),
           info, MMXStatus.class, iqHandler);
-      return iqHandler.getResult();
+      MMXStatus status = iqHandler.getResult();
+      if (status.getCode() == StatusCode.SUCCESS) {
+        // Update the cached display name in the connection.
+        if (info.getDisplayName() != null) {
+          mCon.getXID().setDisplayName(info.getDisplayName());
+        }
+      }
+      return status;
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);
     }

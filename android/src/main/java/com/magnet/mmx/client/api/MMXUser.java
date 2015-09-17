@@ -55,6 +55,7 @@ public class MMXUser {
     public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101, "REGISTRATION_INVALID_USERNAME");
     public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102, "REGISTRATION_USER_ALREADY_EXISTS");
     public static final FailureCode REGISTRATION_NO_DISPLAY_NAME = new FailureCode(103, "REGISTRATION_NO_DISPLAY_NAME"); 
+    public static final FailureCode NOT_AUTHORIZED = new FailureCode(StatusCode.UNAUTHORIZED, "NOT_AUTHORIZED");
     
     FailureCode(int value, String description) {
       super(value, description);
@@ -329,6 +330,8 @@ public class MMXUser {
 
   /**
    * Change the current logged-in user's password.  The password cannot be null.
+   * Possible failure codes: FailureCode#BAD_REQUEST,
+   * {@link FailureCode#NOT_AUTHORIZED}.
    *
    * @param newPassword the new password
    * @param listener the listener for the task of changing password
@@ -336,15 +339,18 @@ public class MMXUser {
    */
   public void changePassword(final byte[] newPassword,
                              final OnFinishedListener<Void> listener) {
-    if (!this.equals(MMX.getCurrentUser())) {
-      throw new RuntimeException("Must be the current user to change the password");
-    }
-    if (newPassword == null) {
-      throw new NullPointerException("Password cannot be null");
-    }
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
+        // The current user object may not be same as "MMXUser.this" object.
+        if (!MMXUser.this.equals(MMX.getCurrentUser())) {
+          throw new MMXException("Must be the logged-in user to change the password",
+              FailureCode.NOT_AUTHORIZED.getValue());
+        }
+        if (newPassword == null) {
+          throw new MMXException("Password cannot be null",
+              FailureCode.BAD_REQUEST.getValue());
+        }
         mmxClient.getAccountManager().changePassword(new String(newPassword));
         return null;
       }
@@ -353,6 +359,8 @@ public class MMXUser {
       public void onException(Throwable exception) {
         if (listener != null) {
           listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        } else {
+          Log.e(TAG, "Failed to change password", exception);
         }
       }
 
@@ -368,7 +376,8 @@ public class MMXUser {
   
   /**
    * Change the current logged-in user's display name.  The display name cannot
-   * be null or empty.
+   * be null or empty.  Possible failure codes: FailureCode#BAD_REQUEST,
+   * {@value FailureCode#NOT_AUTHORIZED}
    * 
    * @param newDisplayName the new display name
    * @param listener the listener for the task of changing the display name
@@ -376,22 +385,22 @@ public class MMXUser {
    */
   public void changeDisplayName(final String newDisplayName,
                                 final OnFinishedListener<Void> listener) {
-    if (!this.equals(MMX.getCurrentUser())) {
-      throw new RuntimeException("Must be the current user to change the display name");
-    }
-    if (newDisplayName == null) {
-      throw new NullPointerException("Display name cannot be null");
-    }
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
-        if (newDisplayName.isEmpty()) {
-          throw new MMXException("Display name cannot be empty", FailureCode.BAD_REQUEST.getValue());
+        // The current user object may not be same as "MMXUser.this" object.
+        if (!MMXUser.this.equals(MMX.getCurrentUser())) {
+          throw new MMXException("Must be the logged-in user to change the display name",
+              FailureCode.NOT_AUTHORIZED.getValue());
+        }
+        if (newDisplayName == null || newDisplayName.isEmpty()) {
+          throw new MMXException("Display name cannot be null or empty",
+              FailureCode.BAD_REQUEST.getValue());
         }
         // Only update the display name; other info will not be affected.
         UserInfo info = new UserInfo().setDisplayName(newDisplayName);
         mmxClient.getAccountManager().updateAccount(info);
-        mDisplayName = newDisplayName;
+        MMX.getCurrentUser().mDisplayName = mDisplayName = newDisplayName;
         return null;
       }
 
@@ -399,6 +408,8 @@ public class MMXUser {
       public void onException(Throwable exception) {
         if (listener != null) {
           listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        } else {
+          Log.e(TAG, "Failed to change display name", exception);
         }
       }
 
@@ -438,7 +449,7 @@ public class MMXUser {
    * @param listener listener for success or failure
    */
   public static void findByDisplayName(final String startsWith, final int limit,
-                                  final OnFinishedListener<ListResult<MMXUser>> listener) {
+                                      final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
@@ -532,7 +543,7 @@ public class MMXUser {
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
    */
-  public static void getAllUsers(int limit, 
+  public static void getAllUsers(int limit,
                       final OnFinishedListener<ListResult<MMXUser>> listener) {
     findByDisplayName("%", limit, listener);
   }

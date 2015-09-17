@@ -881,13 +881,13 @@ public class MMXChannel {
   }
   
   // Get a public or private channel with an exact name.
-  private static void getChannelByName(final String name, final boolean isPublic,
+  private static void getChannelByName(final String name, final boolean publicOnly,
                   final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        MMXTopicInfo info = psm.getTopic(isPublic ? 
+        MMXTopicInfo info = psm.getTopic(publicOnly ? 
             new MMXGlobalTopic(name) : new MMXPersonalTopic(name));
         List<MMXTopicInfo> infos = Arrays.asList(new MMXTopicInfo[] { info });
         return fromTopicInfos(infos, null).get(0);
@@ -961,19 +961,13 @@ public class MMXChannel {
    */
   public static void findByName(final String startsWith, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    if (startsWith == null || startsWith.equals("")) {
-      IllegalArgumentException ex = new IllegalArgumentException("Cannot find by NULL or empty string");
-      if (listener == null) {
-        throw ex;
-      } else {
-        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.BAD_REQUEST, null), ex);
-      }
-      return;
-    }
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        if (startsWith == null || startsWith.isEmpty()) {
+          throw new MMXException("Search string cannot be null or empty", FailureCode.BAD_REQUEST.getValue());
+        }
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
@@ -994,6 +988,8 @@ public class MMXChannel {
       public void onException(Throwable exception) {
         if (listener != null) {
           listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        } else {
+          Log.e(TAG, "Find channel by name failed", exception);
         }
       }
     };
