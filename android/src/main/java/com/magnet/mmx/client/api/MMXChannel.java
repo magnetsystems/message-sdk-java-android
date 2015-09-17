@@ -43,6 +43,7 @@ import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.util.TimeUtil;
 
 /**
  * The MMXChannel class representing the Topic/Feed/PubSub model.
@@ -962,11 +963,15 @@ public class MMXChannel {
   public static void findByName(final String startsWith, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
     if (startsWith == null || startsWith.equals("")) {
-      IllegalArgumentException ex = new IllegalArgumentException("Cannot find by NULL or empty string");
+      final IllegalArgumentException ex = new IllegalArgumentException("Cannot find by NULL or empty string");
       if (listener == null) {
         throw ex;
       } else {
-        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.BAD_REQUEST, null), ex);
+        MMX.getHandler().post(new Runnable() {
+          public void run() {
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.BAD_REQUEST, null), ex);
+          }
+        });
       }
       return;
     }
@@ -1161,6 +1166,7 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
     private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
+    private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private MMXChannel mChannel;
     private MMXUser mInvitee;
     private MMXUser mInviter;
@@ -1220,6 +1226,9 @@ public class MMXChannel {
       }
       content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
       content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
+      if (mChannel.getCreationDate() != null) {
+        content.put(KEY_CHANNEL_CREATION_DATE, TimeUtil.toString(mChannel.getCreationDate()));
+      }
       return content;
     }
 
@@ -1230,11 +1239,13 @@ public class MMXChannel {
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
       String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
       String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
+      String channelCreationDate = content.get(KEY_CHANNEL_CREATION_DATE);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPublic(Boolean.parseBoolean(channelIsPublic))
               .ownerUsername(channelOwnerUsername)
+              .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
               .build();
       return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
     }
