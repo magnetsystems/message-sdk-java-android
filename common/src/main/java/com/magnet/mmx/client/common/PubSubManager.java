@@ -645,20 +645,21 @@ public class PubSubManager {
   /**
    * Get all subscribers to a topic.
    * @param topic A topic object.
+   * @param offset offset of the result to be returned
    * @param limit -1 for unlimited, or > 0.
    * @return A result set.
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int offset, int limit)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
     String topicPath = TopicHelper.normalizePath(topic.getName());
     SubscribersRequest rqt = new SubscribersRequest(
-        Utils.escapeNode(topic.getUserId()), topicPath, limit);
+        Utils.escapeNode(topic.getUserId()), topicPath, offset, limit);
     PubSubIQHandler<SubscribersRequest, SubscribersResponse> iqHandler =
         new PubSubIQHandler<SubscribersRequest, SubscribersResponse>();
     try {
@@ -1035,15 +1036,16 @@ public class PubSubManager {
    * Search for topics by topic attributes and/or tags.
    * @param operator The AND or OR operator.
    * @param search Single or multi-values search attributes.
-   * @param maxRows The max number of rows to be returned, or null for system imposed max rows.
+   * @param offset the offset of rows to be returned.
+   * @param limit The max number of rows to be returned, or null for system imposed max rows.
    * @return The search result.
    * @throws MMXException
    */
   public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
-      TopicAction.TopicSearch search, Integer maxRows) throws MMXException {
+      TopicAction.TopicSearch search, Integer offset, Integer limit) throws MMXException {
     try {
-      TopicSearchRequest rqt = new TopicSearchRequest(operator, search, 0,
-          (maxRows == null) ? -1 : maxRows.intValue());
+      TopicSearchRequest rqt = new TopicSearchRequest(operator, search, null == offset ? 0 : offset,
+          (limit == null) ? -1 : limit.intValue());
       PubSubIQHandler<TopicSearchRequest, TopicQueryResponse> iqHandler =
           new PubSubIQHandler<TopicSearchRequest, TopicQueryResponse>();
       iqHandler.sendGetIQ(mCon, Constants.PubSubCommand.searchTopic.toString(),

@@ -372,10 +372,10 @@ public class MMXUser {
       final OnFinishedListener<ListResult<MMXUser>> listener) {
     findByDisplayName(startsWith, limit, listener);
   }
-  
+
   /**
    * Find users whose display name starts with the specified text.  If the user
-   * does not have a display name, the user cannot be found.  Although display 
+   * does not have a display name, the user cannot be found.  Although display
    * name is optional during the new user registration, it is very useful
    * to have the display name set {@link Builder#displayName(String)}.
    *
@@ -383,13 +383,30 @@ public class MMXUser {
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
    */
+  @Deprecated
   public static void findByDisplayName(final String startsWith, final int limit,
+      final OnFinishedListener<ListResult<MMXUser>> listener) {
+    findByDisplayName(startsWith, 0, limit, listener);
+  }
+
+    /**
+     * Find users whose display name starts with the specified text.  If the user
+     * does not have a display name, the user cannot be found.  Although display
+     * name is optional during the new user registration, it is very useful
+     * to have the display name set {@link Builder#displayName(String)}.
+     *
+     * @param startsWith the search string
+     * @param offset the offset of users to return
+     * @param maxRows the maximum number of users to return
+     * @param listener listener for success or failure
+     */
+  public static void findByDisplayName(final String startsWith, final int offset, final int maxRows,
                                   final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
         UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
-        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
+        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, offset, maxRows);
         List<UserInfo> userInfos = response.getUsers();
         ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
         for (UserInfo userInfo : userInfos) {

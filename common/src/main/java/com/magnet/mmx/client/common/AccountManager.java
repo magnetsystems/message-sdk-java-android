@@ -293,15 +293,15 @@ public class AccountManager {
    * characters are accepted in each tag.
    * @param operator The AND or OR operator.
    * @param attr Single or multi-values attributes.
-   * @param maxRows null for unlimit, or a max number of rows to be returned.
+   * @param limit null for unlimit, or a max number of rows to be returned.
    * @return The search result.
    * @throws MMXException
    */
   public UserQuery.Response searchBy(SearchAction.Operator operator,
-                  UserQuery.Search attr, Integer maxRows) throws MMXException {
+                  UserQuery.Search attr, Integer offset, Integer limit) throws MMXException {
     try {
       UserQuery.SearchRequest rqt = new UserQuery.SearchRequest(operator, attr,
-          0, (maxRows == null) ? -1 : maxRows.intValue());
+          null == offset ? 0 : offset, (limit == null) ? -1 : limit.intValue());
       UserMMXIQHandler<UserQuery.SearchRequest, UserQuery.Response> iqHandler =
           new UserMMXIQHandler<UserQuery.SearchRequest, UserQuery.Response>();
       iqHandler.sendGetIQ(mCon, Constants.UserCommand.search.toString(), rqt,
