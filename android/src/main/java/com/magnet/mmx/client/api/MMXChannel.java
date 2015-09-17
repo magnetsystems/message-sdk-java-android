@@ -904,16 +904,29 @@ public class MMXChannel {
   }
   
   /**
+   * Get all public channels.
+   * @param listener the listener for getting the channels
+   */
+  public static void getAllPublicChannels(final OnFinishedListener<List<MMXChannel>> listener) {
+    getChannels(ListType.global, listener);
+  }
+  
+  /**
    * Get all private channels created by the current user.
-   * @param listener
+   * @param listener the listener for getting the channels
    */
   public static void getAllPrivateChannels(final OnFinishedListener<List<MMXChannel>> listener) {
+    getChannels(ListType.personal, listener);
+  }
+  
+  private static void getChannels(final ListType listType,
+                        final OnFinishedListener<List<MMXChannel>> listener) {
     MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(
         MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        List<MMXTopicInfo> infos = psm.listTopics(null, ListType.personal, false);
+        List<MMXTopicInfo> infos = psm.listTopics(null, listType, false);
         return fromTopicInfos(infos, null);
       }
       

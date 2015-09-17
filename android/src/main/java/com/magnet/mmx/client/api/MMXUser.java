@@ -391,6 +391,7 @@ public class MMXUser {
         // Only update the display name; other info will not be affected.
         UserInfo info = new UserInfo().setDisplayName(newDisplayName);
         mmxClient.getAccountManager().updateAccount(info);
+        mDisplayName = newDisplayName;
         return null;
       }
 
