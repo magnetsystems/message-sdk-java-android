@@ -357,15 +357,17 @@ public final class MMXPubSubManager extends MMXManager {
    *
    * @param operator the AND or OR operator
    * @param attributes single or multi-values search attributes
-   * @param maxRows null for the server default, or a max number of rows to be returned
+   * @param offset the offset of rows to be returned.
+   * @param limit null for the server default, or a max number of rows to be returned
    * @return the search result
    * @throws MMXException
    */
   public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
-                                                 TopicAction.TopicSearch attributes,
-                                                 Integer maxRows) throws MMXException {
+                                       TopicAction.TopicSearch attributes,
+                                       Integer offset,
+                                       Integer limit) throws MMXException {
     checkDestroyed();
-    return mPubSubManager.searchBy(operator, attributes, maxRows);
+    return mPubSubManager.searchBy(operator, attributes, offset, limit);
   }
 
   /**
@@ -554,13 +556,14 @@ public final class MMXPubSubManager extends MMXManager {
    * Get the subscribers to a topic.
    * 
    * @param topic a topic name
+   * @param offset offset of subscribers to be returned
    * @param limit maximum number of subscribers to be returned
    * @return A result set with a total count of subscribers.
    */
-  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int offset, int limit)
           throws MMXException {
     checkDestroyed();
-    return mPubSubManager.getSubscribers(topic, limit);
+    return mPubSubManager.getSubscribers(topic, offset, limit);
   }
   
   @Override

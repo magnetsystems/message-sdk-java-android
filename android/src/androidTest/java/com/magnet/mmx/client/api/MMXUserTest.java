@@ -51,21 +51,21 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
         findRes.failed(code);
       }
     };
-    MMXUser.getAllUsers(10, listener);
+    MMXUser.getAllUsers(0, 10, listener);
     assertEquals(ExecMonitor.Status.INVOKED, findRes.waitFor(10000));
     int numUsers = findRes.getReturnValue().items.size();
     assertTrue(numUsers > 0 && numUsers <= 10);
     
     // Test if empty search string is disallowed
     findRes.reset(null, null);
-    MMXUser.findByDisplayName("", 10, listener);
+    MMXUser.findByDisplayName("", 0, 10, listener);
     assertEquals(ExecMonitor.Status.FAILED, findRes.waitFor(10000));
     assertEquals(MMXUser.FailureCode.BAD_REQUEST, findRes.getFailedValue());
     
     //test findByDisplayName()
     final AtomicInteger totalCount = new AtomicInteger(0);
     final StringBuffer displayNameBuffer = new StringBuffer();
-    MMXUser.findByDisplayName(displayName, 10, new MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
+    MMXUser.findByDisplayName(displayName, 0, 10, new MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
       @Override
       public void onSuccess(ListResult<MMXUser> result) {
         totalCount.set(result.totalCount);

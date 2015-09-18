@@ -56,6 +56,7 @@ public class MMXUser {
     public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102, "REGISTRATION_USER_ALREADY_EXISTS");
     public static final FailureCode REGISTRATION_NO_DISPLAY_NAME = new FailureCode(103, "REGISTRATION_NO_DISPLAY_NAME"); 
     public static final FailureCode NOT_AUTHORIZED = new FailureCode(StatusCode.UNAUTHORIZED, "NOT_AUTHORIZED");
+    public static final FailureCode USER_NOT_FOUND = new FailureCode(StatusCode.NOT_FOUND, "USER_NOT_FOUND");
     
     FailureCode(int value, String description) {
       super(value, description);
@@ -432,24 +433,25 @@ public class MMXUser {
    * @param startsWith the search string
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
-   * @deprecated {@link #findByDisplayName(String, int, OnFinishedListener)}
+   * @deprecated {@link #findByDisplayName(String, int, int, OnFinishedListener)}
    */
   @Deprecated
   public static void findByName(final String startsWith, final int limit,
       final OnFinishedListener<ListResult<MMXUser>> listener) {
-    findByDisplayName(startsWith, limit, listener);
+    findByDisplayName(startsWith, 0, limit, listener);
   }
-  
+
   /**
    * Find users whose display name starts with the specified text.  If the user
    * does not have a display name, the user cannot be found.
    *
-   * @param startsWith the search string which must not be null or empty
+   * @param startsWith the search string
+   * @param offset the offset of users to return
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
    */
-  public static void findByDisplayName(final String startsWith, final int limit,
-                                      final OnFinishedListener<ListResult<MMXUser>> listener) {
+  public static void findByDisplayName(final String startsWith, final int offset, final int limit,
+                                  final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
@@ -457,7 +459,7 @@ public class MMXUser {
           throw new MMXException("Search string cannot be null or empty", FailureCode.BAD_REQUEST.getValue());
         }
         UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
-        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
+        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, offset, limit);
         List<UserInfo> userInfos = response.getUsers();
         ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
         for (UserInfo userInfo : userInfos) {
@@ -496,6 +498,46 @@ public class MMXUser {
   public static void findByNames(final HashSet<String> usernames,
       final OnFinishedListener<HashMap<String, MMXUser>> listener) {
     getByUsernames(usernames, listener);
+  }
+  
+  /**
+   * Retrieve the MMXUser object by a specified username.  The username is
+   * case-insensitive.  Possible failure code: {@link FailureCode#USER_NOT_FOUND.
+   *
+   * @param username the username to lookup
+   * @param listener the listener for the results of this operation
+   * @see #getUsername()
+   */
+  public static void getByUsername(final String username,
+                                final OnFinishedListener<MMXUser> listener) {
+    MMXTask<UserInfo> task = new MMXTask<UserInfo>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public UserInfo doRun(MMXClient mmxClient) throws Throwable {
+        HashSet<String> usernames = new HashSet<String>(1);
+        usernames.add(username);
+        MMXAccountManager am = mmxClient.getAccountManager();
+        UserInfo info = am.getUserInfo(usernames).get(username);
+        if (info == null) {
+          throw new MMXException("No such user: "+username, FailureCode.USER_NOT_FOUND.getValue());
+        }
+        return info;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+
+      @Override
+      public void onResult(UserInfo result) {
+        if (listener != null) {
+          listener.onSuccess(fromUserInfo(result));
+        }
+      }
+    };
+    task.execute();
   }
   
   /**
@@ -539,13 +581,14 @@ public class MMXUser {
   }
   
   /**
-   * Get all users.
+   * Get all users with pagination support.
+   * @param offset the offset of users to return
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
    */
-  public static void getAllUsers(int limit,
+  public static void getAllUsers(int offset, int limit,
                       final OnFinishedListener<ListResult<MMXUser>> listener) {
-    findByDisplayName("%", limit, listener);
+    findByDisplayName("%", offset, limit, listener);
   }
 
   static MMXUser fromUserInfo(UserInfo userInfo) {

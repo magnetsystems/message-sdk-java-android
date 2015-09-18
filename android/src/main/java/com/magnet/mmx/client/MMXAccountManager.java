@@ -129,14 +129,15 @@ public class MMXAccountManager extends MMXManager {
    *
    * @param operator the operator for this search
    * @param attributes the attributes for this search
-   * @param maxRows the maximum number of rows to return
+   * @param offset the offset of rows to return
+   * @param limit the maximum number of rows to return
    * @return the users matching the search criteria
    * @throws MMXException
    */
   public UserQuery.Response	searchBy(SearchAction.Operator operator,
-                                      UserQuery.Search attributes, Integer maxRows) throws MMXException {
+                                      UserQuery.Search attributes, Integer offset, Integer limit) throws MMXException {
     checkDestroyed();
-    return mAccountManager.searchBy(operator, attributes, maxRows);
+    return mAccountManager.searchBy(operator, attributes, offset, limit);
   }
 
   /**

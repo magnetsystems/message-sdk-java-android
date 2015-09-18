@@ -138,7 +138,7 @@ public final class MMX {
     CREDENTIALS_EXPIRED,
     /**
      * If the service is unavailable.  Possible action: check the data
-     * connectivity, retry to login later.
+     * connectivity.
      */
     SERVICE_UNAVAILABLE,
     /**
@@ -198,8 +198,9 @@ public final class MMX {
     }
 
     /**
-     * Called when a login is required. The default implementation of this
-     * method is a no-op.
+     * Called when a connection or authentication state is changed. The default
+     * implementation of this method is a no-op.  The name of this method does
+     * not reflect what it really does; it will be renamed in future release.
      *
      * @param reason the reason why login is required
      * @return true to consume this event, false for additional listeners to be called

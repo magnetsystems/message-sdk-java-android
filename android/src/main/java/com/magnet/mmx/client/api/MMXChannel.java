@@ -43,6 +43,7 @@ import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.util.TimeUtil;
 
 /**
  * The MMXChannel class representing the Topic/Feed/PubSub model.
@@ -432,8 +433,26 @@ public class MMXChannel {
    * @param ascending the chronological sort order of the results
    * @param listener the listener for the results of this operation
    */
-  public void getItems(final Date startDate, final Date endDate, final int limit, final boolean ascending,
-                       final OnFinishedListener<ListResult<MMXMessage>> listener) {
+  @Deprecated
+  public void getItems(final Date startDate, final Date endDate, final int limit,
+      final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
+    getItems(startDate, endDate, 0, limit, ascending, listener);
+  }
+
+  /**
+   * Retrieve all of the messages for this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
+   *
+   * @param startDate filter based on start date, or null for no filter
+   * @param endDate filter based on end date, or null for no filter
+   * @param offset the offset of messages to return
+   * @param limit the maximum number of messages to return
+   * @param ascending the chronological sort order of the results
+   * @param listener the listener for the results of this operation
+   */
+  public void getItems(final Date startDate, final Date endDate, final int offset, final int limit,
+                       final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> task =
             new MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -444,8 +463,8 @@ public class MMXChannel {
                 psm.getItems(topic, new TopicAction.FetchOptions()
                 .setSince(startDate)
                 .setUntil(endDate)
-                .setMaxItems(limit)
-                .setAscending(ascending));
+                .setOffset(offset)
+                .setMaxItems(limit).setAscending(ascending));
         ArrayList<MMXTopic> topicList = new ArrayList<MMXTopic>();
         topicList.add(getMMXTopic());
         List<TopicSummary> summaries = psm.getTopicSummary(topicList, startDate, endDate);
@@ -513,7 +532,8 @@ public class MMXChannel {
         if (result != null && result.size() > 0) {
           //convert MMXMessages
           for (Map.Entry<String, com.magnet.mmx.client.common.MMXMessage> entry : result.entrySet()) {
-            resultMap.put(entry.getKey(), MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
+            resultMap.put(entry.getKey(),
+                MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
           }
         }
         listener.onSuccess(resultMap);
@@ -685,7 +705,8 @@ public class MMXChannel {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
+              exception);
         }
       }
     };
@@ -825,17 +846,29 @@ public class MMXChannel {
    * Retrieves all the subscribers for this channel.  Possible failure codes are:
    * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
    * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
-   *
    * @param limit the maximum number of subscribers to return
    * @param listener the listener for the subscribers
    */
+  @Deprecated
   public void getAllSubscribers(final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
+    getAllSubscribers(0, limit, listener);
+  }
+
+    /**
+     * Retrieves all the subscribers for this channel.  Possible failure codes are:
+     * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+     * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
+     * @param offset the offset of subscribers to return
+     * @param limit the maximum number of subscribers to return
+     * @param listener the listener for the subscribers
+     */
+  public void getAllSubscribers(final int offset, final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<MMXResult<List<UserInfo>>> task =
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXResult<List<UserInfo>> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        return psm.getSubscribers(getMMXTopic(), limit);
+        return psm.getSubscribers(getMMXTopic(), offset, limit);
       }
 
       @Override
@@ -941,13 +974,14 @@ public class MMXChannel {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
+              exception);
         }
       }
     };
     task.execute();
   }
-  
+
   /**
    * Find the channels that start with the specified text.  Currently only
    * public channels can be discovered.  If there are no matching names,
@@ -959,7 +993,24 @@ public class MMXChannel {
    * @param listener the listener for the query results
    * @see #getAllPrivateChannels(OnFinishedListener)
    */
+  @Deprecated
   public static void findByName(final String startsWith, final int limit,
+      final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findByName(startsWith, 0, limit, listener);
+  }
+  /**
+   * Find the channels that start with the specified text.  Currently only
+   * public channels can be discovered.  If there are no matching names,
+   * {@link OnFinishedListener#onSuccess(Object)} with an empty list will be
+   * invoked.
+   *
+   * @param startsWith the search string
+   * @param offset the offset of results to return
+   * @param limit the maximum number of results to return
+   * @param listener the listener for the query results
+   * @see #getAllPrivateChannels(OnFinishedListener)
+   */
+  public static void findByName(final String startsWith, final int offset, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
@@ -971,7 +1022,7 @@ public class MMXChannel {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
-        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, offset, limit);
         List<MMXChannel> channels = fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
@@ -1002,7 +1053,20 @@ public class MMXChannel {
    * @param tags the tags to match
    * @param listener the listener for the query results
    */
+  @Deprecated
   public static void findByTags(final Set<String> tags, final int limit,
+      final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findByTags(tags, 0, limit, listener);
+  }
+  /**
+   * Query for the specified tags (inclusive.)  If there are no matching tags
+   *
+   * @param tags the tags to match
+   * @param offset the offset of results to return
+   * @param limit the maximum number of results to return
+   * @param listener the listener for the query results
+   */
+  public static void findByTags(final Set<String> tags, final int offset, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
@@ -1011,7 +1075,7 @@ public class MMXChannel {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
-        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, limit);
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, offset, limit);
         List<MMXChannel> channels =fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
@@ -1157,6 +1221,7 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
     private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
+    private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private MMXChannel mChannel;
     private MMXUser mInvitee;
     private MMXUser mInviter;
@@ -1216,6 +1281,9 @@ public class MMXChannel {
       }
       content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
       content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
+      if (mChannel.getCreationDate() != null) {
+        content.put(KEY_CHANNEL_CREATION_DATE, TimeUtil.toString(mChannel.getCreationDate()));
+      }
       return content;
     }
 
@@ -1226,11 +1294,13 @@ public class MMXChannel {
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
       String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
       String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
+      String channelCreationDate = content.get(KEY_CHANNEL_CREATION_DATE);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPublic(Boolean.parseBoolean(channelIsPublic))
               .ownerUsername(channelOwnerUsername)
+              .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
               .build();
       return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
     }
