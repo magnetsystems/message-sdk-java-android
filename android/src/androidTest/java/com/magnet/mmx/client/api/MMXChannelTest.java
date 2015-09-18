@@ -367,9 +367,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
 
     // getting all private channels
-    final ExecMonitor<List<MMXChannel>, FailureCode> channelsRes = new ExecMonitor<List<MMXChannel>, FailureCode>();
-    MMXChannel.getAllPrivateChannels(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
-      public void onSuccess(List<MMXChannel> result) {
+    final ExecMonitor<ListResult<MMXChannel>, FailureCode> channelsRes = new ExecMonitor<ListResult<MMXChannel>, FailureCode>();
+    MMXChannel.getAllPrivateChannels(0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      public void onSuccess(ListResult<MMXChannel> result) {
         channelsRes.invoked(result);
       }
 
@@ -379,16 +379,16 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     });
     ExecMonitor.Status status = channelsRes.waitFor(10000);
     assertEquals(ExecMonitor.Status.INVOKED, status);
-    List<MMXChannel> priChannels = channelsRes.getReturnValue();
+    ListResult<MMXChannel> priChannels = channelsRes.getReturnValue();
     assertNotNull(priChannels);
-    assertEquals(channels.length, priChannels.size());  // 3 private channels
-    for (int i = 0; i < 3; i++) {
-      assertEquals(2, priChannels.get(i).getNumberOfMessages().intValue());
-      assertNotNull(priChannels.get(i).getName());
-      assertNotNull(priChannels.get(i).getSummary());
-      assertNotNull(priChannels.get(i).getOwnerUsername());
-      assertFalse(priChannels.get(i).isPublic());
-      assertTrue(priChannels.get(i).isSubscribed());
+    assertEquals(channels.length, priChannels.totalCount);  // 3 private channels
+    for (MMXChannel priChannel : priChannels.items) {
+      assertEquals(2, priChannel.getNumberOfMessages().intValue());
+      assertNotNull(priChannel.getName());
+      assertNotNull(priChannel.getSummary());
+      assertNotNull(priChannel.getOwnerUsername());
+      assertFalse(priChannel.isPublic());
+      assertTrue(priChannel.isSubscribed());
     }
 
     helpDelete(pubChannel);
@@ -398,9 +398,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   public void testFindError() {
-    //find
+    //find public channels 
     final ExecMonitor<Integer, FailureCode> findNullResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findByName(null, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(null, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findNullResult.invoked(result.totalCount);
       }
@@ -421,7 +421,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
     //test empty
     final ExecMonitor<Integer, FailureCode> findEmptyResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findByName("", 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName("", 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findEmptyResult.invoked(result.totalCount);
       }
@@ -496,7 +496,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFind(String channelName, int expectedCount) {
     //find
     final ExecMonitor<Integer, FailureCode> findResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findByName(channelName, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findResult.invoked(result.totalCount);
       }
@@ -518,7 +518,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpFindError(String channelName, final int expected) {
     final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
-    MMXChannel.findByName(channelName, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         obj.invoked(result);
@@ -682,7 +682,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     //get topic again
     final AtomicInteger itemCount = new AtomicInteger(0);
     final ExecMonitor<Integer, FailureCode> channelCount = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findByName(channelName, 0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, 0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         if (result.items.size() > 0) {
@@ -709,7 +709,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpChannelSummaryError(String channelName, int expected) {
     final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
-    MMXChannel.findByName(channelName, 0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, 0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         obj.invoked(result);
@@ -817,7 +817,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFetch(MMXChannel channel, int expectedCount) {
     //test basic fetch
     final ExecMonitor<Integer, FailureCode> fetchCount = new ExecMonitor<Integer, FailureCode>();
-    channel.getItems(null, null, 0, 100, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
+    channel.getMessages(null, null, 0, 100, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
       @Override
       public void onSuccess(ListResult<MMXMessage> result) {
         fetchCount.invoked(result.totalCount);
@@ -840,7 +840,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
   private void helpGetPrivateChannel(String name, int expectedMsgs) {
     final ExecMonitor<MMXChannel, FailureCode> getRes = new ExecMonitor<MMXChannel, FailureCode>();
-    MMXChannel.getPrivateChannelByName(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
+    MMXChannel.getPrivateChannel(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         getRes.invoked(result);
       }
@@ -861,7 +861,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpGetPublicChannel(String name, int expectedMsgs) {
     final ExecMonitor<MMXChannel, FailureCode> getRes = new ExecMonitor<MMXChannel, FailureCode>();
-    MMXChannel.getPublicChannelByName(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
+    MMXChannel.getPublicChannel(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         getRes.invoked(result);
       }

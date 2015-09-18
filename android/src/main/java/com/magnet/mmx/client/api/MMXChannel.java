@@ -432,16 +432,17 @@ public class MMXChannel {
    * @param limit the maximum number of messages to return
    * @param ascending the chronological sort order of the results
    * @param listener the listener for the results of this operation
+   * @deprecated {@link #getMessages(Date, Date, int, int, boolean, OnFinishedListener)}
    */
   @Deprecated
   public void getItems(final Date startDate, final Date endDate, final int limit,
       final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
-    getItems(startDate, endDate, 0, limit, ascending, listener);
+    getMessages(startDate, endDate, 0, limit, ascending, listener);
   }
 
   /**
-   * Retrieve all of the messages for this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * Retrieve all of the messages for this channel within date range.  Possible
+   * failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
    * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
    *
    * @param startDate filter based on start date, or null for no filter
@@ -451,7 +452,7 @@ public class MMXChannel {
    * @param ascending the chronological sort order of the results
    * @param listener the listener for the results of this operation
    */
-  public void getItems(final Date startDate, final Date endDate, final int offset, final int limit,
+  public void getMessages(final Date startDate, final Date endDate, final int offset, final int limit,
                        final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> task =
@@ -503,7 +504,7 @@ public class MMXChannel {
    * @param ids A set of message ID's
    * @param listener the listener for the results of this operation
    */
-  public void getItemsByIds(final Set<String> ids, final OnFinishedListener<Map<String, MMXMessage>> listener) {
+  public void getMessages(final Set<String> ids, final OnFinishedListener<Map<String, MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> task =
             new MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -550,7 +551,7 @@ public class MMXChannel {
    * @param ids A set of message ID's
    * @param listener the listener for the results of this operation
    */
-  public void deleteItemsByIds(final Set<String> ids,
+  public void deleteMessages(final Set<String> ids,
                               final OnFinishedListener<Map<String, Integer>> listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<Map<String, Integer>> task =
@@ -676,7 +677,7 @@ public class MMXChannel {
   }
 
   /**
-   * Delete the topic.  Possible failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND}
+   * Delete this channel.  Possible failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND}
    * for no such channel, {@link FailureCode#CHANNEL_FORBIDDEN} for
    * insufficient rights.
    *
@@ -894,27 +895,29 @@ public class MMXChannel {
   }
 
   /**
-   * Get a public channel with an exact name.
+   * Get a public channel with an exact name.  The channel name is case
+   * insensitive.
    * @param name A public channel name.
    * @param listener the listener for getting the channel.
    */
-  public static void getPublicChannelByName(final String name,
+  public static void getPublicChannel(final String name,
                             final OnFinishedListener<MMXChannel> listener) {
-    getChannelByName(name, true, listener);
+    getChannel(name, true, listener);
   }
   
   /**
-   * Get a private channel with an exact name.
+   * Get a private channel with an exact name.  The channel name is case
+   * insensitive.
    * @param name A private channel name.
    * @param listener the listener for getting the channel
    */
-  public static void getPrivateChannelByName(final String name,
+  public static void getPrivateChannel(final String name,
                             final OnFinishedListener<MMXChannel> listener) {
-    getChannelByName(name, false, listener);
+    getChannel(name, false, listener);
   }
   
-  // Get a public or private channel with an exact name.
-  private static void getChannelByName(final String name, final boolean publicOnly,
+  // Get a public or private channel by its name.
+  private static void getChannel(final String name, final boolean publicOnly,
                   final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -925,47 +928,9 @@ public class MMXChannel {
         List<MMXTopicInfo> infos = Arrays.asList(new MMXTopicInfo[] { info });
         return fromTopicInfos(infos, null).get(0);
       }
-      
+
       @Override
       public void onResult(MMXChannel result) {
-        if (listener != null) {
-          listener.onSuccess(result);
-        }
-      }
-    };
-    task.execute();
-  }
-  
-  /**
-   * Get all public channels.
-   * @param listener the listener for getting the channels
-   */
-  public static void getAllPublicChannels(final OnFinishedListener<List<MMXChannel>> listener) {
-    getChannels(ListType.global, listener);
-  }
-  
-  /**
-   * Get all private channels created by the current user.
-   * @param listener the listener for getting the channels
-   */
-  public static void getAllPrivateChannels(final OnFinishedListener<List<MMXChannel>> listener) {
-    getChannels(ListType.personal, listener);
-  }
-  
-  private static void getChannels(final ListType listType,
-                        final OnFinishedListener<List<MMXChannel>> listener) {
-    MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(
-        MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
-        MMXPubSubManager psm = mmxClient.getPubSubManager();
-        List<MMXTopicInfo> infos = psm.listTopics(null, listType, false);
-        return fromTopicInfos(infos, null);
-      }
-      
-      @Override
-      public void onResult(List<MMXChannel> result) {
-        //build the query result
         if (listener != null) {
           listener.onSuccess(result);
         }
@@ -974,8 +939,9 @@ public class MMXChannel {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
-              exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        } else {
+          Log.e(TAG, "Get channel by name failed", exception);
         }
       }
     };
@@ -983,46 +949,91 @@ public class MMXChannel {
   }
 
   /**
+   * Get all public channels with pagination.
+   * @param offset the offset of results to return
+   * @param limit the maximum number of results to return
+   * @param listener the listener for the query results
+   */
+  public static void getAllPublicChannels(int offset, int limit,
+          final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName("%", offset, limit, ListType.global, listener);
+  }
+
+  /**
+   * Get all private channels with pagination.
+   * @param offset the offset of results to return
+   * @param limit the maximum number of results to return
+   * @param listener the listener for the query results
+   */
+  public static void getAllPrivateChannels(int offset, int limit, 
+          final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName("%", offset, limit, ListType.personal, listener);
+  }
+
+  /**
    * Find the channels that start with the specified text.  Currently only
    * public channels can be discovered.  If there are no matching names,
-   * {@link OnFinishedListener#onSuccess(Object)} with an empty list will be
-   * invoked.
+   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
    *
    * @param startsWith the search string
    * @param limit the maximum number of results to return
    * @param listener the listener for the query results
    * @see #getAllPrivateChannels(OnFinishedListener)
+   * @deprecated {@link #findPublicChannelsByName(String, int, int, OnFinishedListener)}
    */
   @Deprecated
   public static void findByName(final String startsWith, final int limit,
       final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findByName(startsWith, 0, limit, listener);
+    findChannelsByName(startsWith, 0, limit, ListType.global, listener);
   }
+  
   /**
-   * Find the channels that start with the specified text.  Currently only
-   * public channels can be discovered.  If there are no matching names,
-   * {@link OnFinishedListener#onSuccess(Object)} with an empty list will be
-   * invoked.
+   * Find the public channels that start with the specified text.  If there are
+   * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
+   * an empty list.
    *
    * @param startsWith the search string
    * @param offset the offset of results to return
    * @param limit the maximum number of results to return
    * @param listener the listener for the query results
-   * @see #getAllPrivateChannels(OnFinishedListener)
    */
-  public static void findByName(final String startsWith, final int offset, final int limit,
-                                final OnFinishedListener<ListResult<MMXChannel>> listener) {
+  public static void findPublicChannelsByName(final String startsWith, final int offset,
+      final int limit, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName(startsWith, offset, limit, ListType.global, listener);
+  }
+
+  /**
+   * Find the private channels that start with the specified text.  If there are
+   * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
+   * an empty list.
+   *
+   * @param startsWith the search string
+   * @param offset the offset of results to return
+   * @param limit the maximum number of results to return
+   * @param listener the listener for the query results
+   */
+  public static void findPrivateChannelsByName(final String startsWith, final int offset,
+      final int limit, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName(startsWith, offset, limit, ListType.personal, listener);
+  }
+
+  // Find public or private channels whose names start with the specified text.
+  private static void findChannelsByName(final String startsWith,
+      final int offset, final int limit, final ListType listType,
+      final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
         if (startsWith == null || startsWith.isEmpty()) {
-          throw new MMXException("Search string cannot be null or empty", FailureCode.BAD_REQUEST.getValue());
+          throw new MMXException("Search string cannot be null or empty",
+              FailureCode.BAD_REQUEST.getValue());
         }
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
-        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, offset, limit);
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND,
+            search, offset, limit, listType);
         List<MMXChannel> channels = fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
@@ -1048,8 +1059,8 @@ public class MMXChannel {
   }
 
   /**
-   * Query for the specified tags (inclusive.)  If there are no matching tags
-   *
+   * Query for the specified tags (inclusive.)  If there are no matching tags,
+   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
    * @param tags the tags to match
    * @param listener the listener for the query results
    */
@@ -1059,7 +1070,8 @@ public class MMXChannel {
     findByTags(tags, 0, limit, listener);
   }
   /**
-   * Query for the specified tags (inclusive.)  If there are no matching tags
+   * Query for the specified tags (inclusive.)  If there are no matching tags,
+   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
    *
    * @param tags the tags to match
    * @param offset the offset of results to return
@@ -1075,7 +1087,8 @@ public class MMXChannel {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
-        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search, offset, limit);
+        MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search,
+            offset, limit, ListType.global);
         List<MMXChannel> channels =fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }

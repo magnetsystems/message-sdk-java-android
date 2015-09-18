@@ -359,15 +359,16 @@ public final class MMXPubSubManager extends MMXManager {
    * @param attributes single or multi-values search attributes
    * @param offset the offset of rows to be returned.
    * @param limit null for the server default, or a max number of rows to be returned
+   * @param listType scope of the search 
    * @return the search result
    * @throws MMXException
    */
   public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
                                        TopicAction.TopicSearch attributes,
-                                       Integer offset,
-                                       Integer limit) throws MMXException {
+                                       Integer offset, Integer limit,
+                                       TopicAction.ListType listType) throws MMXException {
     checkDestroyed();
-    return mPubSubManager.searchBy(operator, attributes, offset, limit);
+    return mPubSubManager.searchBy(operator, attributes, offset, limit, listType);
   }
 
   /**
@@ -379,7 +380,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws MMXException
    */
   public List<MMXTopicInfo> searchByTags(List<String> tags,
-                                                     boolean matchAll) throws MMXException {
+                                          boolean matchAll) throws MMXException {
     checkDestroyed();
     return mPubSubManager.searchByTags(tags, matchAll);
   }

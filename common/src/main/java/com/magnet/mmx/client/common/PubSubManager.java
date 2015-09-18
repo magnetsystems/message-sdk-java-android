@@ -1033,19 +1033,38 @@ public class PubSubManager {
   }
 
   /**
-   * Search for topics by topic attributes and/or tags.
+   * Search for global topics by topic attributes and/or tags.
    * @param operator The AND or OR operator.
    * @param search Single or multi-values search attributes.
    * @param offset the offset of rows to be returned.
    * @param limit The max number of rows to be returned, or null for system imposed max rows.
    * @return The search result.
    * @throws MMXException
+   * @deprecated {@link #searchBy(com.magnet.mmx.protocol.SearchAction.Operator, com.magnet.mmx.protocol.TopicAction.TopicSearch, Integer, Integer, ListType)}
    */
+  @Deprecated
   public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
       TopicAction.TopicSearch search, Integer offset, Integer limit) throws MMXException {
+    return searchBy(operator, search, offset, limit, ListType.global);
+  }
+
+  /**
+   * Search for global or personal topics by topic attributes and/or tags.
+   * @param operator The AND or OR operator.
+   * @param search Single or multi-values search attributes.
+   * @param offset the offset of rows to be returned.
+   * @param limit The max number of rows to be returned, or null for system imposed max rows.
+   * @param listType scope of the search: global or personal topics.
+   * @return The search result.
+   * @throws MMXException
+   */
+  public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
+      TopicAction.TopicSearch search, Integer offset, Integer limit, ListType listType)
+          throws MMXException {
     try {
-      TopicSearchRequest rqt = new TopicSearchRequest(operator, search, null == offset ? 0 : offset,
-          (limit == null) ? -1 : limit.intValue());
+      TopicSearchRequest rqt = new TopicSearchRequest(operator, search,
+          (null == offset) ? 0 : offset, (limit == null) ? -1 : limit.intValue(),
+          listType);
       PubSubIQHandler<TopicSearchRequest, TopicQueryResponse> iqHandler =
           new PubSubIQHandler<TopicSearchRequest, TopicQueryResponse>();
       iqHandler.sendGetIQ(mCon, Constants.PubSubCommand.searchTopic.toString(),

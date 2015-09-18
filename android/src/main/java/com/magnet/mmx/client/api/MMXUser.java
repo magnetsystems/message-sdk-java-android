@@ -492,23 +492,34 @@ public class MMXUser {
    * @param usernames the usernames to lookup
    * @param listener the listener for the results of this operation
    * @see #getUsername()
-   * @deprecated {@link #getByUserNames(HashSet, OnFinishedListener)}
+   * @deprecated {@link #getUsers(Set, OnFinishedListener)}
    */
   @Deprecated
   public static void findByNames(final HashSet<String> usernames,
       final OnFinishedListener<HashMap<String, MMXUser>> listener) {
-    getByUsernames(usernames, listener);
+    final OnFinishedListener<Map<String, MMXUser>> newListener = 
+        new OnFinishedListener<Map<String, MMXUser>>() {
+          @Override
+          public void onSuccess(Map<String, MMXUser> result) {
+            listener.onSuccess((HashMap<String, MMXUser>) result);
+          }
+          @Override
+          public void onFailure(FailureCode code, Throwable throwable) {
+            listener.onFailure(code, throwable);
+          }
+      };
+    getUsers(usernames, newListener);
   }
   
   /**
-   * Retrieve the MMXUser object by a specified username.  The username is
-   * case-insensitive.  Possible failure code: {@link FailureCode#USER_NOT_FOUND.
+   * Get the MMXUser object by the username.  The username is case-insensitive.
+   * Possible failure code: {@link FailureCode#USER_NOT_FOUND.
    *
    * @param username the username to lookup
    * @param listener the listener for the results of this operation
    * @see #getUsername()
    */
-  public static void getByUsername(final String username,
+  public static void getUser(final String username,
                                 final OnFinishedListener<MMXUser> listener) {
     MMXTask<UserInfo> task = new MMXTask<UserInfo>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -541,15 +552,15 @@ public class MMXUser {
   }
   
   /**
-   * Retrieve the MMXUser objects by the specified set of usernames.  The
-   * usernames are case-insensitive.
+   * Get the MMXUser objects by a set of usernames.  The usernames are
+   * case-insensitive.
    *
    * @param usernames the usernames to lookup
    * @param listener the listener for the results of this operation
    * @see #getUsername()
    */
-  public static void getByUsernames(final HashSet<String> usernames,
-                                 final OnFinishedListener<HashMap<String, MMXUser>> listener) {
+  public static void getUsers(final Set<String> usernames,
+                                 final OnFinishedListener<Map<String, MMXUser>> listener) {
     MMXTask<Map<String, UserInfo>> task =
             new MMXTask<Map<String, UserInfo>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -635,8 +646,14 @@ public class MMXUser {
    * Validates the specified userId.  Returns true for a valid userId.
    * @param userId the user id to validate
    * @return true if valid, false otherwise
+   * @deprecated {@link #isValidUsername(String)}
    */
   public static boolean isValidUserId(String userId) {
-    return XIDUtil.validateUserId(userId);
+    return isValidUsername(userId);
+  }
+  
+  public static boolean isValidUsername(String username) {
+    return XIDUtil.validateUserId(username);
+
   }
 }

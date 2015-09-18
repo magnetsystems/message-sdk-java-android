@@ -1,7 +1,7 @@
 package com.magnet.mmx.client.api;
 
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
@@ -99,8 +99,8 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     names.add(username);
     totalCount.set(0);
     displayNameBuffer.delete(0, displayNameBuffer.length());
-    MMXUser.getByUsernames(names, new MMXUser.OnFinishedListener<HashMap<String, MMXUser>>() {
-      public void onSuccess(HashMap<String, MMXUser> result) {
+    MMXUser.getUsers(names, new MMXUser.OnFinishedListener<Map<String, MMXUser>>() {
+      public void onSuccess(Map<String, MMXUser> result) {
         totalCount.set(result.size());
         MMXUser user = result.get(username);
         displayNameBuffer.append(user.getDisplayName());
