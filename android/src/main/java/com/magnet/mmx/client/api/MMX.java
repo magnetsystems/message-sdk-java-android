@@ -41,7 +41,18 @@ import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
 
 /**
- * The main entry point for Magnet Message.
+ * The main entry point for Magnet Message.  Application must invoke<ol>
+ * <li>{@link #init(Context, int)} to initialize MMX with connection info</li>
+ * <li>{@link #registerListener(EventListener)} to register a listener for 
+ * invitation, incoming messages, connection and authentication events,</li>
+ * <li>{@link #login(String, byte[], OnFinishedListener)} to authenticate the user</li>
+ * <li>{@link #start()} to start MMX service</li>
+ * </ol>
+ * Optionally, the application may invoke<ul>
+ * <li>{@link #registerWakeupBroadcast(Intent)} to register a GCM wake up listener</li>
+ * </ul>
+ * Upon successful completion, the application may proceed with {@link MMXMessage} or
+ * {@link MMXChannel}.
  */
 public final class MMX {
   /**
@@ -408,6 +419,7 @@ public final class MMX {
    * @param enable true to receving incoming message, false otherwise
    * @throws IllegalStateException if the user is not logged-in
    * @see #login(String, byte[], OnFinishedListener)
+   * @deprecated {@link #start()}
    */
   public static void enableIncomingMessages(boolean enable) {
     try {
@@ -423,6 +435,23 @@ public final class MMX {
                 "connected.  Ensure that login() has been called.");
       }
     }
+  }
+  
+  /**
+   * Start the MMX messaging service.  The client application must call this
+   * method when it is ready; otherwise, the communication between this client and
+   * the server remains blocked.
+   */
+  public static void start() {
+    enableIncomingMessages(true);
+  }
+  
+  /**
+   * Stop the MMX service.  The communication between this client and the server
+   * will be blocked.
+   */
+  public static void stop() {
+    enableIncomingMessages(false);
   }
 
   /**
