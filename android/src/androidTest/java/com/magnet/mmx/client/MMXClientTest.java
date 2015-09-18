@@ -560,7 +560,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       UserQuery.Search search = new UserQuery.Search();
       search.setEmail(accountInfo.getEmail(), SearchAction.Match.EXACT);
 
-      UserQuery.Response response = acctMgr.searchBy(SearchAction.Operator.OR, search, null);
+      UserQuery.Response response = acctMgr.searchBy(SearchAction.Operator.OR, search, null, null);
       Log.d(TAG, "testUserQuery(): Found " + response.getTotalCount() + " users matching this request.");
       boolean foundUser = false;
       for (UserInfo user : response.getUsers()) {
