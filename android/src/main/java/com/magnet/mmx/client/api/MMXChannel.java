@@ -107,6 +107,8 @@ public class MMXChannel {
 
   /**
    * The builder for a MMXChannel object
+   *
+   * @deprecated to get a channel object, use one of the existing static methods.
    */
   public static final class Builder {
     private MMXChannel mChannel;
@@ -198,7 +200,7 @@ public class MMXChannel {
      * @param creationDate the creation date
      * @return this Builder object
      */
-    public Builder creationDate(Date creationDate) {
+    Builder creationDate(Date creationDate) {
       mChannel.creationDate(creationDate);
       return this;
     }
@@ -412,14 +414,18 @@ public class MMXChannel {
     task.execute();
   }
 
-  MMXTopic getMMXTopic() {
-    if (isPublic()) {
-      return new MMXGlobalTopic(getName());
-    } else if (getOwnerUsername() == null) {
-      return new MMXPersonalTopic(getName());
+  private static MMXTopic getMMXTopic(boolean isPublic, String name, String ownerUsername) {
+    if (isPublic) {
+      return new MMXGlobalTopic(name);
+    } else if (ownerUsername == null) {
+      return new MMXPersonalTopic(name);
     } else {
-      return new MMXUserTopic(getOwnerUsername(), getName());
+      return new MMXUserTopic(ownerUsername, name);
     }
+  }
+
+  MMXTopic getMMXTopic() {
+    return getMMXTopic(isPublic(), getName(), getOwnerUsername());
   }
 
   /**
@@ -534,7 +540,7 @@ public class MMXChannel {
           //convert MMXMessages
           for (Map.Entry<String, com.magnet.mmx.client.common.MMXMessage> entry : result.entrySet()) {
             resultMap.put(entry.getKey(),
-                MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
+                    MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
           }
         }
         listener.onSuccess(resultMap);
@@ -623,35 +629,37 @@ public class MMXChannel {
   }
 
   /**
-   * Create the channel.  The default behavior is to create a private channel.
+   * Create a channel.
    * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
    * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
    *
+   * @param name the name of the channel
+   * @param summary the channel summary
+   * @param isPublic whether or not this channel is public
    * @param listener the listener for the newly created channel
-   * @see Builder#setPublic(boolean)
    */
-  public void create(final OnFinishedListener<MMXChannel> listener) {
+  public static void create(final String name, final String summary, final boolean isPublic,
+                                   final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
-                .setDescription(mSummary).setSubscribeOnCreate(true);
-        MMXTopic topic = getMMXTopic();
+                .setDescription(summary).setSubscribeOnCreate(true);
+        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUsername());
         return psm.createTopic(topic, options);
       }
 
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(
+                  FailureCode.DEVICE_ERROR, exception), exception);
         }
       }
 
       @Override
       public void onResult(final MMXTopic createResult) {
-        String currentUsername = MMX.getCurrentUser().getUsername();
-        MMXChannel.this.ownerUsername(currentUsername);
         if (listener != null) {
           try {
             MMXTopicInfo topicInfo = MMX.getMMXClient().getPubSubManager().getTopic(createResult);
@@ -663,17 +671,31 @@ public class MMXChannel {
             }
             listener.onSuccess(channels.get(0));
           } catch (Exception ex) {
-            Log.i(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
-                    "falling back to less-populated channel.");
+            Log.w(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
+                    "falling back to less-populated channel.", ex);
             listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                    .ownerUsername(currentUsername)
-                    .summary(mSummary));
+                    .ownerUsername(MMX.getCurrentUser().getUsername())
+                    .summary(summary));
           }
 
         }
       }
     };
     task.execute();
+  }
+
+  /**
+   * Create the channel.  The default behavior is to create a private channel.
+   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+   *
+   * @deprecated use {@link #create(String, String, boolean, OnFinishedListener)} instead
+   * @param listener the listener for the newly created channel
+   * @see Builder#setPublic(boolean)
+   */
+  public void create(final OnFinishedListener<MMXChannel> listener) {
+    MMXChannel.create(getName(), getSummary(), isPublic(), listener);
+    ownerUsername(MMX.getCurrentUser().getUsername());
   }
 
   /**
@@ -978,7 +1000,6 @@ public class MMXChannel {
    * @param startsWith the search string
    * @param limit the maximum number of results to return
    * @param listener the listener for the query results
-   * @see #getAllPrivateChannels(OnFinishedListener)
    * @deprecated {@link #findPublicChannelsByName(String, int, int, OnFinishedListener)}
    */
   @Deprecated

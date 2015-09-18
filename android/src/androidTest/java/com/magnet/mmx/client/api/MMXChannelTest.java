@@ -59,12 +59,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   public void testPublicChannel() {
     String channelName = "channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
-    MMXChannel channel = new MMXChannel.Builder()
-            .name(channelName)
-            .summary(channelSummary)
-            .setPublic(true)
-            .build();
-    helpCreate(channel);
+    MMXChannel channel = helpCreate(channelName, channelSummary, true);
     helpCreateError(channel, MMXChannel.FailureCode.CHANNEL_EXISTS);
     helpFind(channelName, 1);
     helpSubscribe(channel, 1);
@@ -78,11 +73,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   public void testPrivateChannel() {
     String channelName = "private-channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
-    MMXChannel channel = new MMXChannel.Builder()
-            .name(channelName)
-            .summary(channelSummary)
-            .build();
-    helpCreate(channel);
+    MMXChannel channel = helpCreate(channelName, channelSummary, false);
     helpCreateError(channel, MMXChannel.FailureCode.CHANNEL_EXISTS);
     helpFind(channelName, 0); // 0 because private channels should not show up on search
     helpSubscribe(channel, 1);
@@ -105,11 +96,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpLogin(userName1, displayName1, suffix, true);
     String channelName = "private-channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
-    MMXChannel channel = new MMXChannel.Builder()
-            .name(channelName)
-            .summary(channelSummary)
-            .build();
-    helpCreate(channel);
+    MMXChannel channel = helpCreate(channelName, channelSummary, false);
     helpLogout();
 
     helpLogin(userName2, displayName2, suffix, true);
@@ -131,12 +118,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   public void helpTestChannelInvite(boolean isPublic) {
     String channelName = (isPublic ? "public-channel" : "private-channel") + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
-    MMXChannel channel = new MMXChannel.Builder()
-            .name(channelName)
-            .summary(channelSummary)
-            .setPublic(isPublic)
-            .build();
-    MMXChannel channelFromCallback = helpCreate(channel);
+    MMXChannel channel = helpCreate(channelName, channelSummary, isPublic);
 
     final AtomicBoolean inviteResponseValue = new AtomicBoolean(false);
     final StringBuffer inviteResponseText = new StringBuffer();
@@ -230,20 +212,11 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     long timestamp = System.currentTimeMillis();
     String privateChannelName = "private-channel" + timestamp;
     String privateChannelSummary = privateChannelName + " Summary";
-    MMXChannel privateChannel = new MMXChannel.Builder()
-            .name(privateChannelName)
-            .summary(privateChannelSummary)
-            .build();
-    helpCreate(privateChannel);
+    MMXChannel privateChannel = helpCreate(privateChannelName, privateChannelSummary, false);
 
     String publicChannelName = "channel" + timestamp;
     String publicChannelSummary = publicChannelName + " Summary";
-    MMXChannel publicChannel = new MMXChannel.Builder()
-            .name(publicChannelName)
-            .summary(publicChannelSummary)
-            .setPublic(true)
-            .build();
-    helpCreate(publicChannel);
+    MMXChannel publicChannel = helpCreate(publicChannelName, publicChannelSummary, true);
 
     //should have autosubscribed since we created them
     final ExecMonitor<Integer, FailureCode> subCount = new ExecMonitor<Integer, FailureCode>();
@@ -273,11 +246,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   public void testErrorHandling() {
     String suffix = String.valueOf(System.currentTimeMillis());
     String existChannelName = "exist-channel" + suffix;
-    MMXChannel existChannel = new MMXChannel.Builder()
-            .name(existChannelName)
-            .setPublic(true)
-            .build();
-    helpCreate(existChannel);
+    MMXChannel existChannel = helpCreate(existChannelName, null, true);
     helpCreateError(existChannel, MMXChannel.FailureCode.CHANNEL_EXISTS);
     helpDelete(existChannel);
     
@@ -305,9 +274,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     // Register and login as user1, create and auto-subscribe a private channel.
     String suffix = String.valueOf(System.currentTimeMillis());
     helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, true);
-    MMXChannel channel = new MMXChannel.Builder().name(CHANNEL_NAME + suffix)
-          .setPublic(false).summary("Private Channel 1").build();
-    helpCreate(channel);
+    MMXChannel channel = helpCreate(CHANNEL_NAME + suffix, "Private Channel 1", false);
     helpLogout();
     
     // Register and login as user2, subscribe to the private channel.  It
@@ -352,18 +319,17 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
    */
   public void testGetAllPrivateChannels() {
     String suffix = String.valueOf(System.currentTimeMillis());
-    MMXChannel pubChannel = new MMXChannel.Builder().name("ch4" + suffix).summary("Ch4" + suffix)
-        .setPublic(true).build();
+    MMXChannel pubChannel = helpCreate("ch4" + suffix, "Ch4" + suffix, true);   // public channel
+
     MMXChannel[] channels = {
         new MMXChannel.Builder().name("ch1" + suffix).summary("Ch1" + suffix).build(),
         new MMXChannel.Builder().name("ch2" + suffix).summary("Ch2" + suffix).build(),
         new MMXChannel.Builder().name("ch3" + suffix).summary("Ch3" + suffix).build() };
 
-    helpCreate(pubChannel);   // public channel
     for (int i = 0; i < 3; i++) {
-      helpCreate(channels[i]);
-      helpPublish(channels[i]);
-      helpPublish(channels[i]);
+      MMXChannel channel = helpCreate(channels[i].getName(), channels[i].getSummary(), false);
+      helpPublish(channel);
+      helpPublish(channel);
     }
 
     // getting all private channels
@@ -444,9 +410,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //**************
   //HELPER METHODS
   //**************
-  private MMXChannel helpCreate(MMXChannel channel) {
+  private MMXChannel helpCreate(String name, String summary, boolean isPublic) {
     final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
-    channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
+    MMXChannel.create(name, summary, isPublic, new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         Log.e(TAG, "helpCreate.onSuccess ");
         createResult.invoked(result);
@@ -462,10 +428,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       result = createResult.getReturnValue();
       assertNotNull(result);
       assertNotNull(result.getOwnerUsername());
-      assertEquals(channel.getOwnerUsername(), result.getOwnerUsername());
-      assertEquals(channel.getSummary(), result.getSummary());
-      assertEquals(channel.getName(), result.getName());
-      assertEquals(channel.isPublic(), result.isPublic());
+      assertEquals(MMX.getCurrentUser().getUsername(), result.getOwnerUsername());
+      assertEquals(summary, result.getSummary());
+      assertEquals(name, result.getName());
+      assertEquals(isPublic, result.isPublic());
       assertNotNull(result.getCreationDate());
     } else {
       fail("Channel creation timed out");
