@@ -134,6 +134,67 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
   private Set<MMXUser> mInvalidUsers;
   private MMXMessage.FailureCode mFailureCode;
 
+  public void testSendBeforeLogin() {
+    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+    recipients.add(new MMXUser.Builder().username("foo").displayName("foo").build());
+    HashMap<String,String> content = new HashMap<String,String>();
+    content.put("foo","bar");
+    MMXMessage message = new MMXMessage.Builder()
+            .recipients(recipients)
+            .content(content)
+            .build();
+    final ExecMonitor<String,MMXMessage.FailureCode> failureMonitor = new ExecMonitor<String,MMXMessage.FailureCode>();
+    message.send(new MMXMessage.OnFinishedListener<String>() {
+      @Override
+      public void onSuccess(String result) {
+        failureMonitor.invoked(result);
+      }
+
+      @Override
+      public void onFailure(MMXMessage.FailureCode code, Throwable throwable) {
+        Log.e(TAG, "testSendBeforeLogin.onFailure", throwable);
+        failureMonitor.failed(code);
+      }
+    });
+    ExecMonitor.Status status = failureMonitor.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED) {
+      fail("should have called onFailure()");
+    } else if (status == ExecMonitor.Status.FAILED) {
+      assertEquals(MMX.FailureCode.BAD_REQUEST, failureMonitor.getFailedValue());
+    } else {
+      fail("message.send() timed out");
+    }
+
+  }
+
+  public void testPublishBeforeLogin() {
+    MMXChannel channel = new MMXChannel.Builder()
+            .name("foo").summary("bar").build();
+    HashMap<String,String> content = new HashMap<String,String>();
+    content.put("foo", "bar");
+    final ExecMonitor<String,MMXChannel.FailureCode> failureMonitor = new ExecMonitor<String,MMXChannel.FailureCode>();
+    channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
+      @Override
+      public void onSuccess(String result) {
+        failureMonitor.invoked(result);
+      }
+
+      @Override
+      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
+        com.magnet.mmx.client.common.Log.e(TAG, "testPublishBeforeLogin.onFailure", throwable);
+        failureMonitor.failed(code);
+      }
+    });
+    ExecMonitor.Status status = failureMonitor.waitFor(10000);
+    if (status == ExecMonitor.Status.INVOKED) {
+      fail("should have called onFailure()");
+    } else if (status == ExecMonitor.Status.FAILED) {
+      assertEquals(MMX.FailureCode.BAD_REQUEST, failureMonitor.getFailedValue());
+    } else {
+      fail("channel.publish() timed out");
+    }
+  }
+
   public void testSendMessageError() {
     MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
     String suffix = String.valueOf(System.currentTimeMillis());

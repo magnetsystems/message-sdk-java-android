@@ -383,6 +383,22 @@ public class MMXMessage {
 
   // Publish this message to a channel.  This code should belong to MMXChannel.
   String publish(final MMXChannel.OnFinishedListener<String> listener) {
+    if (MMX.getCurrentUser() == null) {
+      //FIXME:  This needs to be done in MMXClient/MMXMessageManager.  Do it here for now.
+      final Throwable exception = new IllegalStateException("Cannot send message.  " +
+              "There is no current user.  Please login() first.");
+      if (listener == null) {
+        Log.w(TAG, "send() failed", exception);
+      } else {
+        MMX.getHandler().post(new Runnable() {
+          public void run() {
+            listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
+                    MMX.FailureCode.BAD_REQUEST, exception), exception);
+          }
+        });
+      }
+      return null;
+    }
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
     final String type = getType() != null ? getType() : null;
     final MMXPayload payload = new MMXPayload(type, "");
@@ -439,6 +455,21 @@ public class MMXMessage {
    * @param listener the listener for this method call
    */
   public String send(final OnFinishedListener<String> listener) {
+    if (MMX.getCurrentUser() == null) {
+      //FIXME:  This needs to be done in MMXClient/MMXMessageManager.  Do it here for now.
+      final Throwable exception = new IllegalStateException("Cannot send message.  " +
+              "There is no current user.  Please login() first.");
+      if (listener == null) {
+        Log.w(TAG, "send() failed", exception);
+      } else {
+        MMX.getHandler().post(new Runnable() {
+          public void run() {
+            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.BAD_REQUEST, exception), exception);
+          }
+        });
+      }
+      return null;
+    }
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
     final String type = getType() != null ? getType() : null;
     final MMXPayload payload = new MMXPayload(type, "");

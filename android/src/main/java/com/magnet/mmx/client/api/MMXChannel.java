@@ -947,7 +947,7 @@ public class MMXChannel {
     };
     task.execute();
   }
-
+  
   /**
    * Get all public channels with pagination.
    * @param offset the offset of results to return
