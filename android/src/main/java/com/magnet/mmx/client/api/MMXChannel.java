@@ -932,6 +932,13 @@ public class MMXChannel {
           listener.onSuccess(result);
         }
       }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
     };
     task.execute();
   }
