@@ -6,9 +6,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
 
+import com.magnet.mmx.client.api.MMXUser.FailureCode;
+
 public class MMXUserTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXUserTest.class.getSimpleName();
-
+  
   public void testFindUser() {
     final MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
     String suffix = String.valueOf(System.currentTimeMillis());
@@ -25,7 +27,41 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
+    
+    // test change display name
+    MMXUser user = MMX.getCurrentUser();
+    assertNotNull(user);
+    String oldDisplayName = user.getDisplayName();
+    String newDisplayName = "New User Name";
+    helpChangeDisplayName(user, newDisplayName, null);
+    assertEquals(newDisplayName, user.getDisplayName());
+    helpChangeDisplayName(user, oldDisplayName, null);
+    assertEquals(oldDisplayName, user.getDisplayName());
 
+    // test get all users
+    final ExecMonitor<ListResult<MMXUser>, MMXUser.FailureCode> findRes = new ExecMonitor<ListResult<MMXUser>, MMXUser.FailureCode>();
+    MMXUser.OnFinishedListener<ListResult<MMXUser>> listener = new
+        MMXUser.OnFinishedListener<ListResult<MMXUser>>() {
+      public void onSuccess(ListResult<MMXUser> result) {
+        findRes.invoked(result);
+      }
+      
+      public void onFailure(MMXUser.FailureCode code, Throwable ex) {
+        Log.e(TAG, "failed on find users: code="+code, ex);
+        findRes.failed(code);
+      }
+    };
+    MMXUser.getAllUsers(10, listener);
+    assertEquals(ExecMonitor.Status.INVOKED, findRes.waitFor(10000));
+    int numUsers = findRes.getReturnValue().items.size();
+    assertTrue(numUsers > 0 && numUsers <= 10);
+    
+    // Test if empty search string is disallowed
+    findRes.reset(null, null);
+    MMXUser.findByDisplayName("", 10, listener);
+    assertEquals(ExecMonitor.Status.FAILED, findRes.waitFor(10000));
+    assertEquals(MMXUser.FailureCode.BAD_REQUEST, findRes.getFailedValue());
+    
     //test findByDisplayName()
     final AtomicInteger totalCount = new AtomicInteger(0);
     final StringBuffer displayNameBuffer = new StringBuffer();
@@ -100,7 +136,7 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     }
     assertFalse(MMX.getMMXClient().isConnected());
   }
-
+  
   public void testRegisterShortUserName() {
     // This test case is only for REST API.  Custom IQ has no such restriction.
     String userName = "siva";
@@ -108,5 +144,29 @@ public class MMXUserTest extends MMXInstrumentationTestCase {
     byte[] passwd = "password".getBytes();
     helpRegisterUser(userName, displayName, passwd, ExecMonitor.Status.FAILED,
         MMXUser.FailureCode.REGISTRATION_INVALID_USERNAME);
+  }
+
+  
+  private void helpChangeDisplayName(MMXUser user, final String newDisplayName,
+                                      FailureCode expectedFailureCode) {
+    final ExecMonitor<Void, FailureCode> changeRes = new ExecMonitor<Void, FailureCode>();
+    user.changeDisplayName(newDisplayName, new MMXUser.OnFinishedListener<Void>() {
+      @Override
+      public void onSuccess(Void result) {
+        changeRes.invoked(null);
+      }
+
+      @Override
+      public void onFailure(FailureCode code, Throwable throwable) {
+        changeRes.failed(code);
+      }
+    });
+    ExecMonitor.Status status = changeRes.waitFor(10000);
+    if (expectedFailureCode == null) {
+      assertEquals(ExecMonitor.Status.INVOKED, status);
+    } else {
+      assertEquals(ExecMonitor.Status.FAILED, status);
+      assertEquals(expectedFailureCode, changeRes.getFailedValue());
+    }
   }
 }

@@ -16,8 +16,8 @@ repositories {
     maven {
         url "http://dev-repo.magnet.com:8081/artifactory/everything"
         credentials {
-            username = "${devUser}"
-            password = "${devPassword}"
+            username = "jim.liu"
+            password = "aardvark"
         }
     }
 }

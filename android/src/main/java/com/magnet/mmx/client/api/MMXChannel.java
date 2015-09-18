@@ -43,6 +43,7 @@ import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.util.TimeUtil;
 
 /**
  * The MMXChannel class representing the Topic/Feed/PubSub model.
@@ -192,6 +193,17 @@ public class MMXChannel {
     }
 
     /**
+     * Set the creation date for this channel
+     *
+     * @param creationDate the creation date
+     * @return this Builder object
+     */
+    public Builder creationDate(Date creationDate) {
+      mChannel.creationDate(creationDate);
+      return this;
+    }
+
+    /**
      * Build the channel object
      *
      * @return the channel
@@ -208,6 +220,7 @@ public class MMXChannel {
   private Date mLastTimeActive;
   private boolean mPublic;
   private Boolean mSubscribed;
+  private Date mCreationDate;
 
   /**
    * Default constructor
@@ -310,10 +323,30 @@ public class MMXChannel {
   /**
    * The last active time for this channel
    *
-   * @return the ast active time, null if not yet retrieved
+   * @return the last active time, null if not yet retrieved
    */
   public Date getLastTimeActive() {
     return mLastTimeActive;
+  }
+
+  /**
+   * Set the creation date for this channel
+   *
+   * @param creationDate
+   * @return this MMXChannel object
+   */
+  MMXChannel creationDate(Date creationDate) {
+    mCreationDate = creationDate;
+    return this;
+  }
+
+  /**
+   * The creation date for this channel
+   *
+   * @return the creation date
+   */
+  public Date getCreationDate() {
+    return mCreationDate;
   }
 
   /**
@@ -619,9 +652,23 @@ public class MMXChannel {
         String currentUsername = MMX.getCurrentUser().getUsername();
         MMXChannel.this.ownerUsername(currentUsername);
         if (listener != null) {
-          listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                          .ownerUsername(currentUsername)
-                          .summary(mSummary));
+          try {
+            MMXTopicInfo topicInfo = MMX.getMMXClient().getPubSubManager().getTopic(createResult);
+            ArrayList<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>();
+            topicInfos.add(topicInfo);
+            List<MMXChannel> channels = fromTopicInfos(topicInfos, null);
+            if (channels.size() != 1) {
+              throw new IllegalStateException("Invalid number of results.");
+            }
+            listener.onSuccess(channels.get(0));
+          } catch (Exception ex) {
+            Log.i(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
+                    "falling back to less-populated channel.");
+            listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
+                    .ownerUsername(currentUsername)
+                    .summary(mSummary));
+          }
+
         }
       }
     };
@@ -890,16 +937,29 @@ public class MMXChannel {
   }
   
   /**
+   * Get all public channels.
+   * @param listener the listener for getting the channels
+   */
+  public static void getAllPublicChannels(final OnFinishedListener<List<MMXChannel>> listener) {
+    getChannels(ListType.global, listener);
+  }
+  
+  /**
    * Get all private channels created by the current user.
-   * @param listener
+   * @param listener the listener for getting the channels
    */
   public static void getAllPrivateChannels(final OnFinishedListener<List<MMXChannel>> listener) {
+    getChannels(ListType.personal, listener);
+  }
+  
+  private static void getChannels(final ListType listType,
+                        final OnFinishedListener<List<MMXChannel>> listener) {
     MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(
         MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        List<MMXTopicInfo> infos = psm.listTopics(null, ListType.personal, false);
+        List<MMXTopicInfo> infos = psm.listTopics(null, listType, false);
         return fromTopicInfos(infos, null);
       }
       
@@ -952,6 +1012,19 @@ public class MMXChannel {
    */
   public static void findByName(final String startsWith, final int offset, final int limit,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    if (startsWith == null || startsWith.equals("")) {
+      final IllegalArgumentException ex = new IllegalArgumentException("Cannot find by NULL or empty string");
+      if (listener == null) {
+        throw ex;
+      } else {
+        MMX.getHandler().post(new Runnable() {
+          public void run() {
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.BAD_REQUEST, null), ex);
+          }
+        });
+      }
+      return;
+    }
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -1126,16 +1199,18 @@ public class MMXChannel {
     for (TopicSummary summary : summaries) {
       MMXTopic topic = summary.getTopicNode();
       MMXTopicInfo info = topicInfoMap.get(topic);
+      String description = info.getDescription();
       if (info != null) {
         channels.add(new MMXChannel.Builder()
-                      .lastTimeActive(summary.getLastPubTime())
-                      .name(topic.getName())
-                      .numberOfMessages(summary.getCount())
-                      .ownerUsername(info.getCreator().getUserId())
-                      .subscribed(subMap.containsKey(topic))
-                      .summary(info.getDescription())
-                      .setPublic(!topic.isUserTopic())
-                      .build());
+                .lastTimeActive(summary.getLastPubTime())
+                .name(topic.getName())
+                .numberOfMessages(summary.getCount())
+                .ownerUsername(info.getCreator().getUserId())
+                .subscribed(subMap.containsKey(topic))
+                .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
+                .setPublic(!topic.isUserTopic())
+                .creationDate(info.getCreationDate())
+                .build());
       }
     }
     return channels;
@@ -1154,6 +1229,7 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
     private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
+    private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private MMXChannel mChannel;
     private MMXUser mInvitee;
     private MMXUser mInviter;
@@ -1213,6 +1289,9 @@ public class MMXChannel {
       }
       content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
       content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
+      if (mChannel.getCreationDate() != null) {
+        content.put(KEY_CHANNEL_CREATION_DATE, TimeUtil.toString(mChannel.getCreationDate()));
+      }
       return content;
     }
 
@@ -1223,11 +1302,13 @@ public class MMXChannel {
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
       String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
       String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
+      String channelCreationDate = content.get(KEY_CHANNEL_CREATION_DATE);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPublic(Boolean.parseBoolean(channelIsPublic))
               .ownerUsername(channelOwnerUsername)
+              .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
               .build();
       return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
     }

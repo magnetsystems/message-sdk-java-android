@@ -25,6 +25,12 @@ class ExecMonitor<S, F> {
   private F mFailedValue;
   private ExecMonitor.Status mStatus = Status.WAITING;
   
+  public void reset(S rtnValue, F failValue) {
+    mRtnValue = rtnValue;
+    mFailedValue = failValue;
+    mStatus = Status.WAITING;
+  }
+  
   // Only be called if waitFor() returns EXECED
   public S getReturnValue() {
     return mRtnValue;
