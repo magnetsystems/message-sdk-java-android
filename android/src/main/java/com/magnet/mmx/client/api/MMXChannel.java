@@ -1424,7 +1424,8 @@ public class MMXChannel {
     }
 
     /**
-     * Accept this invitation.  This will subscribe to the specified topic and notify the inviter.
+     * Accept this invitation.  This will subscribe to the specified channel
+     * and notify the inviter.
      *
      * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
