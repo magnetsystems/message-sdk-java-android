@@ -43,7 +43,10 @@ import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.util.XIDUtil;
 
 /**
- * The MMXUser class
+ * The MMXUser class represents a user in MMX.  It also provides methods to
+ * register a new user, to change password or display name for the current
+ * logged-in user.  It also allows caller to search or get basic information
+ * of an MMX user.
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
