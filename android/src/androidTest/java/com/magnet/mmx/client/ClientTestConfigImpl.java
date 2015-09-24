@@ -30,7 +30,7 @@ public class ClientTestConfigImpl implements MMXClientConfig {
   public static final MMXClient.SecurityLevel TEST_SECURITY_LEVEL = MMXClient.SecurityLevel.RELAXED;
   private static final String APP_ID = "kcyidhkopml";
   private static final String API_KEY = "fe940713-8be4-4c2c-8ec3-3e1ac5b71f1e";
-  private static final String GCM_SENDERID = null;
+  private static final String GCM_SENDERID = "1234567890";
   private static final String SERVER_USERID = "foobar";
   private static final String GUEST_SECRET = "de953ec8-b6cd-458d-88e1-49b2acad4f89";
   private static final String SERVICE_NAME = "dev-mmx-002";
