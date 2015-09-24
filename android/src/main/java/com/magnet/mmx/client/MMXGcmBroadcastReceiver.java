@@ -18,7 +18,6 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.support.v4.content.WakefulBroadcastReceiver;
 
 /**
  * This is the receiver that handles GCM wakeup messages from MMX.  This needs to be
@@ -48,7 +47,7 @@ import android.support.v4.content.WakefulBroadcastReceiver;
  *   }
  * </pre>
  */
-public final class MMXGcmBroadcastReceiver extends WakefulBroadcastReceiver {
+public final class MMXGcmBroadcastReceiver extends MMXWakefulBroadcastReceiver {
   public void onReceive(Context context, Intent intent) {
     ComponentName component = new ComponentName(context.getPackageName(), MMXWakeupIntentService.class.getName());
     startWakefulService(context, (intent.setComponent(component)));

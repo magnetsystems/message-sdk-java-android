@@ -49,9 +49,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.magnet.mmx.client.common.DeviceManager;
 import com.magnet.mmx.client.common.Invitation;
 import com.magnet.mmx.client.common.Log;
@@ -1164,16 +1161,16 @@ public final class MMXClient {
             Log.d(TAG, "registerDeviceWithServer() start");
           }
           ConnectionInfo connectionInfo = getConnectionInfo();
-          int playServicesResult = GooglePlayServicesUtil.isGooglePlayServicesAvailable(mContext);
-          if (playServicesResult == ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED) {
-            GooglePlayServicesUtil.showErrorNotification(playServicesResult, mContext);
+          GooglePlayServicesWrapper googlePlayServicesWrapper = GooglePlayServicesWrapper.getInstance(mContext);
+          int result = googlePlayServicesWrapper.isPlayServicesAvailable();
+          if (result == GooglePlayServicesWrapper.PLAY_SERVICES_SERVICE_VERSION_UPDATE_REQUIRED) {
+            googlePlayServicesWrapper.showErrorNotification(result);
           }
           String gcmSenderId = connectionInfo.clientConfig.getGcmSenderId();
           boolean isGcmWakeupEnabled = connectionInfo.isGcmWakeupEnabled &&
-              ConnectionResult.SUCCESS == playServicesResult &&
+              result == GooglePlayServicesWrapper.PLAY_SERVICES_AVAILABLE &&
               gcmSenderId != null && !gcmSenderId.trim().isEmpty();
           if (isGcmWakeupEnabled) {
-            GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(mContext);
             String gcmRegId = connectionInfo.gcmRegId;
             int gcmRegIdAppVersion = connectionInfo.gcmRegIdAppVersion;
             int appVersion = getAppVersion();
@@ -1187,7 +1184,7 @@ public final class MMXClient {
               }
               synchronized (MMXClient.this) {
                 try {
-                  gcmRegId = gcm.register(gcmSenderId);
+                  gcmRegId = googlePlayServicesWrapper.registerGcmNew(gcmSenderId);
                   SharedPreferences.Editor prefEditor = mSharedPreferences.edit();
                   prefEditor.putString(SHARED_PREF_KEY_GCM_REGID, gcmRegId);
                   prefEditor.putInt(SHARED_PREF_KEY_GCM_REGID_APPVERSION, appVersion);
@@ -1210,8 +1207,8 @@ public final class MMXClient {
               sb.append(i==0?" ":", ").append("GCM Wakeup is explicitly disabled in the config");
               ++i;
             }
-            if (playServicesResult != ConnectionResult.SUCCESS) {
-              sb.append(i==0?" ":", ").append(GooglePlayServicesUtil.getErrorString(playServicesResult));
+            if (result != GooglePlayServicesWrapper.PLAY_SERVICES_AVAILABLE) {
+              sb.append(i==0?" ":", ").append(googlePlayServicesWrapper.getErrorString(result));
               ++i;
             }
             if (gcmSenderId == null || gcmSenderId.isEmpty()) {
