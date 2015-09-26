@@ -1254,7 +1254,8 @@ public class MMXChannel {
       String description = info.getDescription();
       if (info != null) {
         channels.add(new MMXChannel.Builder()
-                .lastTimeActive(summary.getLastPubTime())
+                .lastTimeActive(summary.getLastPubTime() != null ?
+                        summary.getLastPubTime() : info.getCreationDate())
                 .name(topic.getName())
                 .numberOfMessages(summary.getCount())
                 .ownerUsername(info.getCreator().getUserId())
