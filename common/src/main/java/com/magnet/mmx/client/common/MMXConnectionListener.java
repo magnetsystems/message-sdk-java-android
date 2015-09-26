@@ -15,6 +15,8 @@
 
 package com.magnet.mmx.client.common;
 
+import com.magnet.mmx.protocol.MMXid;
+
 public interface MMXConnectionListener {
   /**
    * Connection and authentication to the server is done.  It may be the first

@@ -17,6 +17,7 @@ package com.magnet.mmx.client.common;
 import java.io.Serializable;
 import java.util.Map;
 
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.MmxHeaders;
 
 /**

@@ -35,7 +35,7 @@ import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
-import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.UserInfo;

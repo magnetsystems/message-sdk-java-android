@@ -18,11 +18,11 @@ import android.os.Handler;
 
 import com.magnet.mmx.client.common.DeviceManager;
 import com.magnet.mmx.client.common.MMXException;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.DevList;
 import com.magnet.mmx.protocol.DevReg;
 import com.magnet.mmx.protocol.DevTags;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXid;
 
 import java.util.List;
 

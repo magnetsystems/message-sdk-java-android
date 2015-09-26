@@ -16,6 +16,8 @@ package com.magnet.mmx.client.common;
 
 import java.io.Serializable;
 
+import com.magnet.mmx.protocol.MMXid;
+
 /**
  * The GlobalAddress class encapsulates an address in the MMX system.
  * This is typically in the format of type:name where name is the

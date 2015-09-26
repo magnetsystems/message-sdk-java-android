@@ -19,8 +19,8 @@ import android.util.Log;
 
 import com.magnet.mmx.client.common.MMXErrorMessage;
 import com.magnet.mmx.client.common.MMXMessage;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 
 import java.util.ArrayList;
 

@@ -16,7 +16,6 @@
 package com.magnet.mmx.client.common;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +32,6 @@ import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Message.Type;
 import org.jivesoftware.smack.packet.Packet;
-import org.jivesoftware.smackx.address.MultipleRecipientManager;
 import org.jivesoftware.smackx.pubsub.EventElement;
 import org.jivesoftware.smackx.pubsub.Item;
 import org.jivesoftware.smackx.pubsub.ItemsExtension;
@@ -49,6 +47,7 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.MessageCommand;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.MsgAck;
 import com.magnet.mmx.protocol.MsgEvents;
@@ -481,19 +480,13 @@ public class MessageManager {
 
     try {
       if (xids.length > 1) {
-        // TODO: mmx interceptor has not implemented message status tracking in
-        // multicast router, use XEP-0033 only for unreliable msgs.  It may have
-        // performance problem for large set of recipients and large payload.
-        if (options != null && options.isDroppable()) {
-          // Use XEP-0033 to address multiple recipients.
-          List<String> list = Arrays.asList(xids);
-          MultipleRecipientManager.send(xmppCon, msg, list, null, null);
-        } else {
-          for (String xid : xids) {
-            msg.setTo(xid);
-            xmppCon.sendPacket(new PacketCopy(msg.toXML()));
-          }
-        }
+        // Unable to use MultiRecipientManager (XEP-0033) because it does not
+        // support user display name and the MulticastRouter needs significant
+        // changes to support device fan-out, user validation and wakeup.
+        // Use MMX multicast implementation which has a special bared MMX ID.
+        msg.setTo(XIDUtil.makeXID(Constants.MMX_MULTICAST, mCon.getAppId(),
+            mCon.getXMPPConnection().getServiceName()));
+        xmppCon.sendPacket(msg);
       } else {
         msg.setTo(xids[0]);
         xmppCon.sendPacket(msg);
