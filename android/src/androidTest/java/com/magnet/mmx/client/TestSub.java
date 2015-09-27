@@ -25,8 +25,8 @@ import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXSubscription;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 
 public class TestSub extends InstrumentationTestCase {
 

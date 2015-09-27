@@ -19,6 +19,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.TopicAction.PublisherType;
 import com.magnet.mmx.protocol.TopicInfo;
 import com.magnet.mmx.util.XIDUtil;

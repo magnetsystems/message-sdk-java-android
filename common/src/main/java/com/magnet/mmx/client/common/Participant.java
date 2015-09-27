@@ -14,6 +14,8 @@
  */
 package com.magnet.mmx.client.common;
 
+import com.magnet.mmx.protocol.MMXid;
+
 public class Participant extends MMXid {
   private boolean mIsSelf;
   

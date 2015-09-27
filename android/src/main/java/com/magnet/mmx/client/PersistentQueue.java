@@ -22,7 +22,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 import com.magnet.mmx.client.common.GlobalAddress;
 import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.util.MMXQueue;
 
 import java.io.File;

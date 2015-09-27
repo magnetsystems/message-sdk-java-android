@@ -26,9 +26,9 @@ import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXTopicInfo;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
+import com.magnet.mmx.protocol.MMXid;
 
 public class TestPub extends InstrumentationTestCase {
 
