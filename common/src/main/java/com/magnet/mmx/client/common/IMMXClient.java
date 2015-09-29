@@ -47,16 +47,6 @@ public interface IMMXClient {
    */
   public MessageManager getMessageManager() throws MMXException;
   /**
-   * Inform the MMX server to suspend delivering messages to this client.
-   * @throws MMXException Not connecting to MMX server.
-   */
-  public void suspendDelivery() throws MMXException;
-  /**
-   * Inform the MMX server to resume delivering messages to this client.
-   * @throws MMXException Not connecting to MMX server.
-   */
-  public void resumeDelivery() throws MMXException;
-  /**
    * Get the MMX ID of the current authenticated end-point (user and device.)
    * @return The MMX ID that represents the current authenticated end-point.
    * @throw MMXException Not connecting to MMX server

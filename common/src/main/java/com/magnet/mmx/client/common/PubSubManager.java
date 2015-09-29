@@ -58,12 +58,14 @@ import com.magnet.mmx.protocol.TopicAction.DeleteRequest;
 import com.magnet.mmx.protocol.TopicAction.FetchOptions;
 import com.magnet.mmx.protocol.TopicAction.FetchRequest;
 import com.magnet.mmx.protocol.TopicAction.FetchResponse;
+import com.magnet.mmx.protocol.TopicAction.GetTopicsResponse;
 import com.magnet.mmx.protocol.TopicAction.ItemsByIdsRequest;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicAction.MMXPublishedItem;
 import com.magnet.mmx.protocol.TopicAction.PublisherType;
 import com.magnet.mmx.protocol.TopicAction.RetractAllRequest;
 import com.magnet.mmx.protocol.TopicAction.RetractRequest;
+import com.magnet.mmx.protocol.TopicAction.RetractResponse;
 import com.magnet.mmx.protocol.TopicAction.SubscribeRequest;
 import com.magnet.mmx.protocol.TopicAction.SubscribeResponse;
 import com.magnet.mmx.protocol.TopicAction.SubscribersRequest;
@@ -376,15 +378,16 @@ public class PubSubManager {
 
   /**
    * @hide
-   * Retract a published item from a topic.
+   * Retract a published item from a topic.  Each retracting item has its status
+   * code: 200 for success, 403 for forbidden, 404 for not found.
    * @param topic A topic object.
    * @param itemIds A list of published item ID's to be retracted.
-   * @return false if the item does not exist; otherwise, true.
+   * @return A map of item ID and its status code.
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public boolean retract(MMXTopic topic, List<String> itemIds)
+  public Map<String, Integer> retract(MMXTopic topic, List<String> itemIds)
             throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
@@ -392,13 +395,13 @@ public class PubSubManager {
     String topicPath = TopicHelper.normalizePath(topic.getName());
     RetractRequest rqt = new RetractRequest(Utils.escapeNode(topic.getUserId()),
         topicPath, itemIds);
-    PubSubIQHandler<RetractRequest, MMXStatus> iqHandler =
-        new PubSubIQHandler<RetractRequest, MMXStatus>();
+    PubSubIQHandler<RetractRequest, RetractResponse> iqHandler =
+        new PubSubIQHandler<RetractRequest, RetractResponse>();
     try {
       iqHandler.sendSetIQ(mCon, Constants.PubSubCommand.retract.toString(),
-          rqt, MMXStatus.class, iqHandler);
-      MMXStatus status = iqHandler.getResult();
-      return status.getCode() == StatusCode.SUCCESS;
+          rqt, RetractResponse.class, iqHandler);
+      RetractResponse results = iqHandler.getResult();
+      return results;
     } catch (MMXException e) {
       if (e.getCode() == StatusCode.NOT_FOUND) {
         throw new TopicNotFoundException(e.getMessage());
@@ -642,20 +645,21 @@ public class PubSubManager {
   /**
    * Get all subscribers to a topic.
    * @param topic A topic object.
+   * @param offset offset of the result to be returned
    * @param limit -1 for unlimited, or > 0.
    * @return A result set.
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int offset, int limit)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
     String topicPath = TopicHelper.normalizePath(topic.getName());
     SubscribersRequest rqt = new SubscribersRequest(
-        Utils.escapeNode(topic.getUserId()), topicPath, limit);
+        Utils.escapeNode(topic.getUserId()), topicPath, offset, limit);
     PubSubIQHandler<SubscribersRequest, SubscribersResponse> iqHandler =
         new PubSubIQHandler<SubscribersRequest, SubscribersResponse>();
     try {
@@ -1029,18 +1033,38 @@ public class PubSubManager {
   }
 
   /**
-   * Search for topics by topic attributes and/or tags.
+   * Search for global topics by topic attributes and/or tags.
    * @param operator The AND or OR operator.
    * @param search Single or multi-values search attributes.
-   * @param maxRows The max number of rows to be returned, or null for system imposed max rows.
+   * @param offset the offset of rows to be returned.
+   * @param limit The max number of rows to be returned, or null for system imposed max rows.
+   * @return The search result.
+   * @throws MMXException
+   * @deprecated {@link #searchBy(com.magnet.mmx.protocol.SearchAction.Operator, com.magnet.mmx.protocol.TopicAction.TopicSearch, Integer, Integer, ListType)}
+   */
+  @Deprecated
+  public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
+      TopicAction.TopicSearch search, Integer offset, Integer limit) throws MMXException {
+    return searchBy(operator, search, offset, limit, ListType.global);
+  }
+
+  /**
+   * Search for global or personal topics by topic attributes and/or tags.
+   * @param operator The AND or OR operator.
+   * @param search Single or multi-values search attributes.
+   * @param offset the offset of rows to be returned.
+   * @param limit The max number of rows to be returned, or null for system imposed max rows.
+   * @param listType scope of the search: global or personal topics.
    * @return The search result.
    * @throws MMXException
    */
   public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
-      TopicAction.TopicSearch search, Integer maxRows) throws MMXException {
+      TopicAction.TopicSearch search, Integer offset, Integer limit, ListType listType)
+          throws MMXException {
     try {
-      TopicSearchRequest rqt = new TopicSearchRequest(operator, search, 0,
-          (maxRows == null) ? -1 : maxRows.intValue());
+      TopicSearchRequest rqt = new TopicSearchRequest(operator, search,
+          (null == offset) ? 0 : offset, (limit == null) ? -1 : limit.intValue(),
+          listType);
       PubSubIQHandler<TopicSearchRequest, TopicQueryResponse> iqHandler =
           new PubSubIQHandler<TopicSearchRequest, TopicQueryResponse>();
       iqHandler.sendGetIQ(mCon, Constants.PubSubCommand.searchTopic.toString(),
@@ -1063,10 +1087,11 @@ public class PubSubManager {
    * @param topic A topic object.
    * @return The topic information.
    * @throws TopicNotFoundException
+   * @throws TopicPermissionException
    * @throws MMXException
    */
   public MMXTopicInfo getTopic(MMXTopic topic)
-                              throws TopicNotFoundException, MMXException {
+      throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
@@ -1086,6 +1111,41 @@ public class PubSubManager {
       if (e.getCode() == StatusCode.FORBIDDEN) {
         throw new TopicPermissionException(e.getMessage());
       }
+      throw e;
+    } catch (Throwable e) {
+      throw new MMXException(e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Get topic information by topic names.  If a topic in the request list
+   * cannot be retrieved, a null will be set in the returning list.
+   * @param topics A list of topic names.
+   * @return A list of topic info.
+   * @throws MMXException
+   */
+  public List<MMXTopicInfo> getTopics(List<MMXTopic> topics) throws MMXException {
+    List<MMXTopicId> rqt = new ArrayList<MMXTopicId>(topics.size());
+    for (MMXTopic topic : topics) {
+      if (topic instanceof MMXPersonalTopic) {
+        ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+      }
+      String topicName = TopicHelper.normalizePath(topic.getName());
+      rqt.add(new MMXTopicId(topic.getUserId(), topicName));
+    }
+
+    List<MMXTopicInfo> res = new ArrayList<MMXTopicInfo>(topics.size());
+    PubSubIQHandler<List<MMXTopicId>, GetTopicsResponse> iqHandler =
+        new PubSubIQHandler<List<MMXTopicId>, GetTopicsResponse>();
+    try {
+      iqHandler.sendGetIQ(mCon, Constants.PubSubCommand.getTopics.toString(),
+          rqt, GetTopicsResponse.class, iqHandler);
+      GetTopicsResponse resp = iqHandler.getResult();
+      for (TopicInfo info : resp) {
+        res.add((info == null) ? null : toTopicInfo(info));
+      }
+      return res;
+    } catch (MMXException e) {
       throw e;
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);

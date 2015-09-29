@@ -15,41 +15,6 @@
 
 package com.magnet.mmx.client;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.location.Location;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.HandlerThread;
-
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
-import com.google.android.gms.location.LocationServices;
-import com.magnet.mmx.client.common.*;
-import com.magnet.mmx.protocol.AuthData;
-import com.magnet.mmx.protocol.CarrierEnum;
-import com.magnet.mmx.protocol.Constants;
-import com.magnet.mmx.protocol.DevReg;
-import com.magnet.mmx.protocol.GeoLoc;
-import com.magnet.mmx.protocol.MMXError;
-import com.magnet.mmx.protocol.MMXStatus;
-import com.magnet.mmx.protocol.MMXTopic;
-import com.magnet.mmx.protocol.OSType;
-import com.magnet.mmx.protocol.PushType;
-import com.magnet.mmx.protocol.UserInfo;
-import com.magnet.mmx.util.DefaultEncryptor;
-
-import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
-import org.jivesoftware.smack.SmackAndroid;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -60,7 +25,6 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -70,6 +34,47 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
+import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.jivesoftware.smack.SmackAndroid;
+
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
+import com.magnet.mmx.client.common.DeviceManager;
+import com.magnet.mmx.client.common.Invitation;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXConnection;
+import com.magnet.mmx.client.common.MMXContext;
+import com.magnet.mmx.client.common.MMXErrorMessage;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXMessage;
+import com.magnet.mmx.client.common.MMXMessageListener;
+import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MMXSettings;
+import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.AuthData;
+import com.magnet.mmx.protocol.CarrierEnum;
+import com.magnet.mmx.protocol.Constants;
+import com.magnet.mmx.protocol.DevReg;
+import com.magnet.mmx.protocol.MMXError;
+import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.OSType;
+import com.magnet.mmx.protocol.PushType;
+import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.util.DefaultEncryptor;
 
 /**
  * The primary entry point for interacting with MMX.  The named MMXClient instances are
@@ -340,7 +345,7 @@ public final class MMXClient {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onMessageAccepted() start; recipeint="+recipient+", msgID="+msgId);
       }
-      // TODO: a server ack is received.
+      notifyMessageAccepted(recipient, msgId);
     }
     
     public void onMessageFailed(String msgId) {
@@ -460,6 +465,18 @@ public final class MMXClient {
       throw new IllegalArgumentException("The supplied MMXClientConfig does not specify the " +
               "host or port.  host=" + newConfig.getHost() + ", port=" + newConfig.getPort());
     }
+    SecurityLevel sec = newConfig.getSecurityLevel();
+    if (sec != SecurityLevel.STRICT) {
+      Log.w(TAG, "WARNING!!!  The security level is NOT set to STRICT.  Security level = " + sec);
+      if (sec == SecurityLevel.RELAXED) {
+        Log.w(TAG, "WARNING!!!  Even though this connection will be over SSL, this security level bypasses " +
+                "certain security checks related to hostname verification and certificate verification.  " +
+                "This is a potential security risk and should only be used for non-production environments.");
+      } else {
+        Log.w(TAG, "WARNING!!!  This security level does not enforce any TLS.  This is a potential security risk " +
+                "and should only be used for non-production environments.");
+      }
+    }
     mSettings = buildConnectionSettings(newConfig);
     mConfig = newConfig;
 
@@ -565,7 +582,7 @@ public final class MMXClient {
     if (mConnection == null) {
       throw new MMXException("Not connecting to MMX server");
     }
-    mConnection.setMessageFlow(-1);
+    mConnection.setPriority(MMXConnection.NOT_AVAILABLE);
   }
   
   /**
@@ -576,7 +593,7 @@ public final class MMXClient {
     if (mConnection == null) {
       throw new MMXException("Not connecting to MMX server");
     }
-    mConnection.setMessageFlow(0);
+    mConnection.setPriority(0);
   }
 
   /**
@@ -762,11 +779,10 @@ public final class MMXClient {
       SSLContext sslContext = getSSLContextOverride();
       try {
         mConnection.connect(new MMXConnectionListener(), verifier,
-                getSocketFactoryOverride(), sslContext,
-                mConnectionOptions.isSuspendDelivery());
+                getSocketFactoryOverride(), sslContext);
 
         if ((connectionInfo.authMode & MMXConnection.AUTH_ANONYMOUS) != 0) {
-          mConnection.loginAnonymously();
+          mConnection.loginAnonymously(mConnectionOptions.isSuspendDelivery());
         } else {
           if (connectionInfo.username == null) {
             //anonymous has a generated username/password
@@ -778,8 +794,12 @@ public final class MMXClient {
               Log.d(TAG, "ConnectionRunnable: Attempting login with " + username
                       + ", resource=" + deviceId + ", authMode=" + connectionInfo.authMode);
             }
+
+            // Explicitly enable the message flow.
+            int noDelivery = mConnectionOptions.isSuspendDelivery() ?
+                MMXConnection.NO_DELIVERY_ON_LOGIN : 0;
             mConnection.authenticate(username, connectionInfo.password, deviceId,
-                    connectionInfo.authMode);
+                    connectionInfo.authMode|noDelivery);
           }
         }
       } catch (Exception e) {
@@ -1099,6 +1119,21 @@ public final class MMXClient {
     }
   }
 
+  private void notifyMessageAccepted(final MMXid recipient, final String messageId) {
+    synchronized (this) {
+      mMessagingHandler.post(new Runnable() {
+        public void run() {
+          try {
+            mMMXListener.onMessageAccepted(MMXClient.this, recipient, messageId);
+          } catch (Exception ex) {
+            Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+                "the callback", ex);
+          }
+        }
+      });
+    }
+  }
+  
   /**
    * Register with the gcm service.  This will retrieve the gcm token if it doesn't already
    * exist.
@@ -1168,6 +1203,23 @@ public final class MMXClient {
                 }
               }
             }
+          } else {
+            // Provide better diagnostic why MMX Wakeup is not working.
+            int i = 0;
+            StringBuilder sb = new StringBuilder("MMX Wakeup is disabled:");
+            if (!connectionInfo.isGcmWakeupEnabled) {
+              sb.append(i==0?" ":", ").append("GCM Wakeup is explicitly disabled in the config");
+              ++i;
+            }
+            if (playServicesResult != ConnectionResult.SUCCESS) {
+              sb.append(i==0?" ":", ").append(GooglePlayServicesUtil.getErrorString(playServicesResult));
+              ++i;
+            }
+            if (gcmSenderId == null || gcmSenderId.isEmpty()) {
+              sb.append(i==0?" ":", ").append("GCM Sender ID is not specified");
+              ++i;
+            }
+            Log.w(TAG, sb.toString());
           }
 
           //Register this device with MMX server.
@@ -1544,138 +1596,6 @@ public final class MMXClient {
     @Override
     public Socket createSocket(InetAddress inetAddress, int i, InetAddress inetAddress2, int i2) throws IOException {
       return mBaseFactory.createSocket(inetAddress, i, inetAddress2, i2);
-    }
-  }
-
-  /**
-   * Publishes the current location to the user's built-in topic.
-   * Uses play services to determine location.  The application must declare
-   * the location permissions in order to use this method (these are automatically added
-   * when using the gradle build).
-   *
-   * <code><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/></code>
-   * <code><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/></code>
-   *
-   * Note:  This method is not blocking and will execute the publish location request when available.
-   * The location is timestamped at the time of the publishLocation() call.
-   *
-   * @return false if Google Play Services is unavailable.  True if the publish call is submitted successfully
-   */
-  public boolean updateLocation() {
-    if (playServicesConnected()) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          MMXPlayServicesCallback callback = new MMXPlayServicesCallback();
-          GoogleApiClient googleApiClient = new GoogleApiClient.Builder(mContext)
-                  .addApi(LocationServices.API)
-                  .addConnectionCallbacks(callback)
-                  .addOnConnectionFailedListener(callback).build();
-          googleApiClient.connect();
-          synchronized (callback) {
-            try {
-              callback.wait(5000);
-              if (callback.mIsConnected) {
-                Location currentLocation = LocationServices.FusedLocationApi.getLastLocation(googleApiClient);
-                if (currentLocation == null) {
-                  Log.e(TAG, "publishLocation(): Unable to retrieve location from locationClient.  " +
-                          "Ensure that the proper permissions(android.permission.ACCESS_COARSE_LOCATION, " +
-                          "android.permission.ACCESS_FINE_LOCATION) have been declared in the " +
-                          "AndroidManifest.xml file.  Skipping...");
-                } else {
-                  Date locationDate = new Date(currentLocation.getTime());
-                  if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "publishLocation(): location "+
-                          "  lat=" + currentLocation.getLatitude() +
-                          ", long=" + currentLocation.getLongitude() +
-                          ", accuracy=" + currentLocation.getAccuracy() +
-                          ", provider=" + currentLocation.getProvider() +
-                          ", time=" + locationDate);
-                  }
-                  GeoLoc geo = new GeoLoc();
-                  geo.setAccuracy((int) currentLocation.getAccuracy());
-                  geo.setLat((float) currentLocation.getLatitude());
-                  geo.setLng((float) currentLocation.getLongitude());
-                  String publishedId = MMXGeoLogger.updateGeoLocation(MMXClient.this, geo);
-                  if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "publishLocation(): completed.  id=" + publishedId);
-                  }
-                }
-              } else {
-                Log.w(TAG, "publishLocation(): unable to connection location client");
-              }
-            } catch (InterruptedException e) {
-              Log.e(TAG, "publishLocation(): caught exception waiting for location client", e);
-            } catch (MMXException e) {
-              Log.e(TAG, "publishLocation(): caught exception while publishing location", e);
-            } finally {
-              googleApiClient.disconnect();
-            }
-          }
-        }
-      });
-      return true;
-    } else {
-      Log.e(TAG, "publishLocation(): Unable to publish location because play services is not available.");
-      return false;
-    }
-  }
-
-  private boolean playServicesConnected() {
-    // Check that Google Play services is available
-    int resultCode =
-            GooglePlayServicesUtil.
-                    isGooglePlayServicesAvailable(mContext);
-    // If Google Play services is available
-    if (ConnectionResult.SUCCESS == resultCode) {
-      // In debug mode, log the status
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "playServicesConnected():  Google Play services is available.");
-      }
-      // Continue
-      return true;
-      // Google Play services was not available for some reason.
-      // resultCode holds the error code.
-    } else {
-      // log an error
-      Log.e(TAG, "playServicesConnected(): Google Play services is NOT AVAILABLE.");
-      return false;
-    }
-  }
-
-  private static class MMXPlayServicesCallback implements
-          GoogleApiClient.ConnectionCallbacks,
-          GoogleApiClient.OnConnectionFailedListener {
-    private static final String TAG = MMXPlayServicesCallback.class.getSimpleName();
-    private boolean mIsConnected = false;
-
-    public void onConnected(Bundle bundle) {
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onConnected(): start");
-      }
-      synchronized (this) {
-        mIsConnected = true;
-        this.notify();
-      }
-    }
-
-    public void onConnectionSuspended(int i) {
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onConnectionSuspended(): start");
-      }
-      synchronized (this) {
-        mIsConnected = false;
-        this.notify();
-      }
-    }
-
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onConnectionFailed(): start");
-      }
-      synchronized (this) {
-        mIsConnected = false;
-        this.notify();
-      }
     }
   }
 

@@ -44,6 +44,7 @@ public class MMXClient implements IMMXClient {
   private MMXSettings mSettings;
   private MMXConnection mCon;
   private boolean mDevReg;
+  private int mPriority;
   private MMXConnectionListener mConListener;
 
   private MMXConnectionListener mConHandler = new MMXConnectionListener() {
@@ -98,6 +99,50 @@ public class MMXClient implements IMMXClient {
   };
   
   /**
+   * Connection options.
+   */
+  public static class MMXConnectionOptions {
+    private boolean mAutoCreate;
+    private boolean mSuspendDelivery;
+    
+    /**
+     * Check if auto account creation is enabled.
+     * @return true if auto account creation is enabled; otherwise, false.
+     */
+    public boolean isAutoCreate() {
+      return mAutoCreate;
+    }
+    
+    /**
+     * Option to create an account if it does not exist.
+     * @param autoCreate
+     * @return This object.
+     */
+    public MMXConnectionOptions setAutoCreate(boolean autoCreate) {
+      mAutoCreate = autoCreate;
+      return this;
+    }
+    
+    /**
+     * Check if suspend delivery is enabled.
+     * @return true if suspend delivery is enabled; otherwise, false.
+     */
+    public boolean isSuspendDelivery() {
+      return mSuspendDelivery;
+    }
+    
+    /**
+     * Option to suspend delivering off-line messages when login is success.
+     * @param suspendDelivery
+     * @return This object.
+     */
+    public MMXConnectionOptions setSuspendDelivery(boolean suspendDelivery) {
+      mSuspendDelivery = suspendDelivery;
+      return this;
+    }
+  }
+  
+  /**
    * Constructor with a context which must have a unique resource ID.
    *
    * The minimum settings are
@@ -134,33 +179,35 @@ public class MMXClient implements IMMXClient {
   }
   
   /**
-   * Connect and authenticate to the MMX server.
+   * Connect and authenticate to the MMX server.  Once the connection is
+   * established and authenticated, all off-line messages will be delivered to
+   * this client automatically unless 
+   * {@link MMXConnectionOptions#setSuspendDelivery(boolean)} is set.
    * @param user The user ID.
    * @param passwd The user password.
    * @param conListener A non-null listener for connection and authentication.
    * @param msgListener A non-null Listener for asynchronous messages.
-   * @param autoCreate Create the account if it does not exist.
+   * @param options Connection options, or null.
    * @throws MMXException Connection or authentication failure.
    * @throws IllegalArgumentException Null listener is specified.
    */
   public void connect(String user, byte[] passwd,
           MMXConnectionListener conListener, MMXMessageListener msgListener,
-          boolean autoCreate) throws MMXException {
-    connect(user, new String(passwd), conListener, msgListener, 
-        autoCreate ? MMXConnection.AUTH_AUTO_CREATE : 0);
+          MMXConnectionOptions options) throws MMXException {
+    connect(user, new String(passwd), conListener, msgListener, options);
   }
   
   /**
-   * Connect anonymously. 
-   * If the anonymous account does not exist, it 
-   * will be created automatically.  Only one anonymous connection per client
-   * is allowed and MMXSettings.PROP_ENABLE_AGENT_MODE must be false.
+   * Connect anonymously. If the anonymous account does not exist, it 
+   * will be created automatically.  Once the connection is established
+   * successfully, all off-line messages will be delivered to this client.
+   * Connection options is not supported yet.
    * @param conListener A non-null listener for connection and authentication.
    * @param msgListener A non-null listener for asynchronous messages.
    * @throws MMXException Connection or authentication failure.
    * @throws IllegalArgumentException Null listener is specified.
    */
-  public void connectAnonymously( 
+  public void connectAnonymously(
           MMXConnectionListener conListener, MMXMessageListener msgListener) 
               throws MMXException {
     if (conListener == null) {
@@ -172,17 +219,18 @@ public class MMXClient implements IMMXClient {
     
     mConListener = conListener;
     mCon.setMessageListener(msgListener);
-    if (!mCon.isConnected())
-      mCon.connect(mConHandler);
+    if (!mCon.isConnected()) {
+      mCon.connect(mConHandler, null, null, null);
+    }
     if (mCon.isAuthenticated() || mCon.isAnonymous()) {
       throw new MMXException("Current session is still alive");
     }
-    mCon.loginAnonymously();
+    mCon.loginAnonymously(false);
   }
   
   private void connect(String user, String passwd,
-      MMXConnectionListener conListener,
-      MMXMessageListener msgListener, int flags) throws MMXException {
+      MMXConnectionListener conListener, MMXMessageListener msgListener,
+      MMXConnectionOptions options) throws MMXException {
     if (conListener == null) {
       throw new IllegalArgumentException("Connection listener cannot be null");
     }
@@ -190,10 +238,18 @@ public class MMXClient implements IMMXClient {
       throw new IllegalArgumentException("Message listener cannot be null.");
     }
     
+    int flags = 0;
+    if (options != null) {
+      if (options.isAutoCreate())
+        flags |= MMXConnection.AUTH_AUTO_CREATE;
+      if (options.isSuspendDelivery())
+        flags |= MMXConnection.NO_DELIVERY_ON_LOGIN;
+    }
+    
     mConListener = conListener;
     mCon.setMessageListener(msgListener);
     if (!mCon.isConnected()) {
-      mCon.connect(mConHandler);
+      mCon.connect(mConHandler, null, null, null);
     }
     
     // If authentication is success, register a device without push registration.
@@ -294,37 +350,44 @@ public class MMXClient implements IMMXClient {
   
   /**
    * Inform the MMX server to suspend delivering messages to this client.
-   * This is same as calling {@link #setPriority(int)} with -1 priority.
+   * It saves the current priority and set the client to unavailable.
    * @throws MMXException Not connecting to MMX server.
    */
   public void suspendDelivery() throws MMXException {
     if (!mCon.isConnected())
       throw new MMXException("Not connecting to MMX server");
-    mCon.setMessageFlow(-1);
+    if (mCon.getPriority() != MMXConnection.NOT_AVAILABLE) {
+      mPriority = mCon.setPriority(MMXConnection.NOT_AVAILABLE);
+    }
   }
 
   /**
    * Inform the MMX server to resume delivering messages to this client.
-   * This is same as calling {@link #setPriority(int)} with 0 priority.
+   * It will restore the priority from {@link #suspendDelivery()}.
    * @throws MMXException Not connecting to MMX server.
    */
   public void resumeDelivery() throws MMXException {
     if (!mCon.isConnected())
       throw new MMXException("Not connecting to MMX server");
-    mCon.setMessageFlow(0);
+    if (mCon.getPriority() != mPriority) {
+      mCon.setPriority(mPriority);
+    }
   }
 
   /**
-   * Set the priority of this client.  Messages are sent to the highest priority
-   * client first.  Any clients with priority below 0 will not receive any
-   * messages.
+   * Set the priority of this client for receiving the incoming messages.
+   * Messages targeting to a user with priority between -128 and -1 will not be
+   * delivered.  However, messages target to an end-point will be delivered
+   * if its priority is between -128 and 128. 
    * @param priority Value between -128 and 128.
    * @throws MMXException Not connecting to MMX server.
    */
   public void setPriority(int priority) throws MMXException {
+    if (priority < -128 || priority > 128)
+      throw new IllegalArgumentException("Invalid priority value: "+priority);
     if (!mCon.isConnected())
       throw new MMXException("Not connecting to MMX server");
-    mCon.setMessageFlow(priority);
+    mCon.setPriority(mPriority = priority);
   }
   
   /**
@@ -369,8 +432,4 @@ public class MMXClient implements IMMXClient {
   public DeviceManager getDeviceManager() throws MMXException {
     return DeviceManager.getInstance(mCon);
   }
-  
-//  public SessionManager getSessionManager() {
-//    return SessionManager.getInstance(mCon);
-//  }
 }

@@ -14,20 +14,6 @@
  */
 package com.magnet.mmx.client.api;
 
-import com.magnet.mmx.client.MMXAccountManager;
-import com.magnet.mmx.client.MMXClient;
-import com.magnet.mmx.client.MMXClientConfig;
-import com.magnet.mmx.client.MMXTask;
-import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.client.common.MMXException;
-import com.magnet.mmx.client.common.MMXid;
-import com.magnet.mmx.protocol.SearchAction;
-import com.magnet.mmx.protocol.UserInfo;
-import com.magnet.mmx.protocol.UserQuery;
-import com.magnet.mmx.util.XIDUtil;
-
-import org.json.JSONObject;
-
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -36,9 +22,25 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLHandshakeException;
+
+import org.json.JSONObject;
+
+import com.magnet.mmx.client.MMXAccountManager;
+import com.magnet.mmx.client.MMXClient;
+import com.magnet.mmx.client.MMXClientConfig;
+import com.magnet.mmx.client.MMXTask;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.SearchAction;
+import com.magnet.mmx.protocol.StatusCode;
+import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.protocol.UserQuery;
+import com.magnet.mmx.util.XIDUtil;
 
 /**
  * The MMXUser class
@@ -50,15 +52,51 @@ public class MMXUser {
    * Failure codes for the MMXUser class.
    */
   public static class FailureCode extends MMX.FailureCode {
-    public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101);
-    public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102);
-
-    FailureCode(int value) {
-      super(value);
+    public static final FailureCode REGISTRATION_INVALID_USERNAME = new FailureCode(101, "REGISTRATION_INVALID_USERNAME");
+    public static final FailureCode REGISTRATION_USER_ALREADY_EXISTS = new FailureCode(102, "REGISTRATION_USER_ALREADY_EXISTS");
+    public static final FailureCode REGISTRATION_NO_DISPLAY_NAME = new FailureCode(103, "REGISTRATION_NO_DISPLAY_NAME"); 
+    public static final FailureCode NOT_AUTHORIZED = new FailureCode(StatusCode.UNAUTHORIZED, "NOT_AUTHORIZED");
+    public static final FailureCode USER_NOT_FOUND = new FailureCode(StatusCode.NOT_FOUND, "USER_NOT_FOUND");
+    
+    FailureCode(int value, String description) {
+      super(value, description);
     }
 
+    FailureCode(MMX.FailureCode code) { super(code); };
+
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      return new FailureCode(code.getValue());
+      if (throwable instanceof MMXException) {
+        return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
+      } else {
+        return new FailureCode(code);
+      }
+    }
+  }
+  
+  /**
+   * Exception for a group of invalid users.  This exception is returned if the
+   * recipients of a message are invalid.
+   */
+  public static class InvalidUserException extends MMXException {
+    private String mMsgId;
+    private Set<MMXUser> mUsers = new HashSet<MMXUser>();
+    
+    public InvalidUserException(String msg, String messageId) {
+      super(msg, StatusCode.NOT_FOUND);
+      mMsgId = messageId;
+    }
+    
+    public String getMessageId() {
+      return mMsgId;
+    }
+    
+    public InvalidUserException addUser(MMXUser user) {
+      mUsers.add(user);
+      return this;
+    }
+    
+    public Set<MMXUser> getUsers() {
+      return mUsers;
     }
   }
 
@@ -177,7 +215,11 @@ public class MMXUser {
   }
 
   /**
-   * Register a user with the specified username and password
+   * Register a user with the specified username and password.  If the display
+   * name is not set, it will be populated with the username and it can be
+   * updated by {@link #changeDisplayName(String, OnFinishedListener)}.  Possible
+   * failure codes are: {@link FailureCode#REGISTRATION_INVALID_USERNAME},
+   * {@link FailureCode#REGISTRATION_USER_ALREADY_EXISTS}.
    *
    * @param password the password
    * @param listener the listener, true for success, false otherwise
@@ -188,7 +230,10 @@ public class MMXUser {
       @Override
       public Integer doRun(MMXClient mmxClient) throws Throwable {
         if (!XIDUtil.validateUserId(getUsername())) {
-          throw new IllegalArgumentException("Username is invalid"); //FIXME:  Change this to a custom-type
+          throw new MMXException("Username is invalid", FailureCode.REGISTRATION_INVALID_USERNAME.getValue());
+        }
+        if (mDisplayName == null || mDisplayName.isEmpty()) {
+          displayName(getUsername());
         }
         Log.d(TAG, "register(): begin");
         MMXClientConfig config = MMX.getMMXClient().getConnectionInfo().clientConfig;
@@ -241,36 +286,42 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        FailureCode code = FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR, exception);
-        if (exception != null) {
-          if (exception instanceof SSLHandshakeException) {
-            Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
-                    "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
-                    "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
-            code = FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_CONNECTION_FAILED, exception);
-          } else if (exception instanceof IllegalArgumentException) {
-            code = FailureCode.REGISTRATION_INVALID_USERNAME;
-          } else if (exception instanceof MMXException) {
-            Log.d(TAG, "register(): exception caught", exception);
-            code = FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception);
-          }
+        if (listener == null) {
+          return;
+        }
+        FailureCode code;
+        if (exception instanceof SSLHandshakeException) {
+          Log.e(TAG, "register: SSLHandshake exception.  This is most likely because SecurityLevel " +
+                  "is configured RELAXED or STRICT but the RESTport is configured as the non-SSL-enabled " +
+                  "port.  Typically the non-SSL RESTport is 5220 and the SSL-enabled RESTport is 5221.");
+          code = FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVICE_UNAVAILABLE, exception);
+        } else {
+          Log.d(TAG, "register(): exception caught", exception);
+          code = FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, exception);
         }
         listener.onFailure(code, exception);
       }
 
       @Override
       public void onResult(Integer result) {
+        if (listener == null) {
+          return;
+        }
         Log.d(TAG, "register(): result=" + result);
         switch (result) {
           case 201:
             //success
             listener.onSuccess(null);
             break;
+          case 400:
+            // most likely that username is too short
+            listener.onFailure(FailureCode.REGISTRATION_INVALID_USERNAME, null);
+            break;
           case 409:
             listener.onFailure(FailureCode.REGISTRATION_USER_ALREADY_EXISTS, null);
             break;
           default:
-            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_BAD_STATUS, null), null);
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
             break;
         }
       }
@@ -279,15 +330,28 @@ public class MMXUser {
   }
 
   /**
-   * Change the current logged-in user's password
+   * Change the current logged-in user's password.  The password cannot be null.
+   * Possible failure codes: FailureCode#BAD_REQUEST,
+   * {@link FailureCode#NOT_AUTHORIZED}.
    *
    * @param newPassword the new password
+   * @param listener the listener for the task of changing password
+   * @see MMX#getCurrentUser()
    */
   public void changePassword(final byte[] newPassword,
                              final OnFinishedListener<Void> listener) {
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
+        // The current user object may not be same as "MMXUser.this" object.
+        if (!MMXUser.this.equals(MMX.getCurrentUser())) {
+          throw new MMXException("Must be the logged-in user to change the password",
+              FailureCode.NOT_AUTHORIZED.getValue());
+        }
+        if (newPassword == null) {
+          throw new MMXException("Password cannot be null",
+              FailureCode.BAD_REQUEST.getValue());
+        }
         mmxClient.getAccountManager().changePassword(new String(newPassword));
         return null;
       }
@@ -295,7 +359,9 @@ public class MMXUser {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_EXCEPTION, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        } else {
+          Log.e(TAG, "Failed to change password", exception);
         }
       }
 
@@ -308,21 +374,92 @@ public class MMXUser {
     };
     task.execute();
   }
-
+  
   /**
-   * Finds users whose display name starts with the specified text
+   * Change the current logged-in user's display name.  The display name cannot
+   * be null or empty.  Possible failure codes: FailureCode#BAD_REQUEST,
+   * {@value FailureCode#NOT_AUTHORIZED}
+   * 
+   * @param newDisplayName the new display name
+   * @param listener the listener for the task of changing the display name
+   * @see MMX#getCurrentUser()
+   */
+  public void changeDisplayName(final String newDisplayName,
+                                final OnFinishedListener<Void> listener) {
+    MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public Void doRun(MMXClient mmxClient) throws Throwable {
+        // The current user object may not be same as "MMXUser.this" object.
+        if (!MMXUser.this.equals(MMX.getCurrentUser())) {
+          throw new MMXException("Must be the logged-in user to change the display name",
+              FailureCode.NOT_AUTHORIZED.getValue());
+        }
+        if (newDisplayName == null || newDisplayName.isEmpty()) {
+          throw new MMXException("Display name cannot be null or empty",
+              FailureCode.BAD_REQUEST.getValue());
+        }
+        // Only update the display name; other info will not be affected.
+        UserInfo info = new UserInfo().setDisplayName(newDisplayName);
+        mmxClient.getAccountManager().updateAccount(info);
+        MMX.getCurrentUser().mDisplayName = mDisplayName = newDisplayName;
+        return null;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        } else {
+          Log.e(TAG, "Failed to change display name", exception);
+        }
+      }
+
+      @Override
+      public void onResult(Void result) {
+        if (listener != null) {
+          listener.onSuccess(result);
+        }
+      }
+    };
+    task.execute();
+  }
+  
+  /**
+   * Find users whose display name starts with the specified text.  If the user
+   * does not have a display name, the user cannot be found.  Although display 
+   * name is optional during the new user registration, it is very useful
+   * to have the display name set {@link Builder#displayName(String)}.
    *
    * @param startsWith the search string
    * @param limit the maximum number of users to return
    * @param listener listener for success or failure
+   * @deprecated {@link #findByDisplayName(String, int, int, OnFinishedListener)}
    */
+  @Deprecated
   public static void findByName(final String startsWith, final int limit,
-                                      final OnFinishedListener<ListResult<MMXUser>> listener) {
+      final OnFinishedListener<ListResult<MMXUser>> listener) {
+    findByDisplayName(startsWith, 0, limit, listener);
+  }
+
+  /**
+   * Find users whose display name starts with the specified text.  If the user
+   * does not have a display name, the user cannot be found.
+   *
+   * @param startsWith the search string
+   * @param offset the offset of users to return
+   * @param limit the maximum number of users to return
+   * @param listener listener for success or failure
+   */
+  public static void findByDisplayName(final String startsWith, final int offset, final int limit,
+                                  final OnFinishedListener<ListResult<MMXUser>> listener) {
     MMXTask<ListResult<MMXUser>> task = new MMXTask<ListResult<MMXUser>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXUser> doRun(MMXClient mmxClient) throws Throwable {
+        if (startsWith == null || startsWith.isEmpty()) {
+          throw new MMXException("Search string cannot be null or empty", FailureCode.BAD_REQUEST.getValue());
+        }
         UserQuery.Search search = new UserQuery.Search().setDisplayName(startsWith, SearchAction.Match.PREFIX);
-        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, limit);
+        UserQuery.Response response = mmxClient.getAccountManager().searchBy(SearchAction.Operator.AND, search, offset, limit);
         List<UserInfo> userInfos = response.getUsers();
         ArrayList<MMXUser> resultList = new ArrayList<MMXUser>();
         for (UserInfo userInfo : userInfos) {
@@ -334,7 +471,7 @@ public class MMXUser {
       @Override
       public void onException(Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
         }
       }
 
@@ -349,14 +486,81 @@ public class MMXUser {
   }
 
   /**
-   * Retrieve the MMXUser objects or the specified set of usernames.  This is an case-insensitive
-   * exact-match search.
+   * Retrieve the MMXUser objects by the specified set of usernames.  The
+   * usernames are case-insensitive.
    *
    * @param usernames the usernames to lookup
    * @param listener the listener for the results of this operation
+   * @see #getUsername()
+   * @deprecated {@link #getUsers(Set, OnFinishedListener)}
    */
+  @Deprecated
   public static void findByNames(final HashSet<String> usernames,
-                                 final OnFinishedListener<HashMap<String, MMXUser>> listener) {
+      final OnFinishedListener<HashMap<String, MMXUser>> listener) {
+    final OnFinishedListener<Map<String, MMXUser>> newListener = 
+        new OnFinishedListener<Map<String, MMXUser>>() {
+          @Override
+          public void onSuccess(Map<String, MMXUser> result) {
+            listener.onSuccess((HashMap<String, MMXUser>) result);
+          }
+          @Override
+          public void onFailure(FailureCode code, Throwable throwable) {
+            listener.onFailure(code, throwable);
+          }
+      };
+    getUsers(usernames, newListener);
+  }
+  
+  /**
+   * Get the MMXUser object by the username.  The username is case-insensitive.
+   * Possible failure code: {@link FailureCode#USER_NOT_FOUND.
+   *
+   * @param username the username to lookup
+   * @param listener the listener for the results of this operation
+   * @see #getUsername()
+   */
+  public static void getUser(final String username,
+                                final OnFinishedListener<MMXUser> listener) {
+    MMXTask<UserInfo> task = new MMXTask<UserInfo>(MMX.getMMXClient(), MMX.getHandler()) {
+      @Override
+      public UserInfo doRun(MMXClient mmxClient) throws Throwable {
+        HashSet<String> usernames = new HashSet<String>(1);
+        usernames.add(username);
+        MMXAccountManager am = mmxClient.getAccountManager();
+        UserInfo info = am.getUserInfo(usernames).get(username);
+        if (info == null) {
+          throw new MMXException("No such user: "+username, FailureCode.USER_NOT_FOUND.getValue());
+        }
+        return info;
+      }
+
+      @Override
+      public void onException(Throwable exception) {
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
+      }
+
+      @Override
+      public void onResult(UserInfo result) {
+        if (listener != null) {
+          listener.onSuccess(fromUserInfo(result));
+        }
+      }
+    };
+    task.execute();
+  }
+  
+  /**
+   * Get the MMXUser objects by a set of usernames.  The usernames are
+   * case-insensitive.
+   *
+   * @param usernames the usernames to lookup
+   * @param listener the listener for the results of this operation
+   * @see #getUsername()
+   */
+  public static void getUsers(final Set<String> usernames,
+                                 final OnFinishedListener<Map<String, MMXUser>> listener) {
     MMXTask<Map<String, UserInfo>> task =
             new MMXTask<Map<String, UserInfo>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -367,11 +571,16 @@ public class MMXUser {
 
       @Override
       public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.SERVER_EXCEPTION, exception), exception);
+        if (listener != null) {
+          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+        }
       }
 
       @Override
       public void onResult(Map<String, UserInfo> result) {
+        if (listener == null) {
+          return;
+        }
         HashMap<String, MMXUser> results = new HashMap<String, MMXUser>();
         for (Map.Entry<String, UserInfo> entry : result.entrySet()) {
           results.put(entry.getKey(), fromUserInfo(entry.getValue()));
@@ -380,6 +589,17 @@ public class MMXUser {
       }
     };
     task.execute();
+  }
+  
+  /**
+   * Get all users with pagination support.
+   * @param offset the offset of users to return
+   * @param limit the maximum number of users to return
+   * @param listener listener for success or failure
+   */
+  public static void getAllUsers(int offset, int limit,
+                      final OnFinishedListener<ListResult<MMXUser>> listener) {
+    findByDisplayName("%", offset, limit, listener);
   }
 
   static MMXUser fromUserInfo(UserInfo userInfo) {
@@ -417,12 +637,23 @@ public class MMXUser {
     return mUsername.hashCode();
   }
 
+  @Override
+  public String toString() {
+    return "[name="+mUsername+", display="+mDisplayName+"]";
+  }
+  
   /**
    * Validates the specified userId.  Returns true for a valid userId.
    * @param userId the user id to validate
    * @return true if valid, false otherwise
+   * @deprecated {@link #isValidUsername(String)}
    */
   public static boolean isValidUserId(String userId) {
-    return XIDUtil.validateUserId(userId);
+    return isValidUsername(userId);
+  }
+  
+  public static boolean isValidUsername(String username) {
+    return XIDUtil.validateUserId(username);
+
   }
 }

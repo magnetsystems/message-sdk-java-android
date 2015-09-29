@@ -60,15 +60,7 @@ public class MMXGeoLogger {
       public MessageManager getMessageManager() throws MMXException {
         throw new RuntimeException("Not yet implemented.");
       }
-
-      public void suspendDelivery() throws MMXException {
-        client.suspendDelivery();
-      }
-
-      public void resumeDelivery() throws MMXException {
-        client.resumeDelivery();
-      }
-
+      
       public MMXid getClientId() throws MMXException {
         return client.getClientId();
       }

@@ -15,37 +15,18 @@
 
 package com.magnet.mmx.client.common;
 
+import com.magnet.mmx.protocol.StatusCode;
+
 /**
  * The general exception for MMX.
  */
-public class MMXException extends Exception {
+public class MMXException extends Exception implements StatusCode {
   private static final long serialVersionUID = -4946667362526327456L;
-  /**
-   * The request has malformed data.
-   */
-  public final static int BAD_REQUEST = 400;
-  /**
-   * Unauthorized access.
-   */
-  public final static int UNAUTHORIZED = 401;
-  /**
-   * Resource is not found.
-   */
-  public final static int NOT_FOUND = 404;
-  /**
-   * The request is too large.
-   */
-  public final static int REQUEST_TOO_LARGE = 413;
-  /**
-   * This feature is not implemented.
-   */
-  public final static int NOT_IMPLEMENTED = 501;
-
   private int mCode;
 
   /**
    * @hide
-   * Constructor with a message.
+   * Constructor with a message with {@link StatusCode#UNKNOWN} status code.
    * @param msg A message.
    */
   public MMXException(String msg) {
@@ -54,7 +35,7 @@ public class MMXException extends Exception {
 
   /**
    * @hide
-   * Constructor with a cause.
+   * Constructor with a cause with {@link StatusCode#UNKNOWN} status code.
    * @param cause A lower level exception.
    */
   public MMXException(Throwable cause) {
@@ -96,7 +77,7 @@ public class MMXException extends Exception {
 
   /**
    * Return the status code for this exception.
-   * @return The statuc code.
+   * @return The status code.
    */
   public int getCode() {
     return mCode;

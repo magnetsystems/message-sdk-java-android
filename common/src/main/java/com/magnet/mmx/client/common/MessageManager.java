@@ -427,7 +427,6 @@ public class MessageManager {
    * @param options Send options or null.
    * @return A unique message ID.
    * @throws MMXException
-   * @see IMMXClient#makeXID(String, String)
    */
   public String sendPayload(MMXid[] to, MMXPayload payload,
                              Options options) throws MMXException {
@@ -446,9 +445,7 @@ public class MessageManager {
    * @param options Send options or null.
    * @return A unique message ID.
    * @throws MMXException
-   * @see {@link IMMXClient#genId()}
    * @see {@link MMXConnection#genId()}
-   * @see IMMXClient#makeXID(String, String)
    */
   public String sendPayload(String msgId, MMXid[] to, MMXPayload payload,
                             Options options) throws MMXException {

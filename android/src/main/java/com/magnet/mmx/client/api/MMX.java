@@ -14,24 +14,45 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.jivesoftware.smack.packet.XMPPError;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
 import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
-import com.magnet.mmx.client.common.*;
+import com.magnet.mmx.client.common.Log;
+import com.magnet.mmx.client.common.MMXErrorMessage;
+import com.magnet.mmx.client.common.MMXException;
+import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.Constants;
+import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-
 /**
- * The main entry point for Magnet Message.
+ * The main entry point for Magnet Message.  Application must invoke<ol>
+ * <li>{@link #init(Context, int)} to initialize MMX with connection info</li>
+ * <li>{@link #registerListener(EventListener)} to register a listener for 
+ * invitation, incoming messages, connection and authentication events,</li>
+ * <li>{@link #login(String, byte[], OnFinishedListener)} to authenticate the user</li>
+ * <li>{@link #start()} to start MMX service</li>
+ * </ol>
+ * Optionally, the application may invoke<ul>
+ * <li>{@link #registerWakeupBroadcast(Intent)} to register a GCM wake up listener</li>
+ * </ul>
+ * Upon successful completion, the application may proceed with {@link MMXMessage} or
+ * {@link MMXChannel}.
  */
 public final class MMX {
   /**
@@ -39,30 +60,63 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
    */
   public static class FailureCode {
-    public static final FailureCode DEVICE_ERROR = new FailureCode(1);
-    public static final FailureCode DEVICE_CONNECTION_FAILED = new FailureCode(2);
-    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(3);
-    public static final FailureCode SERVER_BAD_STATUS = new FailureCode(4);
-    public static final FailureCode SERVER_EXCEPTION = new FailureCode(5);
-    private int mValue;
+    /**
+     * A client error.
+     */
+    public static final FailureCode DEVICE_ERROR = new FailureCode(10, "DEVICE_ERROR");
+    /**
+     * The MMX service is not available due to network issue or server issue.
+     */
+    public static final FailureCode SERVICE_UNAVAILABLE = new FailureCode(11, "SERVICE_UNAVAILABLE");
+    /**
+     * Concurrent logins are attempted.
+     */
+    public static final FailureCode DEVICE_CONCURRENT_LOGIN = new FailureCode(12, "DEVICE_CONCURRENT_LOGIN");
+    /**
+     * Server authentication failure.
+     */
+    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(20, "SERVER_AUTH_FAILED");
+    /**
+     * A bad request submitted to the server.
+     */
+    public static final FailureCode BAD_REQUEST = new FailureCode(400, "BAD_REQUEST");
+    /**
+     * A server error.
+     */
+    public static final FailureCode SERVER_ERROR = new FailureCode(500, "SERVER_ERROR");
+    private final int mValue;
+    private final String mDescription;
+    private String mToString;
 
-    FailureCode(int value) {
+    FailureCode(int value, String description) {
       mValue = value;
+      mDescription = description;
     }
 
+    FailureCode(FailureCode code) {
+      this(code.getValue(), code.getDescription());
+    }
+
+    /**
+     * The integer code of this failure
+     * @return the integer code
+     */
     public final int getValue() {
       return mValue;
     }
 
+    /**
+     * The description of this failure
+     * @return the description
+     */
+    public final String getDescription() { return mDescription; }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-
+      if ((o == null) || !(o instanceof FailureCode)) return false;
       FailureCode that = (FailureCode) o;
-
       return mValue == that.mValue;
-
     }
 
     @Override
@@ -71,7 +125,11 @@ public final class MMX {
     }
 
     public String toString() {
-      return "FailureCode=" + mValue;
+      if (mToString == null) {
+        mToString = this.getClass().getSimpleName() +
+                    '(' + mValue + ',' + mDescription + ')';
+      }
+      return mToString;
     }
   }
 
@@ -80,7 +138,25 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.EventListener#onLoginRequired(LoginReason)
    */
   public enum LoginReason {
-    DISCONNECTED
+    /**
+     * @deprecated
+     */
+    DISCONNECTED,
+    /**
+     * If current credentials are invalid.  Possible action: prompt user for
+     * new credential, account may be disabled.
+     */
+    CREDENTIALS_EXPIRED,
+    /**
+     * If the service is unavailable.  Possible action: check the data
+     * connectivity.
+     */
+    SERVICE_UNAVAILABLE,
+    /**
+     * If service is available and user credential has been resumed.  No actions
+     * are needed.
+     */
+    SERVICE_AVAILABLE,
   }
 
   /**
@@ -96,7 +172,7 @@ public final class MMX {
     abstract public boolean onMessageReceived(MMXMessage message);
 
     /**
-     * Called when an acknowledgement is received.  The default implementation of this is a
+     * Called when an acknowledgment is received.  The default implementation of this is a
      * no-op.
      *
      * @param from the user who acknowledged the message
@@ -133,8 +209,9 @@ public final class MMX {
     }
 
     /**
-     * Called when a login is required. The default implementation of this
-     * method is a no-op.
+     * Called when a connection or authentication state is changed. The default
+     * implementation of this method is a no-op.  The name of this method does
+     * not reflect what it really does; it will be renamed in future release.
      *
      * @param reason the reason why login is required
      * @return true to consume this event, false for additional listeners to be called
@@ -172,6 +249,7 @@ public final class MMX {
   private static final String TAG = MMX.class.getSimpleName();
   private static final String SHARED_PREFS_NAME = MMX.class.getName();
   private static final String PREF_WAKEUP_INTENT_URI = "wakeupIntentUri";
+  private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
   private SharedPreferences mSharedPrefs = null;
   private Context mContext = null;
   private MMXClient mClient = null;
@@ -198,7 +276,7 @@ public final class MMX {
         MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
         notifyInviteResponseReceived(inviteResponse);
       } else {
-        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage));
+        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage).receiptId(receiptId));
       }
     }
 
@@ -226,11 +304,57 @@ public final class MMX {
     @Override
     public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
       switch (connectionEvent) {
-        case DISCONNECTED:
-          notifyLoginRequired(LoginReason.DISCONNECTED);
+        case AUTHENTICATION_FAILURE:
+          if (!mLoggingIn.get()) {
+            notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
+          }
+          break;
+        case CONNECTED:
+          if (!mLoggingIn.get()) {
+            try {
+              sInstance.mCurrentUser = MMXUser.fromMMXid(mmxClient.getClientId());
+              notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
+            } catch (MMXException e) {
+              // Ignored; it should not happen.
+            }
+          }
+          break;
+        case CONNECTION_FAILED:
+          if (!mLoggingIn.get()) {
+            sInstance.mCurrentUser = null;
+            notifyLoginRequired(LoginReason.SERVICE_UNAVAILABLE);
+          }
           break;
       }
       super.onConnectionEvent(mmxClient, connectionEvent);
+    }
+    
+    @Override
+    public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
+      XMPPError xmppErr;
+      MMXError mmxErr;
+      if ((mmxErr = error.getMMXError()) != null) {
+        MMXMessage.FailureCode fcode;
+        if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue()) {
+          fcode = MMXMessage.FailureCode.INVALID_RECIPIENT;
+          String userId = (mmxErr.getParams() == null) ? null : (mmxErr.getParams())[0];
+          MMXMessage.handleMessageSendError(userId == null ? null : new MMXid(userId, null),
+              mmxErr.getMsgId(), fcode, null);
+        } else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue()) {
+          fcode = MMXMessage.FailureCode.CONTENT_TOO_LARGE;
+          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(), fcode, new MMXException(
+              mmxErr.getMessage(), fcode.getValue()));
+        } else {
+          Log.e(TAG, "onErrorReceived(): unexpected MMX error="+mmxErr);
+          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(),
+              MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null),
+              new MMXException(mmxErr.getMessage(), mmxErr.getCode()));
+        }
+      } else if ((xmppErr = error.getXMPPError()) != null) {
+        Log.e(TAG, "onErrorReceived(): unsupported XMPP error="+xmppErr);
+      } else {
+        Log.w(TAG, "onErrorReceived(): unsupported custom error="+error.getCustomError());
+      }
     }
   };
 
@@ -280,6 +404,8 @@ public final class MMX {
    */
   static synchronized void init(Context context, MMXClientConfig config) {
     if (sInstance == null) {
+      Log.i(TAG, "App="+context.getPackageName()+", MMX SDK="+BuildConfig.VERSION_NAME+
+            ", protocol="+Constants.MMX_VERSION_MAJOR+"."+Constants.MMX_VERSION_MINOR);
       sInstance = new MMX(context, config);
     } else {
       Log.w(TAG, "MMX.init():  MMX has already been initialized.  Ignoring this call.");
@@ -293,6 +419,7 @@ public final class MMX {
    * @param enable true to receving incoming message, false otherwise
    * @throws IllegalStateException if the user is not logged-in
    * @see #login(String, byte[], OnFinishedListener)
+   * @deprecated {@link #start()}
    */
   public static void enableIncomingMessages(boolean enable) {
     try {
@@ -309,6 +436,23 @@ public final class MMX {
       }
     }
   }
+  
+  /**
+   * Start the MMX messaging service.  The client application must call this
+   * method when it is ready; otherwise, the communication between this client and
+   * the server remains blocked.
+   */
+  public static void start() {
+    enableIncomingMessages(true);
+  }
+  
+  /**
+   * Stop the MMX service.  The communication between this client and the server
+   * will be blocked.
+   */
+  public static void stop() {
+    enableIncomingMessages(false);
+  }
 
   /**
    * Start sending/receiving messages as the specified user.  To receive messages:  1) implement and
@@ -323,6 +467,12 @@ public final class MMX {
    */
   public static void login(String username, byte[] password,
                            final OnFinishedListener<Void> listener) {
+    if (!sInstance.mLoggingIn.compareAndSet(false, true)) {
+      Log.d(TAG, "login() already logging in, returning failure");
+      listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+      return;
+    }
+
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         Log.d(TAG, "login() received connection event: " + event);
@@ -343,11 +493,13 @@ public final class MMX {
             }
             break;
           case CONNECTION_FAILED:
-            listener.onFailure(MMX.FailureCode.DEVICE_CONNECTION_FAILED, null);
+            sInstance.mCurrentUser = null;
+            listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
             unregisterListener = true;
             break;
         }
         if (unregisterListener) {
+          sInstance.mLoggingIn.set(false);
           getGlobalListener().unregisterListener(this);
         }
       }
@@ -493,7 +645,7 @@ public final class MMX {
       return sInstance.mListeners.remove(listener);
     }
   }
-
+  
   private static void notifyMessageReceived(MMXMessage message) {
     checkState();
     synchronized (sInstance.mListeners) {

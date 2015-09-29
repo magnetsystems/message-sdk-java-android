@@ -96,12 +96,6 @@ public interface MMXSettings {
    */
   public static final String PROP_ENABLE_COMPRESSION = "enableCompression";
   /**
-   * Enable online mode immediately after the connection (boolean.)  If
-   * disabled, offline messages will not be delivered to the connected device
-   * automatically.  Default is true.
-   */
-  public static final String PROP_ENABLE_ONLINE = "enableOnline";
-  /**
    * Enable TLS connection (boolean.)  Default is false.
    */
   public static final String PROP_ENABLE_TLS = "enableTLS";

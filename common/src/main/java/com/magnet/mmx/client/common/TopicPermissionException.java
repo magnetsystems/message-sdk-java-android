@@ -25,6 +25,6 @@ public class TopicPermissionException extends MMXException {
    * @param msg A message.
    */
   public TopicPermissionException(String msg) {
-    super(msg);
+    super(msg, FORBIDDEN);
   }
 }

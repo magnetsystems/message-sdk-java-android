@@ -12,18 +12,38 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
 package com.magnet.mmx.client.common;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import com.magnet.mmx.protocol.StatusCode;
+
 /**
- * The exception is thrown when the topic has been subscribed.
+ * An exception holding a set of invalid users.  It is thrown if a message is
+ * sent to a number of invalid recipients.
+ *
  */
-public class SubscriptionExistException extends MMXException {
+public class UserNotFoundException extends MMXException {
+  private Set<MMXid> mUsers = new HashSet<MMXid>();
+
+  public UserNotFoundException(String msg) {
+    super(msg, StatusCode.NOT_FOUND);
+  }
+
   /**
-   * The default constructor.
-   * @param msg The topic name.
+   * Add a user to a not found group.
+   * @param userId
    */
-  public SubscriptionExistException(String msg) {
-    super(msg, CONFLICT);
+  public void addUser(MMXid user) {
+    mUsers.add(user);
+  }
+
+  /**
+   * Get a group of users that are not found or invalid.
+   * @return
+   */
+  public Set<MMXid> getUsers() {
+    return mUsers;
   }
 }

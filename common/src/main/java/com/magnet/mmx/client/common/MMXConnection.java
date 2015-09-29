@@ -52,9 +52,9 @@ import org.jivesoftware.smack.sasl.SASLError;
 import org.jivesoftware.smack.sasl.SASLErrorException;
 
 import com.magnet.mmx.client.common.GlobalAddress.User;
-import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.UserCreateMode;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.UserCreate;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.BinCodec;
@@ -78,6 +78,12 @@ import com.magnet.mmx.util.XIDUtil;
  *
  */
 public class MMXConnection implements ConnectionListener {
+  /**
+   * A special priority to mark the connection as unavailable.  All off-line
+   * messages will not to be delivered to this client until the priority is
+   * set between -128 and 128.
+   */
+  public final static int NOT_AVAILABLE = -255;
   private final static String TAG = "MMXConnection";
   private final HashMap<String, Object> mManagers = new HashMap<String, Object>();
   private MMXContext mContext;
@@ -94,6 +100,7 @@ public class MMXConnection implements ConnectionListener {
   private MMXid mXID;     // caching the MMX ID (userID/deviceID)
   private String mConToken; // MD5 of host-port-userID
   private String mUUID;
+  private int mPriority;
   private long mSeq;
 
   /**
@@ -104,6 +111,11 @@ public class MMXConnection implements ConnectionListener {
    * The account being created is an anonymous account.
    */
   public final static int AUTH_ANONYMOUS = 0x2;
+  /**
+   * Disable delivering off-line messages when a successful login.  Reconnection
+   * has no knowledge about this behavior.
+   */
+  public final static int NO_DELIVERY_ON_LOGIN = 0x4;
 
   static {
     // Register the Message Providers, so it can parse unsolicited messages.
@@ -204,26 +216,6 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Put this client (session) online so it can start receiving messages. If the
-   * session is offline, no messages will be delivered to this client.
-   *
-   * @param online
-   *          true for online; false for offline.
-   * @throws MMXException
-   * @deprecated {@link #setMessageFlow(int)}
-   */
-  @Deprecated
-  public void setOnline(boolean online) throws MMXException {
-    Presence presence = new Presence(online ? Presence.Type.available
-        : Presence.Type.unavailable);
-    try {
-      mCon.sendPacket(presence);
-    } catch (Throwable e) {
-      throw new MMXException(e.getMessage(), e);
-    }
-  }
-
-  /**
    * Set an optional user display name.  It is sent along with the From meta
    * header.
    * @param displayName A user display name.
@@ -236,64 +228,83 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Control the message flow. Messages targeting to bared JID will be delivered
-   * to the highest priority connected device. If multiple connected devices
-   * have the same priority, messages will be delivered to all of them. If the
-   * priority is negative, messages will be queued in MMX server until one of
-   * the connected device has a non-negative priority.
-   *
-   * @param priority
-   *          between -128 and 128.
+   * Get the current priority of this connection.
+   * @return {@link #NOT_AVAILABLE}, or -128 to 128.
+   */
+  public int getPriority() {
+    return mPriority;
+  }
+
+  /**
+   * Set the priority of this connection.  The priority controls the message
+   * flow.  Messages targeting to a user (bared JID) will be delivered according
+   * to the highest priority.  If same user with multiple connected devices have
+   * the same priority, messages will be delivered to all of them.  If the
+   * priority is between -1 and -128 inclusively, messages targeting to the
+   * end-point (full JID) will be delivered.  A special priority
+   * {@link #NOT_AVAILABLE} will disable the message delivery completely to the
+   * end-point that it will appear as off-line.
+   * @param priority {@link #NOT_AVAILABLE}, or between -128 and 128
+   * @return The prior priority.
    * @throws MMXException
    */
-  public void setMessageFlow(int priority) throws MMXException {
+  public int setPriority(int priority) throws MMXException {
     Presence presence;
-    if (priority >= 0) {
+    if (priority == NOT_AVAILABLE) {
+      presence = new Presence(Presence.Type.unavailable);
+    } else if (priority >= 0 && priority <= 128) {
       presence = new Presence(Presence.Type.available, "Online", priority,
           Mode.available);
-    } else {
+    } else if (priority < 0 && priority >= -128) {
       // Type.unavailable will make the connection invisible.
       presence = new Presence(Presence.Type.available, "Blocking", priority,
           Mode.dnd);
+    } else {
+      throw new IllegalArgumentException("Priority must be >= -128 and <= 128");
     }
     try {
       mCon.sendPacket(presence);
+      int oldPriority = mPriority;
+      mPriority = priority;
+      return oldPriority;
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);
     }
   }
 
   /**
-   * Establish a connection to the MMX server without any authenticating the
-   * user. The settings {@link MMXSettings#PROP_ENABLE_ONLINE} allows the caller
-   * to control if messages should be delivered automatically upon successful
-   * connection and authentication.
-   *
-   * @param settings
+   * Establish a connection to the MMX server.
    * @param listener
    * @throws ConnectionException
    * @throws MMXException
-   * @see {@link #authenticate()}
+   * @see #authenticate(String, String, String, int)
    * @see #disconnect()
-   * @see #setOnline(boolean)
    */
   public void connect(MMXConnectionListener listener)
       throws ConnectionException, MMXException {
-    connect(listener, null, null, null, false);
+    connect(listener, null, null, null);
   }
 
+  /**
+   * Establish a connection to the MMX server with SSL context.
+   * @param listener
+   * @param sslContext
+   * @throws ConnectionException
+   * @throws MMXException
+   * @see #authenticate(String, String, String, int)
+   * @see #disconnect()
+   */
   public void connect(MMXConnectionListener listener,
                       SSLContext sslContext)
           throws ConnectionException, MMXException {
-    connect(listener, null, null, sslContext, false);
+    connect(listener, null, null, sslContext);
   }
 
   public void connect(MMXConnectionListener listener,
-      HostnameVerifier hostnameVerifier,
-      SocketFactory socketFactory,
-      SSLContext sslContext,
-      boolean isConnectOffline)
-      throws ConnectionException, MMXException {
+          HostnameVerifier hostnameVerifier,
+          SocketFactory socketFactory,
+          SSLContext sslContext)
+          throws ConnectionException, MMXException {
     if (mCon != null && mCon.isConnected()) {
       throw new MMXException("client is still connected");
     }
@@ -312,11 +323,14 @@ public class MMXConnection implements ConnectionListener {
             MMXSettings.PROP_ENABLE_RECONNECT, true));
     config.setRosterLoadedAtLogin(mSettings.getBoolean(
             MMXSettings.PROP_ENABLE_SYNC, false));
-    //TODO:  mSettings should be moved back to connect-time instead of instatiation (was needed for android offline pub)
-    //TODO:  Once that happens, we should do these things through settings instead of as parameters
-//    config.setSendPresence(mSettings.getBoolean(MMXSettings.PROP_ENABLE_ONLINE,
-//            true));
-    config.setSendPresence(!isConnectOffline);
+    //TODO:  mSettings should be moved back to connect-time instead of
+    //TODO:  instantiation (was needed for android offline pub.)  Once that
+    //TODO:  happens, we should do these things through settings instead of as parameters
+
+    // Let the caller to control when to send the presence.  It also allows
+    // the reconnection to resume the previous message flow state; it is
+    // different from what smack does.
+    config.setSendPresence(false);
     config.setCompressionEnabled(mSettings.getBoolean(
             MMXSettings.PROP_ENABLE_COMPRESSION, true));
     config.setSecurityMode(mSettings.getBoolean(MMXSettings.PROP_ENABLE_TLS,
@@ -331,18 +345,12 @@ public class MMXConnection implements ConnectionListener {
     if (sslContext != null) {
       config.setCustomSSLContext(sslContext);
     }
-    // MAGNET extension
-    // SASLAuthentication.setApiKey(getApiKey());
 
     switch (Log.getLoggable(null)) {
     case Log.VERBOSE:
       config.setDebuggerEnabled(true);
       ConsoleDebugger.printInterpreted = true;
       break;
-    // case Log.DEBUG:
-    // config.setDebuggerEnabled(true);
-    // ConsoleDebugger.printInterpreted = false;
-    // break;
     default:
       config.setDebuggerEnabled(false);
       ConsoleDebugger.printInterpreted = false;
@@ -510,13 +518,27 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Login anonymously. The semi-anonymous account is generated based on the
+   * Login anonymously.  The semi-anonymous account is generated based on the
    * device ID and persistent that it can be used in PubSub. Only one login is
-   * allowed per process.
-   *
+   * allowed per process.  As soon as the login is success, all off-line
+   * messages will be delivered to this client automatically.
    * @throws MMXException
    */
   public void loginAnonymously() throws MMXException {
+    loginAnonymously(false);
+  }
+
+  /**
+   * Login anonymously with message flow control. The semi-anonymous account is
+   * generated based on the device ID and persistent that it can be used in
+   * PubSub. Only one login is allowed per process.  The <code>noDelivery</code>
+   * will disable all off-line messages to be delivered to this account
+   * automatically when the login is success.
+   * @param noDelivery true to disable delivering off-line messages on login.
+   *
+   * @throws MMXException
+   */
+  public void loginAnonymously(boolean noDelivery) throws MMXException {
     if (mAnonyAcct == null) {
       try {
         AnonyAccount anonyAcct = new AnonyAccount(getAppId().getBytes());
@@ -529,8 +551,12 @@ public class MMXConnection implements ConnectionListener {
         throw new MMXException(e.getMessage(), e);
       }
     }
+    int flags = AUTH_ANONYMOUS|AUTH_AUTO_CREATE;
+    if (noDelivery) {
+      flags |= NO_DELIVERY_ON_LOGIN;
+    }
     authenticate(mAnonyAcct.mUserId, mAnonyAcct.mPassword,
-        mContext.getDeviceId(), AUTH_ANONYMOUS | AUTH_AUTO_CREATE);
+        mContext.getDeviceId(), flags);
   }
 
   // Logout from an account, but keep the connection. Since Smack does not
@@ -547,21 +573,21 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Authenticate a user with an option to create the account. The appId (if
-   * available) will be appended to the userID before passing to the XMPP server
-   * in multi-tenant environment. If there is authentication failure, the
-   * connection is still retained.
+   * Authenticate an MMX user. There are multiple login options: create an
+   * account if it does not exist, create the account as anonymous, disable
+   * delivering off-line messages after the successful login.  If there is an
+   * authentication failure, the connection is still retained.
    *
-   * @param userId
-   *          The user ID without appId.
-   * @param password
-   * @param resource
+   * @param userId The un-escaped user ID without appId.
+   * @param password The user password
+   * @param resource The device ID
    * @param flags
    *          Combination of {@link #AUTH_AUTO_CREATE}, {@link #AUTH_ANONYMOUS}
-   * @throws MMXException
-   *           Unable to create account.
+   *          and {@link #NO_DELIVERY_ON_LOGIN}
+   * @throws MMXException Unable to create account.
    * @see MMXConnectionListener#onAuthenticated(MMXid)
    * @see MMXConnectionListener#onAuthFailed(MMXid)
+   * @see MMXConnectionListener#onAccountCreated(MMXid)
    */
   public void authenticate(String userId, String password, String resource,
       int flags) throws MMXException {
@@ -569,25 +595,31 @@ public class MMXConnection implements ConnectionListener {
   }
 
   /**
-   * Authenticate a user with an option to create the account. The userID will
+   * Authenticate an XMPP user.  There are multiple login options: create an
+   * account if it does not exist, create the account as anonymous, disable
+   * delivering off-line messages after the successful login.  The userID will
    * be passed to XMPP server as-is. If there is an authentication failure, the
    * connection is still retained.
    *
-   * @param userName The escaped node of the JID.
-   * @param password
-   * @param resource
+   * @param userName The escaped node of the JID (i.e. userID%appID)
+   * @param password The user password.
+   * @param resource The resource of the JID
    * @param flags
-   *          Combination of {@link #AUTH_AUTO_CREATE}, {@link #AUTH_ANONYMOUS}
-   * @throws MMXException
-   *           unable to create the account.
+   *          Combination of {@link #AUTH_AUTO_CREATE}, {@link #AUTH_ANONYMOUS},
+   *          and {@link #NO_DELIVERY_ON_LOGIN}
+   * @throws MMXException Unable to create the account.
    * @see MMXConnectionListener#onAuthenticated(MMXid)
    * @see MMXConnectionListener#onAuthFailed(MMXid)
+   * @see MMXConnectionListener#onAccountCreated(MMXid)
    */
   public void authenticateRaw(String userName, String password, String resource,
-      int flags) throws MMXException {
+                                int flags) throws MMXException {
     if (mCon.isAuthenticated()) {
       return;
     }
+
+    // Use the priority for message flow control.
+    mPriority = ((flags & NO_DELIVERY_ON_LOGIN) != 0) ? NOT_AVAILABLE : 0;
     try {
       resetAuthFailure();
       mCon.login(userName, password, resource);
@@ -663,13 +695,13 @@ public class MMXConnection implements ConnectionListener {
     account.setEmail(mSettings.getString(MMXSettings.PROP_EMAIL, null));
     try {
       MMXStatus status = AccountManager.getInstance(this).createAccount(account);
-      if (status.getCode() == Constants.STATUS_CODE_200) {
+      if (status.getCode() == StatusCode.SUCCESS) {
         return true;
       }
       throw new MMXException(status.getMessage(), status.getCode());
     } catch (MMXException e) {
       // userId is taken
-      if (e.getCode() == Constants.STATUS_CODE_500) {
+      if ((e.getCode() == StatusCode.INTERNAL_ERROR) || (e.getCode() == StatusCode.CONFLICT)) {
         if (mConListener != null) {
           mConListener.onAuthFailed(new MMXid(userId, null));
         }
@@ -877,6 +909,13 @@ public class MMXConnection implements ConnectionListener {
     boolean isMMXUser = XIDUtil.getAppId(con.getUser()) != null;
     MMXid user = getXID();
 
+    // Do explicit message flow control for login.
+    try {
+      setPriority(getPriority());
+    } catch (MMXException e) {
+      Log.e(TAG, "Unable to send presence with priority", e);
+    }
+
     // Fetch the display name if it is an MMX user.
     if (isMMXUser) {
       try {
@@ -957,6 +996,17 @@ public class MMXConnection implements ConnectionListener {
 
   @Override
   public void reconnectionSuccessful() {
+    // After the reconnection, resume to the previous presence state (or message
+    // flow control.)  MMX has a different behavior from Smack which reuses
+    // the initial connection config for sending <presence> or not.
+    if (mPriority != NOT_AVAILABLE) {
+      try {
+        setPriority(mPriority);
+      } catch (MMXException e) {
+        Log.e(TAG, "OnReconnection: unable to send presence with priority "+mPriority);
+      }
+    }
+
     if (mConListener != null) {
       mConListener.onConnectionEstablished();
     }

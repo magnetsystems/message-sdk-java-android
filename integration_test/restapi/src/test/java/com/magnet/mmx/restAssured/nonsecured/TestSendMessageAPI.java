@@ -37,9 +37,8 @@ public class TestSendMessageAPI extends TestCase {
         String payLoad = "{\"recipientUsernames\":" +
                 "[\"" + TestUtils.USER_ID_1 +
                 "\"],\n" +
-                "\"content\":\"this is a simple message\",\n" +
                 "\"receipt\":true,\n" +
-                "\"metadata\":{\"content-type\":\"text\",\"content-encoding\":\"simple\"}}";
+            "\"content\":{\"type\":\"text\",\"content-encoding\":\"simple\",\"text\":\"This is a simple message\"}}";
 
         String response = given().
                 log().all().
@@ -66,9 +65,8 @@ public class TestSendMessageAPI extends TestCase {
         String payLoad = "{\"deviceId\":" +
                 "\"" + TestUtils.DEVICE_ID_1 +
                 "\",\n" +
-                "\"content\":\"this is a simple message\",\n" +
                 "\"receipt\":true,\n" +
-                "\"metadata\":{\"content-type\":\"text\",\"content-encoding\":\"simple\"}}";
+                "\"content\":{\"type\":\"text\",\"content-encoding\":\"simple\",\"text\":\"This is a simple message\"}}";
 
         String response = given().
                 log().all().
@@ -95,9 +93,8 @@ public class TestSendMessageAPI extends TestCase {
       String payLoad = "{\"recipientUsernames\":" +
                 "[\"" + TestUtils.USER_ID_1 +
                 "\"],\n" +
-                "\"content\":\"this is a simple message\",\n" +
                 "\"receipt\":true,\n" +
-                "\"metadata\":{\"content-type\":\"text\",\"content-encoding\":\"simple\"}}";
+                "\"content\":{\"type\":\"text\",\"content-encoding\":\"simple\",\"text\":\"This is a simple message\"}}";
 
         String messageId =
                 given().log().all().
@@ -136,9 +133,8 @@ public class TestSendMessageAPI extends TestCase {
     String payLoad = "{\"recipientUsernames\":" +
         "[\"missing1\", \"missing2\""+
         "],\n" +
-        "\"content\":\"this is a simple message\",\n" +
         "\"receipt\":true,\n" +
-        "\"metadata\":{\"content-type\":\"text\",\"content-encoding\":\"simple\"}}";
+        "\"content\":{\"type\":\"text\",\"content-encoding\":\"simple\",\"text\":\"This is a simple message\"}}";
 
     String response = given().
         log().all().
@@ -176,9 +172,8 @@ public class TestSendMessageAPI extends TestCase {
     String payLoad = "{\"recipientUsernames\":" +
         "[" + list +
         "],\n" +
-        "\"content\":\"this is a simple message\",\n" +
         "\"receipt\":true,\n" +
-        "\"metadata\":{\"content-type\":\"text\",\"content-encoding\":\"simple\"}}";
+        "\"content\":{\"type\":\"text\",\"content-encoding\":\"simple\",\"text\":\"This is a simple message\"}}";
 
     String response = given().
         log().all().

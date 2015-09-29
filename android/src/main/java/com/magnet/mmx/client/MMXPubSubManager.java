@@ -14,13 +14,17 @@
  */
 package com.magnet.mmx.client;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import android.os.Handler;
 
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
-import com.magnet.mmx.client.common.MMXMessageStatus;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
 import com.magnet.mmx.client.common.MMXResult;
@@ -32,22 +36,15 @@ import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.client.common.TopicExistsException;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.client.common.TopicPermissionException;
-import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.TopicAction;
-import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * The MMXPubSubManager allows users to create or delete topics, subscribe or
@@ -240,6 +237,20 @@ public final class MMXPubSubManager extends MMXManager {
   }
   
   /**
+   * Delete the items published by the current user.
+   * @param topic a topic object
+   * @param itemIds A list of published item identifiers
+   * @return A map of item identifier as key and status code as value.
+   * @throws TopicNotFoundException
+   * @throws MMXException
+   */
+  public Map<String, Integer> deleteItemsByIds(MMXTopic topic, List<String> itemIds)
+      throws TopicNotFoundException, MMXException {
+    checkDestroyed();
+    return mPubSubManager.retract(topic, itemIds);
+  }
+  
+  /**
    * @hide
    * Publish an item with a publish ID.  This is for internal use.
    *
@@ -346,15 +357,18 @@ public final class MMXPubSubManager extends MMXManager {
    *
    * @param operator the AND or OR operator
    * @param attributes single or multi-values search attributes
-   * @param maxRows null for the server default, or a max number of rows to be returned
+   * @param offset the offset of rows to be returned.
+   * @param limit null for the server default, or a max number of rows to be returned
+   * @param listType scope of the search 
    * @return the search result
    * @throws MMXException
    */
   public MMXTopicSearchResult searchBy(SearchAction.Operator operator,
-                                                 TopicAction.TopicSearch attributes,
-                                                 Integer maxRows) throws MMXException {
+                                       TopicAction.TopicSearch attributes,
+                                       Integer offset, Integer limit,
+                                       TopicAction.ListType listType) throws MMXException {
     checkDestroyed();
-    return mPubSubManager.searchBy(operator, attributes, maxRows);
+    return mPubSubManager.searchBy(operator, attributes, offset, limit, listType);
   }
 
   /**
@@ -366,7 +380,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws MMXException
    */
   public List<MMXTopicInfo> searchByTags(List<String> tags,
-                                                     boolean matchAll) throws MMXException {
+                                          boolean matchAll) throws MMXException {
     checkDestroyed();
     return mPubSubManager.searchByTags(tags, matchAll);
   }
@@ -383,6 +397,18 @@ public final class MMXPubSubManager extends MMXManager {
             throws TopicNotFoundException, MMXException {
     checkDestroyed();
     return mPubSubManager.getTopic(topic);
+  }
+  
+  /**
+   * Get multiple topic detail information by topic names.  If a topic name
+   * is not found, a null entry in the result list will be returned.
+   * @param topics A list of topic names
+   * @return A list of detail topic information.
+   * @throws MMXException
+   */
+  public List<MMXTopicInfo> getTopics(List<MMXTopic> topics) throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.getTopics(topics);
   }
   
   /**
@@ -531,13 +557,14 @@ public final class MMXPubSubManager extends MMXManager {
    * Get the subscribers to a topic.
    * 
    * @param topic a topic name
+   * @param offset offset of subscribers to be returned
    * @param limit maximum number of subscribers to be returned
    * @return A result set with a total count of subscribers.
    */
-  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int limit)
+  public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int offset, int limit)
           throws MMXException {
     checkDestroyed();
-    return mPubSubManager.getSubscribers(topic, limit);
+    return mPubSubManager.getSubscribers(topic, offset, limit);
   }
   
   @Override

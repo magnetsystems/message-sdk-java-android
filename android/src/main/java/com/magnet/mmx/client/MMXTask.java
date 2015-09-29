@@ -116,7 +116,7 @@ public class MMXTask<T> implements Runnable {
     }
     try {
       onResult(result);
-    } catch (Exception ex) {
+    } catch (Throwable ex) {
       Log.e(TAG, "Exception caught.", ex);
     }
   }
@@ -129,7 +129,7 @@ public class MMXTask<T> implements Runnable {
     }
     try {
       onException(exception);
-    } catch (Exception ex) {
+    } catch (Throwable ex) {
       Log.e(TAG, "Exception caught.", ex);
     }
   }
