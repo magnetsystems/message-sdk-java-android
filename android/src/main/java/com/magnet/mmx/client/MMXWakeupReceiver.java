@@ -18,14 +18,13 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.support.v4.content.WakefulBroadcastReceiver;
 
 /**
  * This handles timer-based wake-ups if configured with MMXClient.setWakeupInterval().
  *
  * @see MMXClient#setWakeupInterval(Context, long)
  */
-public final class MMXWakeupReceiver extends WakefulBroadcastReceiver {
+public final class MMXWakeupReceiver extends MMXWakefulBroadcastReceiver {
   public void onReceive(Context context, Intent intent) {
     ComponentName component = new ComponentName(context.getPackageName(), MMXWakeupIntentService.class.getName());
     startWakefulService(context, (intent.setComponent(component)));

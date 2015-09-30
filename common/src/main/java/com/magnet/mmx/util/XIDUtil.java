@@ -21,8 +21,8 @@ import java.util.List;
 
 import org.jivesoftware.smack.util.StringUtils;
 
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.Constants;
+import com.magnet.mmx.protocol.MMXid;
 
 /**
  * A client side utility to parse MMX ID (XID.)  A normal full XID has a

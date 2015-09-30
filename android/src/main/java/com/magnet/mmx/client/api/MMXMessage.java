@@ -25,9 +25,9 @@ import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPayload;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 
 /**
  * This class holds the message payload, and operations for the message.  If

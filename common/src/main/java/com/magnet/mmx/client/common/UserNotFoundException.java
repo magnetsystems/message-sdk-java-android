@@ -17,6 +17,7 @@ package com.magnet.mmx.client.common;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.StatusCode;
 
 /**

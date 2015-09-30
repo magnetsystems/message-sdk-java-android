@@ -17,6 +17,7 @@ package com.magnet.mmx.client.common;
 
 import com.magnet.mmx.protocol.AuthData;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 
 /**
  * Default message handler with no operations.  Developer should extend this

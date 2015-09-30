@@ -14,9 +14,6 @@
     <!-- NEEDED BY MMX SDK END -->
 
     <application >
-        <meta-data android:name="com.google.android.gms.version"
-        android:value="@integer/google_play_services_version" />
-
         <!-- NEEDED BY MMX SDK START -->
         <!--receiver
             android:name="com.magnet.mmx.client.MMXGcmBroadcastReceiver"

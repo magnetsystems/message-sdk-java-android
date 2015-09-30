@@ -21,10 +21,10 @@ import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXMessageStatus;
 import com.magnet.mmx.client.common.MMXPayload;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.MessageManager;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.Constants;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.util.MMXQueue;
 import com.magnet.mmx.util.MMXQueue.Item;
 

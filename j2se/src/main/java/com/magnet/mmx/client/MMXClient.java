@@ -24,13 +24,13 @@ import com.magnet.mmx.client.common.MMXConnectionListener;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGeoLogger;
 import com.magnet.mmx.client.common.MMXMessageListener;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.MessageManager;
 import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.DevReg;
 import com.magnet.mmx.protocol.GeoLoc;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.OSType;
 
 /**

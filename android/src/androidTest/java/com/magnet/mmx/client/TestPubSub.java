@@ -31,11 +31,11 @@ import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.TopicExistsException;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.TopicAction.TopicTags;
 import com.magnet.mmx.protocol.TopicSummary;
 
