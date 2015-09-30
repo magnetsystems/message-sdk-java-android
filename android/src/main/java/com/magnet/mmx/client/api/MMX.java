@@ -403,7 +403,7 @@ public final class MMX {
    * @param context the Android context
    * @param config the MMXClientConfig
    */
-  static synchronized void init(Context context, MMXClientConfig config) {
+  public static synchronized void init(Context context, MMXClientConfig config) {
     if (sInstance == null) {
       Log.i(TAG, "App="+context.getPackageName()+", MMX SDK="+BuildConfig.VERSION_NAME+
             ", protocol="+Constants.MMX_VERSION_MAJOR+"."+Constants.MMX_VERSION_MINOR);

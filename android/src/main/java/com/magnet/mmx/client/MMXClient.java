@@ -1290,7 +1290,8 @@ public final class MMXClient {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onAuthenticated() begin");
       }
-      registerDeviceWithServer();
+      //FIXME: Figure out how to deal with Wakeups/GCM
+      //registerDeviceWithServer();
     }
 
     @Override
@@ -1488,6 +1489,7 @@ public final class MMXClient {
       prefEditor.apply();
       mConnectionInfo = null;
     }
+    //FIXME: Figure out how to deal with Wakeups/GCM
     registerDeviceWithServer();
   }
 

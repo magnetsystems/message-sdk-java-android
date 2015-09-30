@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * a combination of hardware and the app package name.  Each device ID has an
  * accessor and it may require a specific Android permission.
  */
-class DeviceIdGenerator {
+public class DeviceIdGenerator {
   private static final String SHARED_PREF_FILENAME = "com.magnet.mmx.device";
   private static final String KEY_DEVICE_ID = "DEVICE_ID";
   static DeviceIdAccessor sDevIdAccessor = DeviceIdAccessor.sPhoneIdAccessor;

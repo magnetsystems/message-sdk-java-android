@@ -20,6 +20,17 @@ repositories {
             password = "${devPassword}"
         }
     }
+
+    maven {
+        url "http://dev-repo.magneteng.com:8081/artifactory/blowfish-internal-repo"
+        credentials {
+            username = "intern_build"
+            password = "password"
+        }
+    }
+    maven {
+        url "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
 }
 
 //apply plugin: 'android-sdk-manager'
@@ -56,11 +67,6 @@ dependencies {
 
     compile 'com.google.code.gson:gson:2.3'
 
-     // this gets resolved from the Android SDK install of google play services
-     // and doesn't work on Jenkins currently.
-    compile 'com.google.android.gms:play-services-base:7.+'
-    compile 'com.google.android.gms:play-services-gcm:7.+'
-
     compile 'com.magnet.mmx:mmx-common-api:2.0.0-SNAPSHOT'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
@@ -68,8 +74,9 @@ dependencies {
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    androidTestCompile 'com.google.android.gms:play-services-base:7.8.0'
-    androidTestCompile 'com.google.android.gms:play-services-gcm:7.8.0'
+    compile ('com.magnet.android:magnet-android-sdk:3.0.8-SNAPSHOT') {
+        transitive=true
+    }
 }
 
 android {
