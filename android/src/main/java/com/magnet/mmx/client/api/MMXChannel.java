@@ -782,6 +782,7 @@ public class MMXChannel {
 
       @Override
       public void onResult(String result) {
+        MMXChannel.this.subscribed(true);
         if (listener != null) {
           listener.onSuccess(result);
         }
@@ -813,6 +814,7 @@ public class MMXChannel {
 
       @Override
       public void onResult(Boolean result) {
+        MMXChannel.this.subscribed(false);
         if (listener != null) {
           listener.onSuccess(result);
         }
