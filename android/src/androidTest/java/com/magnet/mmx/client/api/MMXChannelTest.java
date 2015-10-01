@@ -477,7 +477,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     if (status == ExecMonitor.Status.INVOKED)
       assertEquals(expectedCount, findResult.getReturnValue().intValue());
     else if (status == ExecMonitor.Status.FAILED)
-      fail("Find channel failed: "+findResult.getFailedValue());
+      fail("Find channel failed: " + findResult.getFailedValue());
     else
       fail("Find channel timed out");
   }
@@ -524,6 +524,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       fail("Channel subscription failed: "+subResult.getFailedValue());
     else
       fail("Channel subscription timed out");
+    //make sure the flag is set
+    assertTrue(channel.isSubscribed());
 
     final ExecMonitor<Integer, FailureCode> getSubsResult = new ExecMonitor<Integer, FailureCode>();
     channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXUser>>() {
@@ -633,6 +635,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public void onSuccess(String result) {
         obj.failed("Unexpected success on publishing to a non-existing channel");
       }
+
       @Override
       public void onFailure(FailureCode code, Throwable throwable) {
         obj.invoked(code);
@@ -668,7 +671,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       assertEquals(expectedChannelCount, channelCount.getReturnValue().intValue());
       assertEquals(expectedItemCount, itemCount.intValue());
     } else if (status == ExecMonitor.Status.FAILED)
-      fail("Channel summary failed: "+channelCount.getFailedValue());
+      fail("Channel summary failed: " + channelCount.getFailedValue());
     else
       fail("Channel summary timed out");
   }
@@ -718,8 +721,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       fail("Channel unsubscription failed: "+unsubResult.getFailedValue());
     else
       fail("Channel unsubscription timed out");
+    //make sure the flag is set to false
+    assertFalse(channel.isSubscribed());
   }
-  
+
   private void helpUnsubscribeError(MMXChannel channel, final FailureCode expected) {
     final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
     channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
