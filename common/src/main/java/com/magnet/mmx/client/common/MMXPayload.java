@@ -26,6 +26,7 @@ import java.util.Map;
 
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Headers;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.Payload;
 import com.magnet.mmx.util.Base64;

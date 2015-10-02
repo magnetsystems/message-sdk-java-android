@@ -54,6 +54,7 @@ import org.jivesoftware.smack.sasl.SASLErrorException;
 import com.magnet.mmx.client.common.GlobalAddress.User;
 import com.magnet.mmx.protocol.Constants.UserCreateMode;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.UserCreate;
 import com.magnet.mmx.protocol.UserInfo;

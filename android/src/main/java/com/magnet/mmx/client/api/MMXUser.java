@@ -35,7 +35,7 @@ import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
-import com.magnet.mmx.client.common.MMXid;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.UserInfo;
@@ -43,7 +43,10 @@ import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.util.XIDUtil;
 
 /**
- * The MMXUser class
+ * The MMXUser class represents a user in MMX.  It also provides methods to
+ * register a new user, to change password or display name for the current
+ * logged-in user.  It also allows caller to search or get basic information
+ * of an MMX user.
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
@@ -425,10 +428,9 @@ public class MMXUser {
   }
   
   /**
-   * Find users whose display name starts with the specified text.  If the user
-   * does not have a display name, the user cannot be found.  Although display 
-   * name is optional during the new user registration, it is very useful
-   * to have the display name set {@link Builder#displayName(String)}.
+   * Find users whose display name starts with the specified text.  If there are
+   * no matches on the display name, the {@link OnFinishedListener#onSuccess(Object)}
+   * will be called with an empty list.
    *
    * @param startsWith the search string
    * @param limit the maximum number of users to return
@@ -442,8 +444,9 @@ public class MMXUser {
   }
 
   /**
-   * Find users whose display name starts with the specified text.  If the user
-   * does not have a display name, the user cannot be found.
+   * Find users whose display name starts with the specified text.  If there are
+   * no matches on the display name, the {@link OnFinishedListener#onSuccess(Object)}
+   * will be called with an empty list.
    *
    * @param startsWith the search string
    * @param offset the offset of users to return

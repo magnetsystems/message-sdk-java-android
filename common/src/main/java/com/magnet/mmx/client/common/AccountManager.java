@@ -26,6 +26,7 @@ import com.magnet.mmx.protocol.Constants.UserCommand;
 import com.magnet.mmx.protocol.Constants.UserCreateMode;
 import com.magnet.mmx.protocol.MMXAttribute;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.TagSearch;

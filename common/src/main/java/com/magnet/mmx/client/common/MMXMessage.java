@@ -27,6 +27,7 @@ import org.jivesoftware.smackx.receipts.DeliveryReceiptRequest;
 
 import com.magnet.mmx.client.common.MMXPayloadMsgHandler.MMXPacketExtension;
 import com.magnet.mmx.protocol.Constants;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.Payload;
 import com.magnet.mmx.util.DisposableBinFile;
 import com.magnet.mmx.util.DisposableFile;

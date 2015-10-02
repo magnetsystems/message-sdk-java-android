@@ -17,6 +17,7 @@ package com.magnet.mmx.client.common;
 
 import java.io.Serializable;
 
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.Constants.MessageState;
 import com.magnet.mmx.protocol.MsgsState.MessageStatus;
 import com.magnet.mmx.util.XIDUtil;

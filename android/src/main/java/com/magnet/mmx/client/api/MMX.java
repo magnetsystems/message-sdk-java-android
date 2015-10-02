@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,10 +36,10 @@ import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXErrorMessage;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPayload;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 
 /**
  * The main entry point for Magnet Message.  Application must invoke<ol>
@@ -837,7 +838,7 @@ public final class MMX {
   }
 
   /**
-   * Default implementation fo the internal wakeup listener.  This will ulimtately cause the
+   * Default implementation for the internal wakeup listener.  This will ultimately cause the
    * intent registered in registerWakeupBroadcast() to be broadcast.
    *
    * @see #registerWakeupBroadcast(Intent)
@@ -846,6 +847,54 @@ public final class MMX {
     public void onWakeupReceived(Context applicationContext, Intent intent) {
       Log.d(TAG, "onWakeupReceived() start");
       wakeup(intent);
+    }
+  }
+
+  /**
+   * This class represents a push message using the Intent interface.  A push
+   * message is usually sent from Console, transported by GCM, and received
+   * by the Wakeup Receiver.
+   */
+  public static final class MMXPushMessage {
+    private final static String TAG = MMXPushMessage.class.getSimpleName();
+    private Intent mIntent;
+
+    /**
+     * Parse an intent for a push message.  If the intent is not a valid MMX
+     * intent, null will be returned.
+     * @param intent The intent from the Wakeup Receiver
+     * @return MMXPushMessage or null.
+     */
+    public static MMXPushMessage parse(Intent intent) {
+      String nestedIntent = null;
+      try {
+        nestedIntent = intent.getStringExtra(MMX.EXTRA_NESTED_INTENT);
+        if (nestedIntent == null) {
+          return null;
+        }
+        MMXPushMessage mmxPushMsg = new MMXPushMessage();
+        mmxPushMsg.mIntent = Intent.parseUri(nestedIntent, Intent.URI_INTENT_SCHEME);
+        return mmxPushMsg;
+      } catch (URISyntaxException e) {
+        Log.w(TAG, "Ignored the malformed MMX intent: "+nestedIntent);
+        return null;
+      }
+    }
+
+    /**
+     * Get the intent that contains the push message.
+     * @return The intent.
+     */
+    public Intent getIntent() {
+      return mIntent;
+    }
+
+    /**
+     * Get the text sent from the Console.
+     * @return A text.
+     */
+    public String getText() {
+      return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
     }
   }
 }

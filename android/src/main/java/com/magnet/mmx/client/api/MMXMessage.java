@@ -25,12 +25,15 @@ import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPayload;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXid;
 
 /**
- * The message class
+ * This class holds the message payload, and operations for the message.  If
+ * the message targets to the recipients, it will be used for ad hoc messaging.
+ * If the message targets to a channel, it will be used for group chat or forum
+ * discussions.
  */
 public class MMXMessage {
   private static final String TAG = MMXMessage.class.getSimpleName();

@@ -46,7 +46,30 @@ import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.TimeUtil;
 
 /**
- * The MMXChannel class representing the Topic/Feed/PubSub model.
+ * The MMXChannel class uses the underneath pub/sub technology to provide
+ * powerful communication paradigms. Caller uses this class for forum
+ * discussions, private one-to-one chat, private group chat, 
+ * one-to-many announcement, or many-to-one personal messaging.  A private
+ * channel can also be used as a private persistent storage.  After an
+ * {@link MMX.EventListener} is registered to {@link MMX}, caller usually does
+ * <ol>
+ *  <li>locate a channel by
+ *    <ul>
+ *      <li>{@link #create(String, String, boolean, OnFinishedListener)}</li>
+ *      <li>{@link #findPublicChannelsByName(String, int, int, OnFinishedListener)}</li>
+ *      <li>{@link #findPrivateChannelsByName(String, int, int, OnFinishedListener)}</li>
+ *      <li>{@link #findByTags(Set, int, int, OnFinishedListener)}</li>
+ *      <li>{@link #getPublicChannel(String, OnFinishedListener)}</li>
+ *      <li>{@link #getPrivateChannel(String, OnFinishedListener)}</li>
+ *    </ul>
+ *  <li>subscribe to a channel by {@link #subscribe(OnFinishedListener)}</li>
+ *  <li>publish a message to the channel by {@link #publish(Map, OnFinishedListener)}</li>
+ * </ol>
+ * The channel owner may invite people to a channel via
+ * <ul>
+ * <li>{@link #inviteUser(MMXUser, String, OnFinishedListener)}</li>
+ * <li>{@link #inviteUsers(Set, String, OnFinishedListener)}</li>
+ * </ul>
  */
 public class MMXChannel {
   private static final String TAG = MMXChannel.class.getSimpleName();
@@ -629,7 +652,8 @@ public class MMXChannel {
   }
 
   /**
-   * Create a channel.
+   * Create a channel.  Upon successful completion, the current user
+   * automatically subscribes to the channel.
    * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
    * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
    *
@@ -758,6 +782,7 @@ public class MMXChannel {
 
       @Override
       public void onResult(String result) {
+        MMXChannel.this.subscribed(true);
         if (listener != null) {
           listener.onSuccess(result);
         }
@@ -789,6 +814,7 @@ public class MMXChannel {
 
       @Override
       public void onResult(Boolean result) {
+        MMXChannel.this.subscribed(false);
         if (listener != null) {
           listener.onSuccess(result);
         }
@@ -871,6 +897,7 @@ public class MMXChannel {
    * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
    * @param limit the maximum number of subscribers to return
    * @param listener the listener for the subscribers
+   * @deprecated {@link #getAllSubscribers(int, int, OnFinishedListener)}
    */
   @Deprecated
   public void getAllSubscribers(final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
@@ -1024,7 +1051,7 @@ public class MMXChannel {
   }
 
   /**
-   * Find the private channels that start with the specified text.  If there are
+   * Find private channels that start with the specified text.  If there are
    * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
    * an empty list.
    *
@@ -1090,6 +1117,7 @@ public class MMXChannel {
       final OnFinishedListener<ListResult<MMXChannel>> listener) {
     findByTags(tags, 0, limit, listener);
   }
+  
   /**
    * Query for the specified tags (inclusive.)  If there are no matching tags,
    * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
@@ -1228,7 +1256,8 @@ public class MMXChannel {
       String description = info.getDescription();
       if (info != null) {
         channels.add(new MMXChannel.Builder()
-                .lastTimeActive(summary.getLastPubTime())
+                .lastTimeActive(summary.getLastPubTime() != null ?
+                        summary.getLastPubTime() : info.getCreationDate())
                 .name(topic.getName())
                 .numberOfMessages(summary.getCount())
                 .ownerUsername(info.getCreator().getUserId())
@@ -1398,7 +1427,8 @@ public class MMXChannel {
     }
 
     /**
-     * Accept this invitation.  This will subscribe to the specified topic and notify the inviter.
+     * Accept this invitation.  This will subscribe to the specified channel
+     * and notify the inviter.
      *
      * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)

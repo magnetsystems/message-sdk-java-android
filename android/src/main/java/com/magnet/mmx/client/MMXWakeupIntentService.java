@@ -14,7 +14,6 @@
  */
 package com.magnet.mmx.client;
 
-import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.PingPongCommand;
@@ -71,40 +70,41 @@ public final class MMXWakeupIntentService extends IntentService {
       Log.d(TAG, "onHandleIntent(): action=" + action);
     }
     if ("com.google.android.c2dm.intent.RECEIVE".equals(action)) {
-      GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(this);
-      String messageType = gcm.getMessageType(intent);
+      GooglePlayServicesWrapper playServicesWrapper = GooglePlayServicesWrapper.getInstance(this);
+      int messageType = playServicesWrapper.getGcmMessageType(intent);
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onHandleIntent(): Received message type: " + messageType);
       }
-      if (GoogleCloudMessaging.MESSAGE_TYPE_SEND_ERROR.equals(messageType)) {
-        //send error
-        Log.w(TAG, "onHandleIntent(): Message type is not handled: " + messageType);
-      } else if (GoogleCloudMessaging.MESSAGE_TYPE_DELETED.equals(messageType)) {
-        //deleted messages on server
-        Log.w(TAG, "onHandleIntent(): Message type is not handled: " + messageType);
-      } else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
-        //parse the GCM message
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-          Log.d(TAG, "onHandleIntent(): Handling GCM message.  extras: " + intent.getExtras());
-        }
-        Bundle extras = intent.getExtras();
-        String msg = extras.getString("msg");
-
-        boolean isMmxHandle = false;
-        if (msg != null) {
-          try {
-            PushMessage pushMessage = PushMessage.decode(msg, MMXTypeMapper.getInstance());
-            isMmxHandle = handleMMXInternalPush(pushMessage);
-          } catch (UnknownTypeException ex) {
-            //This is not an internal MMX message type
-            Log.i(TAG, "onHandleIntent() forwarding intent to application");
-          } catch (Throwable e) {
-            Log.e(TAG, "onHandleIntent() generic exception caught while parsing GCM payload.", e);
+      switch (messageType) {
+        case GooglePlayServicesWrapper.GCM_MESSAGE_TYPE_SEND_ERROR:
+        case GooglePlayServicesWrapper.GCM_MESSAGE_TYPE_DELETED:
+        case GooglePlayServicesWrapper.GCM_MESSAGE_TYPE_SEND_EVENT:
+          Log.w(TAG, "onHandleIntent(): Message type is not handled: " + messageType);
+          break;
+        case GooglePlayServicesWrapper.GCM_MESSAGE_TYPE_MESSAGE:
+          //parse the GCM message
+          if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onHandleIntent(): Handling GCM message.  extras: " + intent.getExtras());
           }
-        }
-        if (!isMmxHandle) {
-          MMXClient.handleWakeup(this, intent);
-        }
+          Bundle extras = intent.getExtras();
+          String msg = extras.getString("msg");
+
+          boolean isMmxHandle = false;
+          if (msg != null) {
+            try {
+              PushMessage pushMessage = PushMessage.decode(msg, MMXTypeMapper.getInstance());
+              isMmxHandle = handleMMXInternalPush(pushMessage);
+            } catch (UnknownTypeException ex) {
+              //This is not an internal MMX message type
+              Log.i(TAG, "onHandleIntent() forwarding intent to application");
+            } catch (Throwable e) {
+              Log.e(TAG, "onHandleIntent() generic exception caught while parsing GCM payload.", e);
+            }
+          }
+          if (!isMmxHandle) {
+            MMXClient.handleWakeup(this, intent);
+          }
+          break;
       }
       MMXGcmBroadcastReceiver.completeWakefulIntent(intent);
     } else {

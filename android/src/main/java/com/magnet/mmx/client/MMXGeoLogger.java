@@ -21,11 +21,11 @@ import com.magnet.mmx.client.common.IMMXClient;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
 import com.magnet.mmx.client.common.MMXUserTopic;
-import com.magnet.mmx.client.common.MMXid;
 import com.magnet.mmx.client.common.MessageManager;
 import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.protocol.GeoLoc;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.util.TopicHelper;
 
 /**

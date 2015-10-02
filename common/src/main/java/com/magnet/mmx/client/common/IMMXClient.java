@@ -15,6 +15,8 @@
 
 package com.magnet.mmx.client.common;
 
+import com.magnet.mmx.protocol.MMXid;
+
 /**
  * The convenient client interface provides the basic functionality.
  *
