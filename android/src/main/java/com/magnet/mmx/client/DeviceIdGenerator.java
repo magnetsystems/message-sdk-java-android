@@ -41,10 +41,15 @@ public class DeviceIdGenerator {
    * Set a custom device ID accessor.
    * @param accessor A non-null device ID accessor.
    */
-  public static void setDeviceIdAccessor(DeviceIdAccessor accessor) {
+  public static void setDeviceIdAccessor(Context context, DeviceIdAccessor accessor) {
     if ((sDevIdAccessor = accessor) == null) {
       throw new IllegalArgumentException("device ID generator cannot be null");
     }
+    SharedPreferences shared =
+            context.getApplicationContext().
+                    getSharedPreferences(SHARED_PREF_FILENAME, Context.MODE_PRIVATE);
+    shared.edit().remove(KEY_DEVICE_ID).commit();
+    uniqueIdRef.set(null);
   }
   
   /**
@@ -80,7 +85,6 @@ public class DeviceIdGenerator {
     SharedPreferences shared =
         context.getApplicationContext().
             getSharedPreferences(SHARED_PREF_FILENAME, Context.MODE_PRIVATE);
-
     String result = shared.getString(KEY_DEVICE_ID, null);
     if (TextUtils.isEmpty(result)) {
       String devId;
@@ -90,15 +94,17 @@ public class DeviceIdGenerator {
         UUID uuid = UUID.randomUUID();
         result = Long.toString(uuid.getMostSignificantBits() & Long.MAX_VALUE, 36) +
                  Long.toString(uuid.getLeastSignificantBits() & Long.MAX_VALUE, 36);
+//      } else {
+//        try {
+//          MessageDigest md = MessageDigest.getInstance("SHA-1");
+//          byte[] hash = md.digest(devId.getBytes());
+//          result = toBaseNString(hash, 36);
+//        } catch (NoSuchAlgorithmException e) {
+//          // convert to base36 string
+//          result = toBaseNString(devId.getBytes(), 36);
+//        }
       } else {
-        try {
-          MessageDigest md = MessageDigest.getInstance("SHA-1");
-          byte[] hash = md.digest(devId.getBytes());
-          result = toBaseNString(hash, 36);
-        } catch (NoSuchAlgorithmException e) {
-          // convert to base36 string
-          result = toBaseNString(devId.getBytes(), 36);
-        }
+        result = devId;
       }
       // save it to shared preferences
       shared.edit()
@@ -149,9 +155,9 @@ public class DeviceIdGenerator {
                                               throws IllegalStateException {
     StringBuilder result = new StringBuilder();
 
-    if (!TextUtils.isEmpty(Build.SERIAL)) {
-      result.append(Build.SERIAL).append('+');
-    }
+//    if (!TextUtils.isEmpty(Build.SERIAL)) {
+//      result.append(Build.SERIAL).append('+');
+//    }
 
     try {
       if (sDevIdAccessor != null) {

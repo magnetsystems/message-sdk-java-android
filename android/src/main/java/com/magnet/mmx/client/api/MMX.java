@@ -501,6 +501,9 @@ public final class MMX {
         }
         if (unregisterListener) {
           sInstance.mLoggingIn.set(false);
+          synchronized (sInstance.mLoggingIn) {
+            sInstance.mLoggingIn.notify();
+          }
           getGlobalListener().unregisterListener(this);
         }
       }
@@ -598,7 +601,7 @@ public final class MMX {
    * @return the current user, null there is no logged-in user
    */
   public static MMXUser getCurrentUser() {
-
+    checkState();
     return sInstance.mCurrentUser;
   }
 

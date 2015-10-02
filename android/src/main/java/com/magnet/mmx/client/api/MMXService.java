@@ -12,6 +12,7 @@ import com.magnet.mmx.client.common.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This is the MMX MagnetService implementation for integration with
@@ -20,6 +21,7 @@ import java.util.Map;
 public class MMXService implements MagnetService {
   private static final String TAG = MMXService.class.getSimpleName();
   private static final String DEFAULT_CLIENT_CONFIG = "mmx.properties";
+  private Context mContext;
 
   @Override
   public String getName() {
@@ -35,6 +37,7 @@ public class MMXService implements MagnetService {
   public void onCreate(Context context, final Map<String, String> configs) {
     //map the configs into a clientConfig and apply it.
     //FIXME: This is temporary until we get the configs from blowfish
+    mContext = context;
     InputStream is;
     try {
       is = context.getAssets().open(DEFAULT_CLIENT_CONFIG);
@@ -57,7 +60,7 @@ public class MMXService implements MagnetService {
     Log.d(TAG, "onUserTokenUpdate(): userName=" + userName +
             ", deviceId=" + deviceId + ", userToken=" + userToken);
     //set the deviceId
-    DeviceIdGenerator.setDeviceIdAccessor(new DeviceIdAccessor() {
+    DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
       public String getId(Context context) {
         return deviceId;
       }
@@ -80,6 +83,7 @@ public class MMXService implements MagnetService {
   }
 
   private void loginHelper(final String userName, final String deviceId, final String userToken) {
+    final AtomicBoolean success = new AtomicBoolean(false);
     if (userName != null && deviceId != null && userToken != null) {
       MMX.login(userName, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
         @Override

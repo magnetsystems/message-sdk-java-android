@@ -478,11 +478,11 @@ public final class MMXClient {
 
     // Use a new accessor for the device ID.  It is not optimal because we don't
     // know if the device ID is changed.
-    DeviceIdGenerator.setDeviceIdAccessor(new DeviceIdAccessor() {
-      public String getId(Context context) {
-        return mConfig.getDeviceId();
-      }
-    });
+//    DeviceIdGenerator.setDeviceIdAccessor(new DeviceIdAccessor() {
+//      public String getId(Context context) {
+//        return mConfig.getDeviceId();
+//      }
+//    });
   }
 
   /**
@@ -1245,21 +1245,22 @@ public final class MMXClient {
           // Register the client protocol version numbers.
           devReg.setVersionMajor(Constants.MMX_VERSION_MAJOR);
           devReg.setVersionMinor(Constants.MMX_VERSION_MINOR);
-          try {
-            MMXStatus status = getDeviceManager().register(devReg);
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-              Log.d(TAG, "registerDeviceWithServer(): device registration completed with status=" + status);
-            }
+//          try {
+//            MMXStatus status = getDeviceManager().register(devReg);
+//            if (Log.isLoggable(TAG, Log.DEBUG)) {
+//              Log.d(TAG, "registerDeviceWithServer(): device registration completed with status=" + status);
+//            }
             notifyConnectionEvent(ConnectionEvent.CONNECTED);
             getQueue().processPendingItems();
-          } catch (MMXException e) {
-            Log.e(TAG, "registerDeviceWithServer(): caught MMXException code=" + e.getCode(), e);
-            if (e.getCode() == 400) {
-              //if status is unsuccessful, disconnect
-              notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
-              disconnect();
-            }
-          }
+//          } catch (MMXException e) {
+//            Log.e(TAG, "registerDeviceWithServer(): caught MMXException code=" + e.getCode(), e);
+//            if (e.getCode() == 400) {
+//              //if status is unsuccessful, disconnect
+//              notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
+//              disconnect();
+//            }
+//          }
+
         }
       });
     }
@@ -1291,7 +1292,7 @@ public final class MMXClient {
         Log.d(TAG, "onAuthenticated() begin");
       }
       //FIXME: Figure out how to deal with Wakeups/GCM
-      //registerDeviceWithServer();
+      registerDeviceWithServer();
     }
 
     @Override
