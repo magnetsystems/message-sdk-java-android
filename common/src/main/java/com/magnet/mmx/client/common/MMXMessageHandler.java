@@ -43,8 +43,17 @@ public class MMXMessageHandler implements MMXMessageListener {
   public void onMessageSent(String msgId) {
   }
   /**
-   * An empty callback when a message is accepted by the server.
-   * @param receiver The receiver of the message.
+   * An empty callback when a multicast message is submitted to the server
+   * successfully.
+   * @param msgId The message ID.
+   */
+  @Override
+  public void onMessageSubmitted(String msgId) {
+  }
+  /**
+   * An empty callback when a unicast or multicast message is accepted and
+   * validated by the server.
+   * @param receiver The MMMX receiver for unicast message, or null for multicast message.
    * @param msgId The message ID.
    */
   @Override

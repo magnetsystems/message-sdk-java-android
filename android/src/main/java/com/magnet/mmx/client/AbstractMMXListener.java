@@ -14,6 +14,8 @@
  */
 package com.magnet.mmx.client;
 
+import java.util.ArrayList;
+
 import android.os.Handler;
 import android.util.Log;
 
@@ -21,8 +23,6 @@ import com.magnet.mmx.client.common.MMXErrorMessage;
 import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXid;
-
-import java.util.ArrayList;
 
 /**
  * This abstract class is a helper class intended to be used with MMXClient.  The implementation
@@ -148,15 +148,34 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * The listeners will be called in the order registered.
    *
    * @param mmxClient the MMXClient instance
-   * @param recipient the recipient of the originally sent message (who has acknowledged receipt of the message)
    * @param messageId The id of the message for which the receipt was returned
    */
-  public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
+  public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
+    Log.d(TAG, "onMessageSubmitted(): start.  ");
+    synchronized (mListeners) {
+      for (MMXClient.MMXListener listener : mListeners) {
+        try {
+          listener.onMessageSubmitted(mmxClient, messageId);
+        } catch (Throwable throwable) {
+          Log.e(TAG, "onMessageSubmitted(): caught throwable from listener: " + listener, throwable);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Implements the MMXListener method and dispatches the call to any registered listeners.
+   * The listeners will be called in the order registered.
+   *
+   * @param mmxClient the MMXClient instance
+   * @param messageId The id of the message for which the receipt was returned
+   */
+  public void onMessageAccepted(MMXClient mmxClient, String messageId) {
     Log.d(TAG, "onMessageAccepted(): start.  ");
     synchronized (mListeners) {
       for (MMXClient.MMXListener listener : mListeners) {
         try {
-          listener.onMessageAccepted(mmxClient, recipient, messageId);
+          listener.onMessageAccepted(mmxClient, messageId);
         } catch (Throwable throwable) {
           Log.e(TAG, "onMessageAccepted(): caught throwable from listener: " + listener, throwable);
         }

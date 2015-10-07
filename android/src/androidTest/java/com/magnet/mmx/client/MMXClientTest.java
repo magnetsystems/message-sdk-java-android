@@ -23,6 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.content.Context;
+import android.test.InstrumentationTestCase;
+import android.util.Log;
+
 import com.magnet.mmx.client.common.MMXConnection;
 import com.magnet.mmx.client.common.MMXErrorMessage;
 import com.magnet.mmx.client.common.MMXException;
@@ -36,17 +40,13 @@ import com.magnet.mmx.client.common.TopicExistsException;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXStatus;
+import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicId;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
-import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.protocol.UserTags;
-
-import android.content.Context;
-import android.test.InstrumentationTestCase;
-import android.util.Log;
 
 public class MMXClientTest extends InstrumentationTestCase {
   private static final String TAG = MMXClientTest.class.getSimpleName();
@@ -92,7 +92,6 @@ public class MMXClientTest extends InstrumentationTestCase {
 
     public void onSendFailed(MMXClient client, String msgId) {
       Log.d(TAG, "onSendFailed message Id=" + msgId);
-
     }
 
     public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
@@ -102,8 +101,12 @@ public class MMXClientTest extends InstrumentationTestCase {
         isReceiptReceived.notify();
       }
     }
-
-    public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
+    
+    public void onMessageSubmitted(MMXClient client, String messageId) {
+      Log.d(TAG, "onMessageSubmitted message id =" + messageId);
+    }
+    
+    public void onMessageAccepted(MMXClient client, String messageId) {
       Log.d(TAG, "onMessageAccepted message id =" + messageId);
     }
 
@@ -119,7 +122,6 @@ public class MMXClientTest extends InstrumentationTestCase {
     @Override
     public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
       Log.d(TAG, "onErrorReceived error=" + error.toString());
-      
     }
   }
 

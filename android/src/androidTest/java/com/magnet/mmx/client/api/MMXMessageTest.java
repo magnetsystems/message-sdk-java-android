@@ -131,7 +131,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertFalse(MMX.getMMXClient().isConnected());
   }
   
-  private Set<MMXUser> mInvalidUsers;
   private MMXMessage.FailureCode mFailureCode;
 
   public void testSendBeforeLogin() {
@@ -204,7 +203,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     String wrongUser = WRONG_USERNAME_PREFIX;
     registerUser(username, displayName, PASSWORD);
 
-    mInvalidUsers = null;
+    final Set<MMXUser> invalidUsers = new HashSet<MMXUser>();
     mFailureCode = null;
     
     //login with credentials
@@ -217,8 +216,9 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
-    MMX.enableIncomingMessages(true);
-    final ExecMonitor<Boolean, Void> receivedResult = new ExecMonitor<Boolean, Void>();
+    MMX.start();
+    final ExecMonitor<Boolean, MMXMessage.FailureCode> receivedResult =
+            new ExecMonitor<Boolean, MMXMessage.FailureCode>();
     MMX.EventListener messageListener = new MMX.EventListener() {
       @Override
       public boolean onMessageReceived(MMXMessage message) {
@@ -229,6 +229,15 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       @Override
       public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
         receivedResult.invoked(Boolean.TRUE);
+        return false;
+      }
+      @Override
+      public boolean onMessageSendError(String messageId, 
+                        MMXMessage.FailureCode code, String username) {
+        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", username="+username);
+        invalidUsers.add(new MMXUser.Builder().username(username).build());
+        Log.d(TAG, "invalidUsers="+invalidUsers);
+        receivedResult.failed(code);
         return false;
       }
     };
@@ -246,34 +255,41 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
             .recipients(recipients)
             .content(content)
             .build();
-    final ExecMonitor<Boolean, Boolean> sendResult = new ExecMonitor<Boolean, Boolean>();
+    final ExecMonitor<Boolean, MMXMessage.FailureCode> sendResult =
+            new ExecMonitor<Boolean, MMXMessage.FailureCode>();
     final String messageId = message.send(new MMXMessage.OnFinishedListener<String>() {
-      public void onSuccess(String result) {
-        Log.e(TAG, "@@@ unexpected send success; msgId="+result);
+      @Override
+      public void onSuccess(String msgId) {
         sendResult.invoked(Boolean.TRUE);
       }
-
+      @Override
       public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
-        mFailureCode = code;
-        mInvalidUsers = ((MMXUser.InvalidUserException) ex).getUsers();
-        Log.d(TAG, "@@@ code="+mFailureCode+", invalid users="+mInvalidUsers);
-        sendResult.failed(Boolean.TRUE);
+        sendResult.failed(code);
+        invalidUsers.addAll(((MMXUser.InvalidUserException) ex).getUsers());
       }
     });
     
-    sendResult.waitFor(10000);
+    ExecMonitor.Status status = sendResult.waitFor(10000);
+    assertEquals(ExecMonitor.Status.FAILED, status);
 
-    // Send failed because an error of invalid recipient.
-    assertNull(sendResult.getReturnValue());
-    assertNotNull(sendResult.getFailedValue());
-    assertTrue(sendResult.getFailedValue());
-    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, mFailureCode);
-    assertTrue(mInvalidUsers.contains(badRecipient1));
-    assertTrue(mInvalidUsers.contains(badRecipient2));
-    
-    // Make sure that no msg received.
-    ExecMonitor.Status status = receivedResult.waitFor(5000);
-    assertEquals(ExecMonitor.Status.WAITING, status);
+//    // Send success despite invalid recipients
+//    assertTrue(sendResult.getReturnValue());
+//    assertNull(sendResult.getFailedValue());
+//    
+//    // We have to do a sleep because multiple error messages will be received.
+//    try {
+//      Thread.sleep(2000);
+//    } catch (InterruptedException e) {
+//      // Ignored.
+//    }
+//    // Make sure that send error is received.
+//    status = receivedResult.waitFor(1000);
+//    assertEquals(ExecMonitor.Status.FAILED, status);
+//    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, receivedResult.getFailedValue());
+//    
+    assertEquals(2, invalidUsers.size());
+    assertTrue(invalidUsers.contains(badRecipient1));
+    assertTrue(invalidUsers.contains(badRecipient2));
     
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);

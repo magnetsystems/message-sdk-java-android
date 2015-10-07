@@ -39,6 +39,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
+import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
@@ -384,6 +385,7 @@ public class MMXChannel {
     MMXTask<HashSet<String>> task = new MMXTask<HashSet<String>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public HashSet<String> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicTags topicTags = psm.getAllTags(getMMXTopic());
         return topicTags.getTags() != null ?
@@ -488,6 +490,7 @@ public class MMXChannel {
             new MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         List<com.magnet.mmx.client.common.MMXMessage> messages =
                 psm.getItems(topic, new TopicAction.FetchOptions()
@@ -539,6 +542,7 @@ public class MMXChannel {
             new MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Map<String, com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         List<String> idList = Arrays.asList(ids.toArray(new String[ids.size()]));
         Map<String, com.magnet.mmx.client.common.MMXMessage> messages =
@@ -587,6 +591,7 @@ public class MMXChannel {
             new MMXTask<Map<String, Integer>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Map<String, Integer> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         List<String> idList = Arrays.asList(ids.toArray(new String[ids.size()]));
         Map<String, Integer> results = psm.deleteItemsByIds(topic, idList);
@@ -667,6 +672,7 @@ public class MMXChannel {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
                 .setDescription(summary).setSubscribeOnCreate(true);
@@ -733,6 +739,7 @@ public class MMXChannel {
     MMXTask<MMXStatus> task = new MMXTask<MMXStatus> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         return psm.deleteTopic(getMMXTopic());
       }
@@ -869,14 +876,14 @@ public class MMXChannel {
    */
   public void inviteUser(final MMXUser invitee, final String invitationText,
                          final OnFinishedListener<MMXInvite> listener) {
-    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
-    MMXInvite invite = new MMXInvite(inviteInfo, false);
-    invite.send(listener);
+    Set<MMXUser> invitees = new HashSet<MMXUser>(1);
+    invitees.add(invitee);
+    inviteUsers(invitees, invitationText, listener);
   }
 
   /**
-   * A convenient method to send an invitation to multiple users for this channel.
-   * The listener will be invoked one per invitee.  If the invitee is invalid,
+   * Sends an invitation to a set of users for this channel. The listener will
+   * be invoked one per invitee.  If an invitee is invalid,
    * the failure code will be {@link FailureCode#INVALID_INVITEE}.
    * @param invitees A set of invitees
    * @param invitationText the text to include in the invite
@@ -884,11 +891,9 @@ public class MMXChannel {
    */
   public void inviteUsers(final Set<MMXUser> invitees, final String invitationText,
                           final OnFinishedListener<MMXInvite> listener) {
-    for (MMXUser invitee : invitees) {
-      MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
-      MMXInvite invite = new MMXInvite(inviteInfo, false);
-      invite.send(listener);
-    }
+    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitees, MMX.getCurrentUser(), this, invitationText);
+    MMXInvite invite = new MMXInvite(inviteInfo, false);
+    invite.send(listener);
   }
 
   /**
@@ -917,6 +922,7 @@ public class MMXChannel {
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXResult<List<UserInfo>> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         return psm.getSubscribers(getMMXTopic(), offset, limit);
       }
@@ -971,6 +977,7 @@ public class MMXChannel {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicInfo info = psm.getTopic(publicOnly ? 
             new MMXGlobalTopic(name) : new MMXPersonalTopic(name));
@@ -1073,6 +1080,7 @@ public class MMXChannel {
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         if (startsWith == null || startsWith.isEmpty()) {
           throw new MMXException("Search string cannot be null or empty",
               FailureCode.BAD_REQUEST.getValue());
@@ -1133,6 +1141,7 @@ public class MMXChannel {
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
@@ -1169,6 +1178,7 @@ public class MMXChannel {
     MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         return fromSubscriptions(psm.listAllSubscriptions());
       }
@@ -1270,6 +1280,11 @@ public class MMXChannel {
     }
     return channels;
   }
+  
+  private static void validateClient(MMXClient mmxClient) throws MMXException {
+    if (!mmxClient.isConnected())
+      throw new MMXException("Current user is not logged in", StatusCode.UNAUTHORIZED);
+  }
 
   // ***************************
   // CODE RELATED TO INVITATIONS
@@ -1286,24 +1301,24 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private MMXChannel mChannel;
-    private MMXUser mInvitee;
+    private Set<MMXUser> mInvitees;
     private MMXUser mInviter;
     private String mComment;
 
-    private MMXInviteInfo(MMXUser invitee, MMXUser inviter, MMXChannel channel, String comment) {
-      mInvitee = invitee;
+    private MMXInviteInfo(Set<MMXUser> invitees, MMXUser inviter, MMXChannel channel, String comment) {
+      mInvitees = invitees;
       mInviter = inviter;
       mChannel = channel;
       mComment = comment;
     }
-
+    
     /**
-     * The user who is being invited.
+     * The users who are being invited.
      *
-     * @return the user who is being invited
+     * @return the users who are being invited
      */
-    public MMXUser getInvitee() {
-      return mInvitee;
+    public Set<MMXUser> getInvitees() {
+      return mInvitees;
     }
 
     /**
@@ -1365,7 +1380,7 @@ public class MMXChannel {
               .ownerUsername(channelOwnerUsername)
               .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
               .build();
-      return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
+      return new MMXInviteInfo(message.getRecipients(), message.getSender(), channel, text);
     }
   }
 
@@ -1404,10 +1419,8 @@ public class MMXChannel {
                 "the MMXChannel.Builder() object instead of being returned from " +
                 "a method call (i.e. findBy() or create()");
       }
-      HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-      recipients.add(mInviteInfo.getInvitee());
       MMXMessage message = new MMXMessage.Builder()
-              .recipients(recipients)
+              .recipients(mInviteInfo.getInvitees())
               .content(mInviteInfo.buildMessageContent())
               .type(TYPE)
               .build();
