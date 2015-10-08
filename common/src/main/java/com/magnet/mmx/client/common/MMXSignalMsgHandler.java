@@ -30,7 +30,7 @@ import com.magnet.mmx.util.GsonData;
 
 /**
  * The client handler for MMX extended signal message.  The stanza for the
- * MMX extension is &lt;mmx ...&gt;&lt;/mmx&gt;.
+ * MMX extension is &lt;mmx xmlns="com.magnet:msg:signal"...&gt;&lt;/mmx&gt;.
  */
 public class MMXSignalMsgHandler {
 

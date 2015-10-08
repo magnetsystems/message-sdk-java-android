@@ -515,15 +515,12 @@ public class MMXMessage {
           MMXid[] recipientsArray = new MMXid[mRecipients.size()];
           int index = 0;
           for (MMXUser recipient : mRecipients) {
-            recipientsArray[index++] = new MMXid(recipient.getUsername(), null);
+            recipientsArray[index++] = new MMXid(recipient.getUsername(), recipient.getDisplayName());
           }
           if (listener != null) {
             synchronized (sMessageSendListeners) {
-              HashSet<String> recipientSet = new HashSet<String>();
-              for (MMXid mmxId : recipientsArray) {
-                recipientSet.add(mmxId.getUserId());
-              }
-              sMessageSendListeners.put(generatedMessageId, new RecipientListenerPair(recipientSet, listener));
+              sMessageSendListeners.put(generatedMessageId, 
+                  new MessageListenerPair(listener, MMXMessage.this));
             }
           }
           String messageId = mmxClient.getMessageManager().sendPayload(generatedMessageId, recipientsArray, payload,
@@ -682,65 +679,34 @@ public class MMXMessage {
   }
 
   //For handling the onSuccess of send() messages when server ack is received
-  private class RecipientListenerPair {
-    private final Set<String> recipients;
+  private class MessageListenerPair {
     private final OnFinishedListener<String> listener;
-    private Exception exception;
+    private final MMXMessage message;
 
-    private RecipientListenerPair(Set<String> recipients,
-                                  OnFinishedListener<String> listener) {
-      this.recipients = recipients;
+    private MessageListenerPair(OnFinishedListener<String> listener, MMXMessage message) {
       this.listener = listener;
-    }
-
-    private synchronized boolean onAckOrErrorReceived(String recipient) {
-      recipients.remove(recipient);
-      return recipients.size() == 0;
+      this.message = message;
     }
   }
 
-  private static HashMap<String, RecipientListenerPair> sMessageSendListeners =
-          new HashMap<String, RecipientListenerPair>();
+  private static HashMap<String, MessageListenerPair> sMessageSendListeners =
+          new HashMap<String, MessageListenerPair>();
 
-  static void handleServerAck(MMXid recipient, String messageId) {
+  static void handleMessageAccepted(String messageId) {
     synchronized (sMessageSendListeners) {
-      RecipientListenerPair listenerPair = sMessageSendListeners.get(messageId);
+      MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
       if (listenerPair != null) {
-        if (listenerPair.onAckOrErrorReceived(recipient.getUserId())) {
-          sMessageSendListeners.remove(messageId);
-          // If there are any invalid recipients, onFailure will be invoke for backward
-          // compatibility.  Otherwise, we have to introduce a new method like
-          // "onResult(String messageId, Set<MMXUser> invalidRecipients)".
-          if (listenerPair.exception != null)
-            listenerPair.listener.onFailure(FailureCode.INVALID_RECIPIENT, listenerPair.exception);
-          else
-            listenerPair.listener.onSuccess(messageId);
-        }
+        listenerPair.listener.onSuccess(messageId);
       }
     }
   }
   
-  static void handleMessageSendError(MMXid recipient, String messageId, 
-                            MMXMessage.FailureCode code, Throwable throwable) {
+  static MMXMessage getSendingMessage(String messageId) {
     synchronized (sMessageSendListeners) {
-      RecipientListenerPair listenerPair = sMessageSendListeners.get(messageId);
-      if (listenerPair != null) {
-        if (code.equals(FailureCode.INVALID_RECIPIENT) && recipient != null) {
-          // Save all invalid recipients into a single exception.
-          if (listenerPair.exception == null) {
-            listenerPair.exception = new MMXUser.InvalidUserException(
-                "Invalid recipient", messageId);
-          }
-          ((MMXUser.InvalidUserException) listenerPair.exception).addUser(
-              new MMXUser.Builder().username(recipient.getUserId()).build());
-          throwable = listenerPair.exception;
-        }
-        if (recipient == null || listenerPair.onAckOrErrorReceived(recipient.getUserId())) {
-          sMessageSendListeners.remove(messageId);
-          // It is possible that throwable is null.
-          listenerPair.listener.onFailure(code, throwable);
-        }
-      }
+      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
+      if (listenerPair == null)
+        return null;
+      return listenerPair.message;
     }
   }
 }

@@ -17,17 +17,34 @@ package com.magnet.mmx.client.common;
 import java.io.Serializable;
 import java.util.Map;
 
+import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.MmxHeaders;
 
 /**
  * @hide
- * The payload of an ack for a message received by the MMX server.
+ * The payload of signal message received by the MMX server.
  */
-public class ServerAck implements Serializable {
+public class SignalMsg implements Serializable {
+  private static final String TAG = "SignalMsg";
   private static final long serialVersionUID = 6570068723698883699L;
 
-  private final static String SERVER_ACK = "serverack";
+  public static enum Type {
+    ACK_ONCE(Constants.SERVER_ACK_KEY),
+    ACK_BEGIN(Constants.BEGIN_ACK_KEY),
+    ACK_END(Constants.END_ACK_KEY);
+
+    private final String mValue;
+
+    Type(String value) {
+      mValue = value;
+    }
+
+    String getValue() {
+      return mValue;
+    }
+  }
+
   private final static String ACK_MSG_ID = "ackForMsgId";
   private final static String SENDER = "sender";
   private final static String RECEIVER = "receiver";
@@ -37,6 +54,7 @@ public class ServerAck implements Serializable {
   private String mMsgId;
   private MMXid mSender;
   private MMXid mReceiver;
+  private Type mType;
 
   /**
    * Get the originator of the message.
@@ -63,24 +81,47 @@ public class ServerAck implements Serializable {
   }
 
   /**
+   * Get the type of the signal.
+   * @return
+   */
+  public Type getType() {
+    return mType;
+  }
+  /**
    * Get the String representation for debug purpose.
    */
   @Override
   public String toString() {
-    return "{msgid="+mMsgId+", sndr="+mSender+", rcvr="+mReceiver+"}";
+    return "{msgid="+mMsgId+", sndr="+mSender+", rcvr="+mReceiver+", type="+mType+"}";
   }
 
-  public static ServerAck parse(MmxHeaders mmxMeta) {
-    Map<String, Object> map = (Map<String, Object>) mmxMeta.get(SERVER_ACK);
+  public static SignalMsg parse(MmxHeaders mmxMeta) {
+    SignalMsg sigMsg = new SignalMsg();
+
+    Map<String, Object> map = null;
+    Type[] ackTypes = { Type.ACK_ONCE, Type.ACK_BEGIN, Type.ACK_END };
+    for (Type type : ackTypes) {
+      if ((map = (Map<String, Object>) mmxMeta.get(type.getValue())) != null) {
+        sigMsg.mType = type;
+        break;
+      }
+    }
+    if (sigMsg.mType == null) {
+      Log.w(TAG, "Cannot handle a non-ack signal message yet: map="+mmxMeta);
+      return null;
+    }
     Map<String, String> sender = (Map<String, String>) map.get(SENDER);
     Map<String, String> receiver = (Map<String, String>) map.get(RECEIVER);
 
-    ServerAck svrAck = new ServerAck();
-    svrAck.mMsgId = (String) map.get(ACK_MSG_ID);
-    svrAck.mSender = new MMXid(sender.get(USER_ID), null, sender.get(DEV_ID));
-    svrAck.mReceiver = new MMXid(receiver.get(USER_ID), null, null);
+    sigMsg.mMsgId = (String) map.get(ACK_MSG_ID);
+    if (sender != null) {
+      sigMsg.mSender = new MMXid(sender.get(USER_ID), null, sender.get(DEV_ID));
+    }
+    if (receiver != null) {
+      sigMsg.mReceiver = new MMXid(receiver.get(USER_ID), null, null);
+    }
 
-    return svrAck;
+    return sigMsg;
   }
 
 }

@@ -217,10 +217,14 @@ public class MessageManager {
           MMXSignalMsgHandler.MMXPacketExtension extension = packet.getExtension(
               Constants.MMX, Constants.MMX_NS_MSG_SIGNAL);
           MmxHeaders mmxMeta = extension.getMmxMeta();
-          ServerAck serverAck = ServerAck.parse(mmxMeta);
-          // TODO: how to do the callback for the server ack?
-          mCon.getMessageListener().onMessageAccepted(serverAck.getReceiver(),
-                serverAck.getMsgId());
+          SignalMsg sigMsg = SignalMsg.parse(mmxMeta);
+          if (sigMsg.getType() == SignalMsg.Type.ACK_ONCE) {
+            mCon.getMessageListener().onMessageAccepted(sigMsg.getReceiver(), sigMsg.getMsgId());
+          } else if (sigMsg.getType() == SignalMsg.Type.ACK_BEGIN) {
+            mCon.getMessageListener().onMessageSubmitted(sigMsg.getMsgId());
+          } else if (sigMsg.getType() == SignalMsg.Type.ACK_END) {
+            mCon.getMessageListener().onMessageAccepted(null, sigMsg.getMsgId());
+          }
         }
       });
     }

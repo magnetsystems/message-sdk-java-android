@@ -337,11 +337,18 @@ public final class MMXClient {
       }
     }
     
-    public void onMessageAccepted(MMXid recipient, String msgId) {
+    public void onMessageSubmitted(String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onMessageAccepted() start; recipeint="+recipient+", msgID="+msgId);
+        Log.d(TAG, "onMessageSubmitted() start: msgID="+msgId);
       }
-      notifyMessageAccepted(recipient, msgId);
+      notifyMessageSubmitted(msgId);
+    }
+    
+    public void onMessageAccepted(MMXid receiver, String msgId) {
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "onMessageAccepted() start: msgID="+msgId);
+      }
+      notifyMessageAccepted(msgId);
     }
     
     public void onMessageFailed(String msgId) {
@@ -1115,12 +1122,27 @@ public final class MMXClient {
     }
   }
 
-  private void notifyMessageAccepted(final MMXid recipient, final String messageId) {
+  private void notifyMessageSubmitted(final String messageId) {
     synchronized (this) {
       mMessagingHandler.post(new Runnable() {
         public void run() {
           try {
-            mMMXListener.onMessageAccepted(MMXClient.this, recipient, messageId);
+            mMMXListener.onMessageSubmitted(MMXClient.this, messageId);
+          } catch (Exception ex) {
+            Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+                "the callback", ex);
+          }
+        }
+      });
+    }
+  }
+  
+  private void notifyMessageAccepted(final String messageId) {
+    synchronized (this) {
+      mMessagingHandler.post(new Runnable() {
+        public void run() {
+          try {
+            mMMXListener.onMessageAccepted(MMXClient.this, messageId);
           } catch (Exception ex) {
             Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
                 "the callback", ex);
@@ -1392,13 +1414,19 @@ public final class MMXClient {
     void onMessageDelivered(MMXClient client, MMXid recipient, String messageId);
 
     /**
+     * Called when a multicast message has been submitted to the server.
+     * @param client
+     * @param messageId
+     */
+    void onMessageSubmitted(MMXClient client, String messageId);
+    
+    /**
      * Called when a message has been accepted for delivery by the MMX server
      *
      * @param client the instance of the MMXClient
-     * @param recipient the recipient for which the message was accepted
      * @param messageId the message id of the message
      */
-    void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
+    void onMessageAccepted(MMXClient client, String messageId);
 
     /**
      * Called when a pubsub item is received.
