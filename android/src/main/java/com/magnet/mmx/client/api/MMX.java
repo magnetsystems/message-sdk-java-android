@@ -313,8 +313,7 @@ public final class MMX {
 
     @Override
     public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
-//      MMXMessage.handleMessageAccepted(messageId);
-//      super.onMessageSubmitted(mmxClient, messageId);
+      // No-op for now.
     }
     
     @Override
@@ -354,10 +353,9 @@ public final class MMX {
     // There are two possible implementations how a send error can be handled.
     // One way is to handle some errors in onFailure() and some errors in the
     // onMessageSendError(), the other way is to handle all errors in the
-    // onMessageSendError().  Current implementation is the hybrid mode because
-    // a lot of developers think onFailure() is for errors which is not supposed
-    // to be.  In the next check in, the send error will be handled by
-    // onMesasgeSendError(); it will break the backward compatibility.
+    // onMessageSendError().  The implementation is to be handled by
+    // onMesasgeSendError(); it will break the backward compatibility.  To use
+    // the hybrid mode, see git commit 422c8d147c386ccf939b064ddebe40dd99fe9cf6
     @Override
     public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
       XMPPError xmppErr;
@@ -368,21 +366,15 @@ public final class MMX {
         if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue()) {
           fcode = MMXMessage.FailureCode.INVALID_RECIPIENT;
           text = (mmxErr.getParams() == null) ? null : (mmxErr.getParams())[0];
-//          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
-          MMXMessage.handleMessageSendError(text == null ? null : new MMXid(text, null),
-              mmxErr.getMsgId(), fcode, null);
+          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         } else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue()) {
           fcode = MMXMessage.FailureCode.CONTENT_TOO_LARGE;
           text = mmxErr.getMessage();
-//          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
-          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(), fcode,
-              new MMXException(text, mmxErr.getCode()));
+          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         } else {
           fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
           text = mmxErr.getMessage();
-//          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
-          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(), fcode,
-              new MMXException(text, mmxErr.getCode()));
+          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         }
       } else if ((xmppErr = error.getXMPPError()) != null) {
         Log.e(TAG, "onErrorReceived(): unsupported XMPP error="+xmppErr);

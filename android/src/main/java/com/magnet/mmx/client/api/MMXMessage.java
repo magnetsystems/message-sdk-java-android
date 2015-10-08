@@ -682,7 +682,6 @@ public class MMXMessage {
   private class MessageListenerPair {
     private final OnFinishedListener<String> listener;
     private final MMXMessage message;
-    private Throwable throwable;
 
     private MessageListenerPair(OnFinishedListener<String> listener, MMXMessage message) {
       this.listener = listener;
@@ -697,32 +696,7 @@ public class MMXMessage {
     synchronized (sMessageSendListeners) {
       MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
       if (listenerPair != null) {
-        if (listenerPair.throwable != null)
-          listenerPair.listener.onFailure(null, listenerPair.throwable);
-        else
-          listenerPair.listener.onSuccess(messageId);
-      }
-    }
-  }
-  
-  static void handleMessageSendError(MMXid recipient, String messageId,
-                            MMXMessage.FailureCode code, Throwable throwable) {
-    synchronized (sMessageSendListeners) {
-      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
-      if (listenerPair == null) {
-        Log.w(TAG, "Unable to find a listener to handle error for msgID="+messageId+
-              ".  Maybe this application has been restarted");
-      } else {
-        if (code.equals(FailureCode.INVALID_RECIPIENT) && recipient != null) {
-          if (listenerPair.throwable == null) {
-            listenerPair.throwable = new MMXUser.InvalidUserException(
-                "Invalid recipient", messageId);
-          }
-          ((MMXUser.InvalidUserException) listenerPair.throwable).addUser(
-              new MMXUser.Builder().username(recipient.getUserId()).build());
-        } else {
-          listenerPair.throwable = throwable;
-        }
+        listenerPair.listener.onSuccess(messageId);
       }
     }
   }
