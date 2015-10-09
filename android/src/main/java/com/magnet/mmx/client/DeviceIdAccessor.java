@@ -33,6 +33,11 @@ public interface DeviceIdAccessor {
         Context.TELEPHONY_SERVICE);
       return tm.getDeviceId();
     }
+    
+    @Override
+    public boolean obfuscated() {
+      return true;
+    }
   };
   
   /**
@@ -45,6 +50,11 @@ public interface DeviceIdAccessor {
       BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
       return (adapter == null) ? null : adapter.getAddress();
     }
+    
+    @Override
+    public boolean obfuscated() {
+      return true;
+    }
   };
   
   /**
@@ -53,4 +63,10 @@ public interface DeviceIdAccessor {
    * @return A custom ID, or null if not available.
    */
   public String getId(Context context);
+  
+  /**
+   * To obfuscate of the device ID before being used.
+   * @return true to obfuscate the ID; false to use the device ID as-is.
+   */
+  public boolean obfuscated();
 }

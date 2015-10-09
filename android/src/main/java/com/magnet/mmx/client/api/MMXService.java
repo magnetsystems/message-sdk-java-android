@@ -64,6 +64,9 @@ public class MMXService implements MagnetService {
       public String getId(Context context) {
         return deviceId;
       }
+      public boolean obfuscated() {
+        return false;
+      }
     });
     //logout/login
     if (MMX.getCurrentUser() != null) {

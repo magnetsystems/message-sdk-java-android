@@ -93,10 +93,17 @@ public interface MMXClientConfig {
   public MMXClient.SecurityLevel getSecurityLevel();
   
   /**
-   * The raw device ID to be used by the client.  This raw device ID will be
-   * scrambled before used as a unique ID for the endpoint.
+   * The raw device ID to be used by the client.  This raw device ID may be
+   * obfuscated before used as a unique ID for the endpoint.
    * 
    * @return the device ID
+   * @see #obfuscateDeviceId()
    */
   public String getDeviceId();
+  
+  /**
+   * Obfuscate the device ID before using it.
+   * @return true to obfuscate; otherwise, false.
+   */
+  public boolean obfuscateDeviceId();
 }

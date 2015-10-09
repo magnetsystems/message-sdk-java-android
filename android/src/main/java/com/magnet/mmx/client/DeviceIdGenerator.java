@@ -15,16 +15,16 @@
 
 package com.magnet.mmx.client;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.os.Build;
-import android.text.TextUtils;
-
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.text.TextUtils;
 
 /**
  * A plug-in framework for generating a unique device ID based on hardware or
@@ -94,16 +94,17 @@ public class DeviceIdGenerator {
         UUID uuid = UUID.randomUUID();
         result = Long.toString(uuid.getMostSignificantBits() & Long.MAX_VALUE, 36) +
                  Long.toString(uuid.getLeastSignificantBits() & Long.MAX_VALUE, 36);
-//      } else {
-//        try {
-//          MessageDigest md = MessageDigest.getInstance("SHA-1");
-//          byte[] hash = md.digest(devId.getBytes());
-//          result = toBaseNString(hash, 36);
-//        } catch (NoSuchAlgorithmException e) {
-//          // convert to base36 string
-//          result = toBaseNString(devId.getBytes(), 36);
-//        }
+      } else if (obfuscateDeviceId()) {
+        try {
+          MessageDigest md = MessageDigest.getInstance("SHA-1");
+          byte[] hash = md.digest(devId.getBytes());
+          result = toBaseNString(hash, 36);
+        } catch (NoSuchAlgorithmException e) {
+          // convert to base36 string
+          result = toBaseNString(devId.getBytes(), 36);
+        }
       } else {
+        // Not to obfuscate the device ID.
         result = devId;
       }
       // save it to shared preferences
@@ -153,16 +154,14 @@ public class DeviceIdGenerator {
    */
   private static String getHardwareDeviceId(Context context) 
                                               throws IllegalStateException {
-    StringBuilder result = new StringBuilder();
-
-//    if (!TextUtils.isEmpty(Build.SERIAL)) {
-//      result.append(Build.SERIAL).append('+');
-//    }
-
     try {
       if (sDevIdAccessor != null) {
         String devId = sDevIdAccessor.getId(context);
         if (!TextUtils.isEmpty(devId)) {
+          StringBuilder result = new StringBuilder();
+          if (sDevIdAccessor.obfuscated() && !TextUtils.isEmpty(Build.SERIAL)) {
+            result.append(Build.SERIAL).append('+');
+          }
           return result.append(devId).toString();
         }
       }
@@ -170,6 +169,10 @@ public class DeviceIdGenerator {
     } catch (Exception e) {
       throw new IllegalStateException("Unable to get hardware device ID", e);
     }
+  }
+  
+  private static boolean obfuscateDeviceId() {
+    return (sDevIdAccessor == null) ? false : sDevIdAccessor.obfuscated();
   }
 
   /**

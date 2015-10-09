@@ -485,11 +485,16 @@ public final class MMXClient {
 
     // Use a new accessor for the device ID.  It is not optimal because we don't
     // know if the device ID is changed.
-//    DeviceIdGenerator.setDeviceIdAccessor(new DeviceIdAccessor() {
-//      public String getId(Context context) {
-//        return mConfig.getDeviceId();
-//      }
-//    });
+    DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+      @Override
+      public String getId(Context context) {
+        return mConfig.getDeviceId();
+      }
+      @Override
+      public boolean obfuscated() {
+        return mConfig.obfuscateDeviceId();
+      }
+    });
   }
 
   /**
