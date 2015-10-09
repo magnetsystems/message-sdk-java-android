@@ -37,17 +37,18 @@ public interface MMXMessageListener {
    */
   public void onMessageSent( String msgId );
   /**
-   * A callback when a multicast message is submitted to the server.
+   * A callback when a message is submitted to the server.
+   * @param recipient The recipient ID for unicast message, or null for multicast message.
    * @param msgId The message ID.
    */
-  public void onMessageSubmitted( String msgId );
+  public void onMessageSubmitted(MMXid recipient, String msgId );
   /**
    * A callback when a unicast or multicast message is accepted and validated by
    * the server.
-   * @param receiver The receiver ID for unicast message, or null for multicast message.
+   * @param recipient The recipient ID for unicast message, or null for multicast message.
    * @param msgId The message ID.
    */
-  public void onMessageAccepted(MMXid receiver, String msgId );
+  public void onMessageAccepted(MMXid recipient, String msgId );
   /**
    * A callback when sending a message failed due to network issue.  Typically
    * it will be followed by the connection close callback.

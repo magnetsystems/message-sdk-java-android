@@ -148,14 +148,15 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * The listeners will be called in the order registered.
    *
    * @param mmxClient the MMXClient instance
+   * @param recipient The recipient for unicast message, null for mulitcast message
    * @param messageId The id of the message for which the receipt was returned
    */
-  public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
+  public void onMessageSubmitted(MMXClient mmxClient, MMXid recipient, String messageId) {
     Log.d(TAG, "onMessageSubmitted(): start.  ");
     synchronized (mListeners) {
       for (MMXClient.MMXListener listener : mListeners) {
         try {
-          listener.onMessageSubmitted(mmxClient, messageId);
+          listener.onMessageSubmitted(mmxClient, recipient, messageId);
         } catch (Throwable throwable) {
           Log.e(TAG, "onMessageSubmitted(): caught throwable from listener: " + listener, throwable);
         }
@@ -168,14 +169,15 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * The listeners will be called in the order registered.
    *
    * @param mmxClient the MMXClient instance
+   * @param recipient The recipient for unicast message, null for mulitcast message
    * @param messageId The id of the message for which the receipt was returned
    */
-  public void onMessageAccepted(MMXClient mmxClient, String messageId) {
+  public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
     Log.d(TAG, "onMessageAccepted(): start.  ");
     synchronized (mListeners) {
       for (MMXClient.MMXListener listener : mListeners) {
         try {
-          listener.onMessageAccepted(mmxClient, messageId);
+          listener.onMessageAccepted(mmxClient, recipient, messageId);
         } catch (Throwable throwable) {
           Log.e(TAG, "onMessageAccepted(): caught throwable from listener: " + listener, throwable);
         }

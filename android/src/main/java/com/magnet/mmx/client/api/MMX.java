@@ -312,14 +312,15 @@ public final class MMX {
     }
 
     @Override
-    public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
-      // No-op for now.
+    public void onMessageSubmitted(MMXClient mmxClient, MMXid recipient, String messageId) {
+      MMXMessage.handleMessageSubmitted(recipient, messageId);
+      super.onMessageSubmitted(mmxClient, recipient, messageId);
     }
     
     @Override
-    public void onMessageAccepted(MMXClient mmxClient, String messageId) {
-      MMXMessage.handleMessageAccepted(messageId);
-      super.onMessageAccepted(mmxClient, messageId);
+    public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
+      MMXMessage.handleMessageAccepted(recipient, messageId);
+      super.onMessageAccepted(mmxClient, recipient, messageId);
     }
 
     @Override
@@ -540,9 +541,9 @@ public final class MMX {
 
       public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) { }
 
-      public void onMessageSubmitted(MMXClient client, String messageId) { }
+      public void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId) { }
       
-      public void onMessageAccepted(MMXClient client, String messageId) { }
+      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) { }
 
       public void onPubsubItemReceived(MMXClient client, MMXTopic topic,
                                        com.magnet.mmx.client.common.MMXMessage message) { }
@@ -584,9 +585,9 @@ public final class MMX {
 
       public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) { }
 
-      public void onMessageSubmitted(MMXClient client, String messageId) { }
+      public void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId) { }
       
-      public void onMessageAccepted(MMXClient client, String messageId) { }
+      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) { }
 
       public void onPubsubItemReceived(MMXClient client,
                                        MMXTopic topic,

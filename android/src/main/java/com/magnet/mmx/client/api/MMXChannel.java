@@ -950,8 +950,8 @@ public class MMXChannel {
   }
 
   /**
-   * Get a public channel with an exact name.  The channel name is case
-   * insensitive.
+   * Get a public channel with an exact name.  The channels created by anyone
+   * can be retrieved.  The channel name is case insensitive.
    * @param name A public channel name.
    * @param listener the listener for getting the channel.
    */
@@ -961,8 +961,8 @@ public class MMXChannel {
   }
   
   /**
-   * Get a private channel with an exact name.  The channel name is case
-   * insensitive.
+   * Get a private channel with an exact name.  Only the channels created by
+   * the current user can be retrieved.  The channel name is case insensitive.
    * @param name A private channel name.
    * @param listener the listener for getting the channel
    */
@@ -1016,7 +1016,8 @@ public class MMXChannel {
   }
 
   /**
-   * Get all private channels with pagination.
+   * Get all private channels with pagination.  Only the private channels
+   * created by the current user can be retrieved.
    * @param offset the offset of results to return
    * @param limit the maximum number of results to return
    * @param listener the listener for the query results

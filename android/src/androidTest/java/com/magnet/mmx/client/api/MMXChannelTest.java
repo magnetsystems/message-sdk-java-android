@@ -120,7 +120,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     String channelSummary = channelName + " Summary";
     MMXChannel channel = helpCreate(channelName, channelSummary, isPublic);
 
-    final AtomicBoolean inviteResponseValue = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, Boolean> inviteResponseValue = new ExecMonitor<Boolean, Boolean>();
     final StringBuffer inviteResponseText = new StringBuffer();
     final StringBuffer inviteTextBuffer = new StringBuffer();
     MMX.EventListener inviteListener = new MMX.EventListener() {
@@ -139,11 +139,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       public boolean onInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
-        inviteResponseValue.set(inviteResponse.isAccepted());
         inviteResponseText.append(inviteResponse.getResponseText());
-        synchronized (inviteResponseValue) {
-          inviteResponseValue.notify();
-        }
+        inviteResponseValue.invoked(inviteResponse.isAccepted());
         return true;
       }
     };
@@ -166,44 +163,29 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
     });
-    synchronized (inviteResponseValue) {
-      try {
-        inviteResponseValue.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    ExecMonitor.Status status = inviteResponseValue.waitFor(15000);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals("foobar", inviteTextBuffer.toString());
-    assertTrue(inviteResponseValue.get());
+    assertTrue(inviteResponseValue.getReturnValue());
     assertEquals("foobar response", inviteResponseText.toString());
 
     //test invite from the callback channel
-    final AtomicBoolean inviteFromCallbackSent = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, Boolean> inviteFromCallbackSent = new ExecMonitor<Boolean, Boolean>();
     channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMXChannel.OnFinishedListener<MMXChannel.MMXInvite>() {
       @Override
       public void onSuccess(MMXChannel.MMXInvite result) {
-        inviteFromCallbackSent.set(true);
-        synchronized (inviteSent) {
-          inviteFromCallbackSent.notify();
-        }
+        inviteFromCallbackSent.invoked(true);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (inviteFromCallbackSent) {
-          inviteFromCallbackSent.notify();
-        }
+        inviteFromCallbackSent.failed(true);
       }
     });
-    synchronized (inviteFromCallbackSent) {
-      try {
-        inviteFromCallbackSent.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(inviteFromCallbackSent.get());
+    status = inviteFromCallbackSent.waitFor(10000);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
+    assertTrue(inviteFromCallbackSent.getReturnValue());
 
     helpDelete(channel);
   }
@@ -870,7 +852,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
-    MMX.enableIncomingMessages(true);
+    MMX.start();
   }
 
   private void helpLogout() {
