@@ -219,7 +219,7 @@ public class MessageManager {
           MmxHeaders mmxMeta = extension.getMmxMeta();
           SignalMsg sigMsg = SignalMsg.parse(mmxMeta);
           if (sigMsg.getType() == SignalMsg.Type.ACK_ONCE) {
-            mCon.getMessageListener().onMessageSubmitted(sigMsg.getSender(), sigMsg.getMsgId());
+            mCon.getMessageListener().onMessageSubmitted(sigMsg.getReceiver(), sigMsg.getMsgId());
           } else if (sigMsg.getType() == SignalMsg.Type.ACK_BEGIN) {
             mCon.getMessageListener().onMessageSubmitted(null, sigMsg.getMsgId());
           } else if (sigMsg.getType() == SignalMsg.Type.ACK_END) {
