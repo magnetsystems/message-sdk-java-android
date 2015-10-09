@@ -14,12 +14,12 @@
  */
 package com.magnet.mmx.client;
 
-import android.content.Context;
-import android.util.Log;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+
+import android.content.Context;
+import android.util.Log;
 
 import com.magnet.mmx.protocol.Constants;
 
@@ -194,5 +194,14 @@ public class FileBasedClientConfig implements MMXClientConfig {
    */
   public String getDeviceId() {
     return DeviceIdAccessor.sPhoneIdAccessor.getId(mContext);
+  }
+  
+  /**
+   * Check if the device ID should be obfuscated.
+   * 
+   * @return true to obfuscate the device ID; otherwise, false.
+   */
+  public boolean obfuscateDeviceId() {
+    return DeviceIdAccessor.sPhoneIdAccessor.obfuscated();
   }
 }

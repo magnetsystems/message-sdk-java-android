@@ -131,4 +131,9 @@ public class ClientTestConfigImpl implements MMXClientConfig {
   public String getDeviceId() {
     return "ClientTestConfigImpl_DEVICE_ID";
   }
+
+  @Override
+  public boolean obfuscateDeviceId() {
+    return true;
+  }
 }

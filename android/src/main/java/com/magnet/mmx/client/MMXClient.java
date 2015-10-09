@@ -489,6 +489,9 @@ public final class MMXClient {
       public String getId(Context context) {
         return mConfig.getDeviceId();
       }
+      public boolean obfuscated() {
+        return mConfig.obfuscateDeviceId();
+      }
     });
   }
 
