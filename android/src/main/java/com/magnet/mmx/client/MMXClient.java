@@ -337,18 +337,18 @@ public final class MMXClient {
       }
     }
     
-    public void onMessageSubmitted(String msgId) {
+    public void onMessageSubmitted(MMXid recipient, String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onMessageSubmitted() start: msgID="+msgId);
+        Log.d(TAG, "onMessageSubmitted() start: recipient="+recipient+", msgID="+msgId);
       }
-      notifyMessageSubmitted(msgId);
+      notifyMessageSubmitted(recipient, msgId);
     }
     
-    public void onMessageAccepted(MMXid receiver, String msgId) {
+    public void onMessageAccepted(MMXid recipient, String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onMessageAccepted() start: msgID="+msgId);
+        Log.d(TAG, "onMessageAccepted() start: recipient="+recipient+", msgID="+msgId);
       }
-      notifyMessageAccepted(msgId);
+      notifyMessageAccepted(recipient, msgId);
     }
     
     public void onMessageFailed(String msgId) {
@@ -1127,12 +1127,12 @@ public final class MMXClient {
     }
   }
 
-  private void notifyMessageSubmitted(final String messageId) {
+  private void notifyMessageSubmitted(final MMXid receiver, final String messageId) {
     synchronized (this) {
       mMessagingHandler.post(new Runnable() {
         public void run() {
           try {
-            mMMXListener.onMessageSubmitted(MMXClient.this, messageId);
+            mMMXListener.onMessageSubmitted(MMXClient.this, receiver, messageId);
           } catch (Exception ex) {
             Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
                 "the callback", ex);
@@ -1142,12 +1142,12 @@ public final class MMXClient {
     }
   }
   
-  private void notifyMessageAccepted(final String messageId) {
+  private void notifyMessageAccepted(final MMXid receiver, final String messageId) {
     synchronized (this) {
       mMessagingHandler.post(new Runnable() {
         public void run() {
           try {
-            mMMXListener.onMessageAccepted(MMXClient.this, messageId);
+            mMMXListener.onMessageAccepted(MMXClient.this, receiver, messageId);
           } catch (Exception ex) {
             Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
                 "the callback", ex);
@@ -1419,19 +1419,21 @@ public final class MMXClient {
     void onMessageDelivered(MMXClient client, MMXid recipient, String messageId);
 
     /**
-     * Called when a multicast message has been submitted to the server.
+     * Called when a message has been submitted to the server.
      * @param client
+     * @param recipient A non-null recipient for unicast message, or null for multicast message
      * @param messageId
      */
-    void onMessageSubmitted(MMXClient client, String messageId);
+    void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId);
     
     /**
      * Called when a message has been accepted for delivery by the MMX server
      *
      * @param client the instance of the MMXClient
+     * @param receiver the recipient A non-null recipient for unicast message, or null for multicast message
      * @param messageId the message id of the message
      */
-    void onMessageAccepted(MMXClient client, String messageId);
+    void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
 
     /**
      * Called when a pubsub item is received.

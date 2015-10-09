@@ -47,7 +47,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
-    MMX.enableIncomingMessages(true);
+    MMX.start();
     final ExecMonitor<HashMap<String, Object>, Void> receivedResult = new ExecMonitor<HashMap<String, Object>, Void>();
     final StringBuffer senderBuffer = new StringBuffer();
     final ExecMonitor<String, Void> acknowledgeResult = new ExecMonitor<String, Void>();
@@ -98,9 +98,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     // Check if the send is success
     ExecMonitor.Status status = sendResult.waitFor(10000);
-    if (status == ExecMonitor.Status.WAITING) {
-      fail("testSendMessage() message.send timed out");
-    }
+    assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals(messageId, sendResult.getReturnValue());
     
     // Check if the receive is success
@@ -131,8 +129,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertFalse(MMX.getMMXClient().isConnected());
   }
   
-  private MMXMessage.FailureCode mFailureCode;
-
   public void testSendBeforeLogin() {
     HashSet<MMXUser> recipients = new HashSet<MMXUser>();
     recipients.add(new MMXUser.Builder().username("foo").displayName("foo").build());
@@ -203,7 +199,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     registerUser(username, displayName, PASSWORD);
     
     final Set<MMXUser> invalidUsers = new HashSet<MMXUser>();
-    mFailureCode = null;
     
     //login with credentials
     MMX.login(username, PASSWORD, loginLogoutListener);
@@ -307,7 +302,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     registerUser(username, displayName, PASSWORD);
 
     final Set<MMXUser> invalidUsers = new HashSet<MMXUser>();
-    mFailureCode = null;
     
     //login with credentials
     MMX.login(username, PASSWORD, loginLogoutListener);

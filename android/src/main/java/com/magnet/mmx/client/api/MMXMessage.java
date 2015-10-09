@@ -692,12 +692,18 @@ public class MMXMessage {
   private static HashMap<String, MessageListenerPair> sMessageSendListeners =
           new HashMap<String, MessageListenerPair>();
 
-  static void handleMessageAccepted(String messageId) {
+  static void handleMessageSubmitted(MMXid recipient, String messageId) {
     synchronized (sMessageSendListeners) {
-      MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
+      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
       if (listenerPair != null) {
         listenerPair.listener.onSuccess(messageId);
       }
+    }
+  }
+  
+  static void handleMessageAccepted(MMXid recipient, String messageId) {
+    synchronized (sMessageSendListeners) {
+      sMessageSendListeners.remove(messageId);
     }
   }
   
