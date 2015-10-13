@@ -966,15 +966,11 @@ public final class MMX {
     @Override
     public void onConfig(Context context, final Map<String, String> configs) {
       //map the configs into a clientConfig and apply it.
-      //FIXME: This is temporary until we get the configs from blowfish
-      InputStream is;
-      try {
-        is = context.getAssets().open(DEFAULT_CLIENT_CONFIG);
-        MMXClientConfig oldPropfileConfig = new FileBasedClientConfig(context, is);
-        sInstance.applyConfig(oldPropfileConfig);
-      } catch (IOException e) {
-        throw new IllegalStateException("Unable to find the assets/" + DEFAULT_CLIENT_CONFIG + " file.");
+      for (Map.Entry<String,String> entry: configs.entrySet()) {
+        Log.d(TAG, "onConfig(): key=" + entry.getKey() + ", value=" + entry.getValue());
       }
+      MMXClientConfig config = new MaxClientConfig(configs);
+      applyConfig(config);
     }
 
     @Override
@@ -1035,6 +1031,87 @@ public final class MMX {
     @Override
     public void onClose(boolean gracefully) {
       Log.d(TAG, "onClose(): gracefully = " + gracefully);
+    }
+  }
+
+  private class MaxClientConfig implements MMXClientConfig {
+    private final String TAG = MaxClientConfig.class.getSimpleName();
+
+    private Map<String,String> mConfigs = null;
+    private static final String APP_ID = "mmx-appId";
+    private static final String APP_API_KEY = "mmx-apiKey";
+    private static final String APP_GCM_SENDER_ID = "mmx-gcmSenderId";
+    private static final String SECURITY_POLICY = "security-policy";
+    private static final String DOMAIN = "mmx-domain";
+    private static final String PORT = "mmx-port";
+    private static final String HOST = "mmx-host";
+    private static final String REST_PORT = "mmx-rest-port";
+
+    private MaxClientConfig(Map<String,String> configs) {
+      mConfigs = configs;
+    }
+
+    @Override
+    public String getAppId() {
+      return mConfigs.get(APP_ID);
+    }
+
+    @Override
+    public String getApiKey() {
+      return mConfigs.get(APP_API_KEY);
+    }
+
+    @Override
+    public String getGcmSenderId() {
+      return mConfigs.get(APP_GCM_SENDER_ID);
+    }
+
+    @Override
+    public String getServerUser() {
+      Log.e(TAG, "getServerUser(): NOT IMPLEMENTED!");
+      return null;
+    }
+
+    @Override
+    public String getAnonymousSecret() {
+      Log.e(TAG, "getAnonymousSecret(): NOT IMPLEMENTED!");
+      return null;
+    }
+
+    @Override
+    public String getHost() {
+      return mConfigs.get(HOST);
+    }
+
+    @Override
+    public int getPort() {
+      return Integer.parseInt(mConfigs.get(PORT));
+    }
+
+    @Override
+    public int getRESTPort() {
+      return Integer.parseInt(mConfigs.get(REST_PORT));
+    }
+
+    @Override
+    public String getDomainName() {
+      return mConfigs.get(DOMAIN);
+    }
+
+    @Override
+    public MMXClient.SecurityLevel getSecurityLevel() {
+      return MMXClient.SecurityLevel.valueOf(mConfigs.get(SECURITY_POLICY));
+    }
+
+    @Override
+    public String getDeviceId() {
+      Log.e(TAG, "getDeviceId(): NOT IMPLEMENTED!");
+      return null;
+    }
+
+    @Override
+    public boolean obfuscateDeviceId() {
+      return false;
     }
   }
 }

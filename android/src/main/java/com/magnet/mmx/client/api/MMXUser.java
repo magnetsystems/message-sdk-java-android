@@ -670,7 +670,7 @@ public class MMXUser {
   public static MMXUser fromUser(User user) {
     return new Builder()
             .displayName(user.getUserName())
-            .username(user.getMmxUserId())
+            .username(user.getUserName())
             .build();
   }
 }
