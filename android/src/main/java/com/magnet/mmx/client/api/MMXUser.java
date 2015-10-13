@@ -29,6 +29,7 @@ import javax.net.ssl.SSLHandshakeException;
 
 import org.json.JSONObject;
 
+import com.magnet.android.User;
 import com.magnet.mmx.client.MMXAccountManager;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
@@ -658,5 +659,18 @@ public class MMXUser {
   public static boolean isValidUsername(String username) {
     return XIDUtil.validateUserId(username);
 
+  }
+
+  /**
+   * Utility method to convert User to MMXUser
+   *
+   * @param user a MMUser
+   * @return the populated MMXUser
+   */
+  public static MMXUser fromUser(User user) {
+    return new Builder()
+            .displayName(user.getUserName())
+            .username(user.getMmxUserId())
+            .build();
   }
 }

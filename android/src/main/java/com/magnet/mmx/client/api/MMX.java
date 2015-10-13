@@ -14,9 +14,12 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jivesoftware.smack.packet.XMPPError;
@@ -27,8 +30,11 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.android.MaxModule;
 import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
+import com.magnet.mmx.client.DeviceIdAccessor;
+import com.magnet.mmx.client.DeviceIdGenerator;
 import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
@@ -271,13 +277,14 @@ public final class MMX {
   private MMXUser mCurrentUser = null;
   private HandlerThread mHandlerThread = null;
   private Handler mHandler = null;
+  private MMXModule mModule = null;
   private static MMX sInstance = null;
 
   /**
    * The listeners will be added in order (most recent at end)
    * They should be called in order from most recently registered (from the end)
    */
-  private final LinkedList<EventListener> mListeners = new LinkedList<EventListener>();
+  private static final LinkedList<EventListener> sListeners = new LinkedList<EventListener>();
 
   private AbstractMMXListener mGlobalListener = new AbstractMMXListener() {
     @Override
@@ -387,13 +394,21 @@ public final class MMX {
     }
   };
 
-  private MMX(Context context, MMXClientConfig config) {
+  private MMX(Context context) {
     mContext = context.getApplicationContext();
-    mClient = MMXClient.getInstance(context, config);
+    mModule = new MMXModule();
     mHandlerThread = new HandlerThread("MMX");
     mHandlerThread.start();
     mHandler = new Handler(mHandlerThread.getLooper());
     mSharedPrefs = context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
+  }
+
+  private synchronized void applyConfig(MMXClientConfig config) {
+    if (mClient != null) {
+      mClient.applyConfig(config);
+    } else {
+      mClient = MMXClient.getInstance(mContext, config);
+    }
   }
 
   @Override
@@ -435,7 +450,10 @@ public final class MMX {
     if (sInstance == null) {
       Log.i(TAG, "App="+context.getPackageName()+", MMX SDK="+BuildConfig.VERSION_NAME+
             ", protocol="+Constants.MMX_VERSION_MAJOR+"."+Constants.MMX_VERSION_MINOR);
-      sInstance = new MMX(context, config);
+      sInstance = new MMX(context);
+      if (config != null) {
+        sInstance.applyConfig(config);
+      }
     } else {
       Log.w(TAG, "MMX.init():  MMX has already been initialized.  Ignoring this call.");
     }
@@ -609,8 +627,7 @@ public final class MMX {
    * @return the current user, null there is no logged-in user
    */
   public static MMXUser getCurrentUser() {
-    checkState();
-    return sInstance.mCurrentUser;
+    return sInstance == null ? null : sInstance.mCurrentUser;
   }
 
   private synchronized static void checkState() {
@@ -630,13 +647,12 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean registerListener(EventListener listener) {
-    checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
     }
-    synchronized (sInstance.mListeners) {
-      boolean exists = sInstance.mListeners.remove(listener);
-      sInstance.mListeners.add(listener);
+    synchronized (sListeners) {
+      boolean exists = sListeners.remove(listener);
+      sListeners.add(listener);
       return !exists;
     }
   }
@@ -649,22 +665,20 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean unregisterListener(EventListener listener) {
-    checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
     }
-    synchronized (sInstance.mListeners) {
-      return sInstance.mListeners.remove(listener);
+    synchronized (sListeners) {
+      return sListeners.remove(listener);
     }
   }
 
   private static void notifyMessageSendError(String msgId, MMXMessage.FailureCode code, String text) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
+    synchronized (sListeners) {
+      if (sListeners.isEmpty()) {
         throw new IllegalStateException("Error dropped because there were no listeners registered.");
       }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      Iterator<EventListener> listeners = sListeners.descendingIterator();
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
@@ -680,12 +694,11 @@ public final class MMX {
   }
 
   private static void notifyMessageReceived(MMXMessage message) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
+    synchronized (sListeners) {
+      if (sListeners.isEmpty()) {
         throw new IllegalStateException("Message dropped because there were no listeners registered.");
       }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      Iterator<EventListener> listeners = sListeners.descendingIterator();
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
@@ -701,11 +714,11 @@ public final class MMX {
   }
 
   private static void notifyMessageAcknowledged(MMXid from, String originalMessageId) {
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
+    synchronized (sListeners) {
+      if (sListeners.isEmpty()) {
         throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
       }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+      Iterator<EventListener> listeners = sListeners.descendingIterator();
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
@@ -722,8 +735,8 @@ public final class MMX {
   }
 
   private static void notifyLoginRequired(LoginReason reason) {
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+    synchronized (sListeners) {
+      Iterator<EventListener> listeners = sListeners.descendingIterator();
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
@@ -739,9 +752,8 @@ public final class MMX {
   }
 
   private static void notifyInviteReceived(MMXChannel.MMXInvite invite) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+    synchronized (sListeners) {
+      Iterator<EventListener> listeners = sListeners.descendingIterator();
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
@@ -757,9 +769,8 @@ public final class MMX {
   }
 
   private static void notifyInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
+    synchronized (sListeners) {
+      Iterator<EventListener> listeners = sListeners.descendingIterator();
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
@@ -929,5 +940,103 @@ public final class MMX {
       return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
     }
   }
+
+  /**
+   * Retreive the MaxModule for MMX
+   * @return the MMX MaxModule
+   */
+  public static final MaxModule getModule() {
+    checkState();
+    return sInstance.mModule;
+  }
+
+  public class MMXModule implements MaxModule {
+    private final String TAG = MMXModule.class.getSimpleName();
+    private final String DEFAULT_CLIENT_CONFIG = "mmx.properties";
+
+    private MMXModule() {
+
+    }
+
+    @Override
+    public String getName() {
+      return MMXModule.class.getSimpleName();
+    }
+
+    @Override
+    public void onConfig(Context context, final Map<String, String> configs) {
+      //map the configs into a clientConfig and apply it.
+      //FIXME: This is temporary until we get the configs from blowfish
+      InputStream is;
+      try {
+        is = context.getAssets().open(DEFAULT_CLIENT_CONFIG);
+        MMXClientConfig oldPropfileConfig = new FileBasedClientConfig(context, is);
+        sInstance.applyConfig(oldPropfileConfig);
+      } catch (IOException e) {
+        throw new IllegalStateException("Unable to find the assets/" + DEFAULT_CLIENT_CONFIG + " file.");
+      }
+    }
+
+    @Override
+    public void onAppTokenUpdate(String appId, String deviceId, String appToken) {
+      //not implemented for now
+      Log.d(TAG, "onAppTokenUpdate(): Not implemented for now.  appId=" + appId +
+              ", deviceId=" + deviceId + ", appToken=" + appToken);
+    }
+
+    @Override
+    public void onUserTokenUpdate(final String userName, final String deviceId, final String userToken) {
+      Log.d(TAG, "onUserTokenUpdate(): userName=" + userName +
+              ", deviceId=" + deviceId + ", userToken=" + userToken);
+      //set the deviceId
+      DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+        public String getId(Context context) {
+          return deviceId;
+        }
+
+        public boolean obfuscated() {
+          return false;
+        }
+      });
+      //logout/login
+      if (MMX.getCurrentUser() != null) {
+        MMX.logout(new MMX.OnFinishedListener<Void>() {
+          public void onSuccess(Void result) {
+            Log.d(TAG, "onUserTokenUpdate(): logout success");
+            loginHelper(userName, deviceId, userToken);
+          }
+
+          public void onFailure(MMX.FailureCode code, Throwable ex) {
+            Log.e(TAG, "onUserTokenUpdate(): logout failure: " + code, ex);
+          }
+        });
+      } else {
+        loginHelper(userName, deviceId, userToken);
+      }
+    }
+
+    private void loginHelper(final String userName, final String deviceId,
+                             final String userToken) {
+      if (userName != null && deviceId != null && userToken != null) {
+        MMX.login(userName, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
+          @Override
+          public void onSuccess(Void result) {
+            Log.d(TAG, "loginHelper(): success");
+          }
+
+          @Override
+          public void onFailure(MMX.FailureCode code, Throwable ex) {
+            Log.e(TAG, "loginHelper(): failure=" + code, ex);
+          }
+        });
+      }
+    }
+
+    @Override
+    public void onClose(boolean gracefully) {
+      Log.d(TAG, "onClose(): gracefully = " + gracefully);
+    }
+  }
 }
+
 

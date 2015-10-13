@@ -49,6 +49,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.android.ApiCallback;
+import com.magnet.android.ApiError;
+import com.magnet.android.Device;
+import com.magnet.android.auth.model.DeviceInfo;
 import com.magnet.mmx.client.common.DeviceManager;
 import com.magnet.mmx.client.common.Invitation;
 import com.magnet.mmx.client.common.Log;
@@ -1272,22 +1276,26 @@ public final class MMXClient {
           // Register the client protocol version numbers.
           devReg.setVersionMajor(Constants.MMX_VERSION_MAJOR);
           devReg.setVersionMinor(Constants.MMX_VERSION_MINOR);
-//          try {
-//            MMXStatus status = getDeviceManager().register(devReg);
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//              Log.d(TAG, "registerDeviceWithServer(): device registration completed with status=" + status);
-//            }
-            notifyConnectionEvent(ConnectionEvent.CONNECTED);
-            getQueue().processPendingItems();
-//          } catch (MMXException e) {
-//            Log.e(TAG, "registerDeviceWithServer(): caught MMXException code=" + e.getCode(), e);
-//            if (e.getCode() == 400) {
-//              //if status is unsuccessful, disconnect
-//              notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
-//              disconnect();
-//            }
-//          }
 
+          Device.register(new DeviceInfo.Builder()
+                  .deviceToken(devReg.getPushToken())
+                  .label(devReg.getDisplayName())
+                  .build(), new ApiCallback<Device>() {
+            public void success(Device device) {
+              if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "registerDeviceWithServer(): Device registration successful: " + device.getDeviceId());
+              }
+              notifyConnectionEvent(ConnectionEvent.CONNECTED);
+              getQueue().processPendingItems();
+            }
+
+            public void failure(ApiError apiError) {
+              Log.e(TAG, "registerDeviceWithServer(): Device registration failed: " + apiError);
+              //if status is unsuccessful, disconnect
+              notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
+              disconnect();
+            }
+          });
         }
       });
     }
@@ -1430,7 +1438,7 @@ public final class MMXClient {
      * Called when a message has been accepted for delivery by the MMX server
      *
      * @param client the instance of the MMXClient
-     * @param receiver the recipient A non-null recipient for unicast message, or null for multicast message
+     * @param recipient the recipient A non-null recipient for unicast message, or null for multicast message
      * @param messageId the message id of the message
      */
     void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
