@@ -28,6 +28,9 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.android.ApiCallback;
+import com.magnet.android.ApiError;
+import com.magnet.android.MaxCore;
 import com.magnet.android.MaxModule;
 import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
@@ -269,14 +272,14 @@ public final class MMX {
   private static final String SHARED_PREFS_NAME = MMX.class.getName();
   private static final String PREF_WAKEUP_INTENT_URI = "wakeupIntentUri";
   private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
-  private SharedPreferences mSharedPrefs = null;
   private Context mContext = null;
   private MMXClient mClient = null;
   private MMXUser mCurrentUser = null;
   private HandlerThread mHandlerThread = null;
   private Handler mHandler = null;
-  private MMXModule mModule = null;
+  private static MMXModule sModule = null;
   private static MMX sInstance = null;
+  private static SharedPreferences sSharedPrefs = null;
 
   /**
    * The listeners will be added in order (most recent at end)
@@ -392,21 +395,12 @@ public final class MMX {
     }
   };
 
-  private MMX(Context context) {
+  private MMX(Context context, MMXClientConfig config) {
     mContext = context.getApplicationContext();
-    mModule = new MMXModule();
     mHandlerThread = new HandlerThread("MMX");
     mHandlerThread.start();
+    mClient = MMXClient.getInstance(context, config);
     mHandler = new Handler(mHandlerThread.getLooper());
-    mSharedPrefs = context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
-  }
-
-  private synchronized void applyConfig(MMXClientConfig config) {
-    if (mClient != null) {
-      mClient.applyConfig(config);
-    } else {
-      mClient = MMXClient.getInstance(mContext, config);
-    }
   }
 
   @Override
@@ -448,10 +442,7 @@ public final class MMX {
     if (sInstance == null) {
       Log.i(TAG, "App="+context.getPackageName()+", MMX SDK="+BuildConfig.VERSION_NAME+
             ", protocol="+Constants.MMX_VERSION_MAJOR+"."+Constants.MMX_VERSION_MINOR);
-      sInstance = new MMX(context);
-      if (config != null) {
-        sInstance.applyConfig(config);
-      }
+      sInstance = new MMX(context, config);
     } else {
       Log.w(TAG, "MMX.init():  MMX has already been initialized.  Ignoring this call.");
     }
@@ -825,6 +816,14 @@ public final class MMX {
     return sInstance.mGlobalListener;
   }
 
+  private synchronized static SharedPreferences getSharedPrefs() {
+    if (sSharedPrefs == null) {
+      sSharedPrefs = MaxCore.getApplicationContext()
+              .getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
+    }
+    return sSharedPrefs;
+  }
+
   /**
    * Registers the wakeup broadcast intent.  This is handled internally using
    * Intent.toUri().  This is part of the GCM wakeup functionality of MMX.  There are several
@@ -841,9 +840,8 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public synchronized static void registerWakeupBroadcast(Intent intent) {
-    checkState();
     //FIXME:  check to see if the broadcast receiver was registered
-    sInstance.mSharedPrefs.edit().putString(PREF_WAKEUP_INTENT_URI,
+    getSharedPrefs().edit().putString(PREF_WAKEUP_INTENT_URI,
             intent.toUri(Intent.URI_INTENT_SCHEME)).apply();
   }
 
@@ -852,8 +850,7 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public synchronized static void unregisterWakeupBroadcast() {
-    checkState();
-    sInstance.mSharedPrefs.edit().remove(PREF_WAKEUP_INTENT_URI).apply();
+    getSharedPrefs().edit().remove(PREF_WAKEUP_INTENT_URI).apply();
   }
 
   /**
@@ -862,7 +859,7 @@ public final class MMX {
   private synchronized static void wakeup(Intent nestedIntent) {
     checkState();
     Context context = sInstance.mContext;
-    String intentUri = sInstance.mSharedPrefs.getString(PREF_WAKEUP_INTENT_URI, null);
+    String intentUri = getSharedPrefs().getString(PREF_WAKEUP_INTENT_URI, null);
     if (intentUri != null) {
       try {
         Intent intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME);
@@ -943,14 +940,17 @@ public final class MMX {
    * Retreive the MaxModule for MMX
    * @return the MMX MaxModule
    */
-  public static final MaxModule getModule() {
-    checkState();
-    return sInstance.mModule;
+  public static synchronized final MaxModule getModule() {
+    if (sModule == null) {
+      sModule = new MMXModule();
+    }
+    return sModule;
   }
 
-  public class MMXModule implements MaxModule {
+  public static class MMXModule implements MaxModule {
     private final String TAG = MMXModule.class.getSimpleName();
-    private final String DEFAULT_CLIENT_CONFIG = "mmx.properties";
+    private Context mContext;
+    private ApiCallback<Boolean> mCallback;
 
     private MMXModule() {
 
@@ -962,10 +962,18 @@ public final class MMX {
     }
 
     @Override
-    public void onConfig(Context context, final Map<String, String> configs) {
-      //map the configs into a clientConfig and apply it.
+    public void onInit(Context context, final Map<String, String> configs,
+                       ApiCallback<Boolean> callback) {
+      Log.d(TAG, "onInit(): start");
+      for (Map.Entry<String,String> entry:configs.entrySet()) {
+        Log.d(TAG, "onInit(): key=" + entry.getKey() + ", value=" + entry.getValue());
+      }
+      mContext = context.getApplicationContext();
+      mCallback = callback;
+
+      //map the configs into a clientConfig and init
       MMXClientConfig config = new MaxClientConfig(configs);
-      applyConfig(config);
+      MMX.init(context, config);
     }
 
     @Override
@@ -989,8 +997,9 @@ public final class MMX {
           return false;
         }
       });
-      //logout/login
       if (MMX.getCurrentUser() != null) {
+        Log.d(TAG, "onUserTokenUpdate(): already logged in, performing logout/login");
+        //if already logged in, need to logout/login again
         MMX.logout(new MMX.OnFinishedListener<Void>() {
           public void onSuccess(Void result) {
             Log.d(TAG, "onUserTokenUpdate(): logout success");
@@ -999,6 +1008,7 @@ public final class MMX {
 
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "onUserTokenUpdate(): logout failure: " + code, ex);
+            loginHelper(userName, deviceId, userToken);
           }
         });
       } else {
@@ -1013,11 +1023,18 @@ public final class MMX {
           @Override
           public void onSuccess(Void result) {
             Log.d(TAG, "loginHelper(): success");
+            if (mCallback != null) {
+              mCallback.success(true);
+            }
           }
 
           @Override
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "loginHelper(): failure=" + code, ex);
+            if (mCallback != null) {
+              mCallback.failure(new ApiError("Unable to login: " +
+                      code, ApiError.API_ERROR_UNEXPECTED, ex));
+            }
           }
         });
       }
@@ -1029,7 +1046,7 @@ public final class MMX {
     }
   }
 
-  private class MaxClientConfig implements MMXClientConfig {
+  private static class MaxClientConfig implements MMXClientConfig {
     private final String TAG = MaxClientConfig.class.getSimpleName();
 
     private Map<String,String> mConfigs = null;
