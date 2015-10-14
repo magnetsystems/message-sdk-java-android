@@ -14,8 +14,6 @@
  */
 package com.magnet.mmx.client.api;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -966,9 +964,6 @@ public final class MMX {
     @Override
     public void onConfig(Context context, final Map<String, String> configs) {
       //map the configs into a clientConfig and apply it.
-      for (Map.Entry<String,String> entry: configs.entrySet()) {
-        Log.d(TAG, "onConfig(): key=" + entry.getKey() + ", value=" + entry.getValue());
-      }
       MMXClientConfig config = new MaxClientConfig(configs);
       applyConfig(config);
     }
