@@ -183,13 +183,23 @@ public class MMXConnection implements ConnectionListener {
   public void destroy() {
     disconnect();
 
-    mExecutor.quit();
-    mExecutor = null;
+    if (mExecutor != null) {
+      mExecutor.quit();
+      mExecutor = null;
+    }
     mSettings = null;
     mConListener = null;
     mMsgListener = null;
 
     mContext = null;
+  }
+
+  /**
+   * Implicit destructor.
+   */
+  @Override
+  protected void finalize() {
+    destroy();
   }
 
   // Get a singleton manager by name, or register a new instance by name.
