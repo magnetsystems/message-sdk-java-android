@@ -30,6 +30,7 @@ import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.disco.packet.DiscoverItems;
+//import org.jivesoftware.smackx.pubsub.ChildrenAssociationPolicy;
 import org.jivesoftware.smackx.pubsub.ConfigureForm;
 import org.jivesoftware.smackx.pubsub.FormType;
 import org.jivesoftware.smackx.pubsub.LeafNode;
@@ -47,6 +48,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicId;
 import com.magnet.mmx.protocol.MMXTopicOptions;
+//import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.SendLastPublishedItems;
 import com.magnet.mmx.protocol.StatusCode;
@@ -455,12 +457,12 @@ public class PubSubManager {
    * TopicPermissionException will be thrown.
    * @param topic A topic object.
    * @param options Optional fetch options, or null.
-   * @return A list of published items, or empty list.
+   * @return A result set of the published items, or empty list.
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public List<MMXMessage> getItems(MMXTopic topic, FetchOptions options)
+  public MMXResult<List<MMXMessage>> getItems(MMXTopic topic, FetchOptions options)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
@@ -486,7 +488,7 @@ public class PubSubManager {
             null, mmxExt.getPayload());
         msgs.add(msg);
       }
-      return msgs;
+      return new MMXResult<List<MMXMessage>>(msgs, resp.getTotal());
     } catch (MMXException e) {
       if (e.getCode() == StatusCode.NOT_FOUND) {
         throw new TopicNotFoundException(e.getMessage());
@@ -796,6 +798,14 @@ public class PubSubManager {
       field.setType(FormField.TYPE_TEXT_SINGLE);
       form.addField(field);
     }
+//    if (options.getWhiteList() != null) {
+//      form.setChildrenAssociationPolicy(ChildrenAssociationPolicy.whitelist);
+//      List<String> jids = new ArrayList<String>(options.getWhiteList().size());
+//      for (MMXid xid : options.getWhiteList()) {
+//        jids.add(XIDUtil.toJID(xid, mCon.getAppId(), mCon.getDomain()));
+//      }
+//      form.setChildrenAssociationWhitelist(jids);
+//    }
     return form;
   }
 

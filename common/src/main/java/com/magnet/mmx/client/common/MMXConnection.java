@@ -15,6 +15,7 @@
 
 package com.magnet.mmx.client.common;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -359,7 +360,7 @@ public class MMXConnection implements ConnectionListener {
     }
 
     mConListener = listener;
-    mManagers.clear();
+    destroyManagers();
 
     mCon = new MagnetXMPPConnection(config);
     mCon.setFromMode(FromMode.USER);
@@ -376,6 +377,19 @@ public class MMXConnection implements ConnectionListener {
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);
     }
+  }
+
+  private void destroyManagers() {
+    for (Object mgr : mManagers.values()) {
+      if (mgr instanceof Closeable) {
+        try {
+          ((Closeable) mgr).close();
+        } catch (IOException e) {
+          // Ignored.
+        }
+      }
+    }
+    mManagers.clear();
   }
 
   /**
@@ -417,7 +431,7 @@ public class MMXConnection implements ConnectionListener {
           mCon.disconnect();
           mXID = null;
           mAnonyAcct = null;
-          mManagers.clear();
+          destroyManagers();
         } catch (NotConnectedException e) {
           e.printStackTrace();
         }

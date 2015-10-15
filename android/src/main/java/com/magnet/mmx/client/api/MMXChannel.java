@@ -492,17 +492,14 @@ public class MMXChannel {
       public ListResult<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
         validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        List<com.magnet.mmx.client.common.MMXMessage> messages =
+        MMXResult<List<com.magnet.mmx.client.common.MMXMessage>> messages =
                 psm.getItems(topic, new TopicAction.FetchOptions()
                 .setSince(startDate)
                 .setUntil(endDate)
                 .setOffset(offset)
                 .setMaxItems(limit).setAscending(ascending));
-        ArrayList<MMXTopic> topicList = new ArrayList<MMXTopic>();
-        topicList.add(getMMXTopic());
-        List<TopicSummary> summaries = psm.getTopicSummary(topicList, startDate, endDate);
-        TopicSummary summary = summaries.get(0);
-        return new ListResult<com.magnet.mmx.client.common.MMXMessage>(summary.getCount(), messages);
+        return new ListResult<com.magnet.mmx.client.common.MMXMessage>(
+            messages.getTotal(), messages.getResult());
       }
 
       @Override

@@ -29,6 +29,7 @@ import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MMXResult;
 import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.TopicExistsException;
@@ -252,20 +253,22 @@ public class TestPubSub extends InstrumentationTestCase {
     assertFalse(mcItemId.equals(lcItemId));
     
     // Test fetching items
-    List<MMXMessage> items = pubManager.getItems(mcTopic, null);
+    MMXResult<List<MMXMessage>> items = pubManager.getItems(mcTopic, null);
     assertNotNull(items);
-    assertEquals(2, items.size());
+    assertEquals(2, items.getTotal());
+    assertEquals(2, items.getResult().size());
     items = pubManager.getItems(lcTopic, null);
     assertNotNull(items);
-    assertEquals(2, items.size());
+    assertEquals(2, items.getTotal());
+    assertEquals(2, items.getResult().size());
 
     // Test get items by ids
     List<String> ids = new ArrayList<String>();
-    for (MMXMessage item : items) {
+    for (MMXMessage item : items.getResult()) {
       ids.add(item.getId());
     }
     Map<String, MMXMessage> map = pubManager.getItemsByIds(lcTopic, ids);
-    for (MMXMessage item : items) {
+    for (MMXMessage item : items.getResult()) {
       MMXMessage pubitem = map.get(item.getId());
       assertNotNull(pubitem);
       assertEquals(item.getPayload().getDataAsText(),
