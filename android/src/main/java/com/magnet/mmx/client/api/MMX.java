@@ -977,14 +977,14 @@ public final class MMX {
     }
 
     @Override
-    public void onAppTokenUpdate(String appId, String deviceId, String appToken) {
+    public void onAppTokenUpdate(String appToken, String appId, String deviceId) {
       //not implemented for now
       Log.d(TAG, "onAppTokenUpdate(): Not implemented for now.  appId=" + appId +
               ", deviceId=" + deviceId + ", appToken=" + appToken);
     }
 
     @Override
-    public void onUserTokenUpdate(final String userName, final String deviceId, final String userToken) {
+    public void onUserTokenUpdate( final String userToken, final String userName, final String deviceId) {
       Log.d(TAG, "onUserTokenUpdate(): userName=" + userName +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
