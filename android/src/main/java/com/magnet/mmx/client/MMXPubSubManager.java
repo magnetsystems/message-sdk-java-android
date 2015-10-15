@@ -210,12 +210,12 @@ public final class MMXPubSubManager extends MMXManager {
    *
    * @param topic a topic object
    * @param options (optional) fetch options, or null
-   * @return alist of published items, or empty list
+   * @return a result set of published items, or empty list
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public List<MMXMessage> getItems(MMXTopic topic, TopicAction.FetchOptions options)
+  public MMXResult<List<MMXMessage>> getItems(MMXTopic topic, TopicAction.FetchOptions options)
         throws TopicNotFoundException, TopicPermissionException, MMXException {
     checkDestroyed();
     return mPubSubManager.getItems(topic, options);

@@ -15,6 +15,8 @@
 
 package com.magnet.mmx.client.common;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -65,7 +67,7 @@ import com.magnet.mmx.util.XIDUtil;
  * The singleton MessageManager allows user to send application data and send
  * delivery receipt as an acknowledgment, and the message status.  It
  */
-public class MessageManager {
+public class MessageManager implements Closeable {
   private static final String TAG = "MessageManager";
   private int mAckErrors;
   private int mAckCounters;
@@ -359,10 +361,19 @@ public class MessageManager {
   }
 
   @Override
-  protected void finalize() {
+  public void close() throws IOException {
     if (mAckExecutor != null) {
       mAckExecutor.quit();
       mAckExecutor = null;
+    }
+  }
+
+  @Override
+  protected void finalize() {
+    try {
+      close();
+    } catch (IOException e) {
+      // Ignored.
     }
   }
 
