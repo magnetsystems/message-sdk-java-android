@@ -16,7 +16,7 @@ import java.util.Set;
 /**
  * An in-memory user cache for convenience
  */
-public class UserCache {
+final class UserCache {
   private class CachedUser {
     private final User user;
     private final long timestamp;
@@ -39,7 +39,7 @@ public class UserCache {
     mHandler = new Handler(thread.getLooper());
   }
 
-  public static synchronized UserCache getInstance() {
+  static synchronized UserCache getInstance() {
     if (sInstance == null) {
       sInstance = new UserCache();
     }
@@ -52,7 +52,7 @@ public class UserCache {
    * @param usernames the usernames to lookup
    * @param acceptedAgeMillis the allowed age in milliseconds
    */
-  public void fillCache(Set<String> usernames, long acceptedAgeMillis) {
+  void fillCache(Set<String> usernames, long acceptedAgeMillis) {
     final ArrayList<String> retrieveUsers = new ArrayList<String>();
 
     synchronized (mUserCache) {
@@ -109,7 +109,7 @@ public class UserCache {
    * @param username the user to retrieve
    * @return the user or null if user is not in the cache
    */
-  public User get(String username) {
+  User get(String username) {
     synchronized (mUserCache) {
       CachedUser cachedUser = mUserCache.get(username.toLowerCase());
       return cachedUser == null ? null : cachedUser.user;
