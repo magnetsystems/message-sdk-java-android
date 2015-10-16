@@ -48,6 +48,7 @@ import com.magnet.mmx.util.XIDUtil;
  * register a new user, to change password or display name for the current
  * logged-in user.  It also allows caller to search or get basic information
  * of an MMX user.
+ * @deprecated
  */
 public class MMXUser {
   private static final String TAG = MMXUser.class.getSimpleName();
@@ -388,45 +389,45 @@ public class MMXUser {
    * @param listener the listener for the task of changing the display name
    * @see MMX#getCurrentUser()
    */
-  public void changeDisplayName(final String newDisplayName,
-                                final OnFinishedListener<Void> listener) {
-    MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public Void doRun(MMXClient mmxClient) throws Throwable {
-        // The current user object may not be same as "MMXUser.this" object.
-        if (!MMXUser.this.equals(MMX.getCurrentUser())) {
-          throw new MMXException("Must be the logged-in user to change the display name",
-              FailureCode.NOT_AUTHORIZED.getValue());
-        }
-        if (newDisplayName == null || newDisplayName.isEmpty()) {
-          throw new MMXException("Display name cannot be null or empty",
-              FailureCode.BAD_REQUEST.getValue());
-        }
-        // Only update the display name; other info will not be affected.
-        UserInfo info = new UserInfo().setDisplayName(newDisplayName);
-        mmxClient.getAccountManager().updateAccount(info);
-        MMX.getCurrentUser().mDisplayName = mDisplayName = newDisplayName;
-        return null;
-      }
-
-      @Override
-      public void onException(Throwable exception) {
-        if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-        } else {
-          Log.e(TAG, "Failed to change display name", exception);
-        }
-      }
-
-      @Override
-      public void onResult(Void result) {
-        if (listener != null) {
-          listener.onSuccess(result);
-        }
-      }
-    };
-    task.execute();
-  }
+//  public void changeDisplayName(final String newDisplayName,
+//                                final OnFinishedListener<Void> listener) {
+//    MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
+//      @Override
+//      public Void doRun(MMXClient mmxClient) throws Throwable {
+//        // The current user object may not be same as "MMXUser.this" object.
+//        if (!MMXUser.this.equals(MMX.getCurrentUser())) {
+//          throw new MMXException("Must be the logged-in user to change the display name",
+//              FailureCode.NOT_AUTHORIZED.getValue());
+//        }
+//        if (newDisplayName == null || newDisplayName.isEmpty()) {
+//          throw new MMXException("Display name cannot be null or empty",
+//              FailureCode.BAD_REQUEST.getValue());
+//        }
+//        // Only update the display name; other info will not be affected.
+//        UserInfo info = new UserInfo().setDisplayName(newDisplayName);
+//        mmxClient.getAccountManager().updateAccount(info);
+//        MMX.getCurrentUser().mDisplayName = mDisplayName = newDisplayName;
+//        return null;
+//      }
+//
+//      @Override
+//      public void onException(Throwable exception) {
+//        if (listener != null) {
+//          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+//        } else {
+//          Log.e(TAG, "Failed to change display name", exception);
+//        }
+//      }
+//
+//      @Override
+//      public void onResult(Void result) {
+//        if (listener != null) {
+//          listener.onSuccess(result);
+//        }
+//      }
+//    };
+//    task.execute();
+//  }
   
   /**
    * Find users whose display name starts with the specified text.  If there are

@@ -15,6 +15,7 @@
 package com.magnet.mmx.client.api;
 
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
@@ -32,6 +33,7 @@ import com.magnet.android.ApiCallback;
 import com.magnet.android.ApiError;
 import com.magnet.android.MaxCore;
 import com.magnet.android.MaxModule;
+import com.magnet.android.User;
 import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
 import com.magnet.mmx.client.DeviceIdAccessor;
@@ -41,7 +43,6 @@ import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXErrorMessage;
-import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXError;
@@ -187,7 +188,7 @@ public final class MMX {
      * @param messageId the message id that was acknowledged
      * @return true to consume this message, false for additional listeners to be called
      */
-    public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+    public boolean onMessageAcknowledgementReceived(User from, String messageId) {
       //default implementation is a no-op
       return false;
     }
@@ -274,7 +275,7 @@ public final class MMX {
   private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
   private Context mContext = null;
   private MMXClient mClient = null;
-  private MMXUser mCurrentUser = null;
+  private User mCurrentUser = null;
   private HandlerThread mHandlerThread = null;
   private Handler mHandler = null;
   private static MMXModule sModule = null;
@@ -294,12 +295,20 @@ public final class MMX {
       String type = payload.getType();
       if (MMXChannel.MMXInvite.TYPE.equals(type)) {
         MMXChannel.MMXInvite invite = MMXChannel.MMXInvite.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
-        notifyInviteReceived(invite);
+        if (invite != null) {
+          notifyInviteReceived(invite);
+        }
       } else if (MMXChannel.MMXInviteResponse.TYPE.equals(type)) {
         MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
-        notifyInviteResponseReceived(inviteResponse);
+        if (inviteResponse != null) {
+          notifyInviteResponseReceived(inviteResponse);
+        }
       } else {
-        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage).receiptId(receiptId));
+        MMXMessage message = MMXMessage.fromMMXMessage(null, mmxMessage);
+        if (message != null) {
+          message.receiptId(receiptId);
+          notifyMessageReceived(message);
+        }
       }
     }
 
@@ -341,12 +350,8 @@ public final class MMX {
           break;
         case CONNECTED:
           if (!mLoggingIn.get()) {
-            try {
-              sInstance.mCurrentUser = MMXUser.fromMMXid(mmxClient.getClientId());
-              notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
-            } catch (MMXException e) {
-              // Ignored; it should not happen.
-            }
+            sInstance.mCurrentUser = User.getCurrentUser();
+            notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
           }
           break;
         case CONNECTION_FAILED:
@@ -519,14 +524,9 @@ public final class MMX {
             unregisterListener = true;
             break;
           case CONNECTED:
-            try {
-              sInstance.mCurrentUser = MMXUser.fromMMXid(client.getClientId());
-              listener.onSuccess(null);
-              unregisterListener = true;
-            } catch (MMXException e) {
-              // Should not happen because it is a connected.
-              Log.e(TAG, "Unable to set current user profile", e);
-            }
+            sInstance.mCurrentUser = User.getCurrentUser();
+            listener.onSuccess(null);
+            unregisterListener = true;
             break;
           case CONNECTION_FAILED:
             sInstance.mCurrentUser = null;
@@ -615,7 +615,7 @@ public final class MMX {
    *
    * @return the current user, null there is no logged-in user
    */
-  public static MMXUser getCurrentUser() {
+  public static User getCurrentUser() {
     return sInstance == null ? null : sInstance.mCurrentUser;
   }
 
@@ -711,7 +711,13 @@ public final class MMX {
       while (listeners.hasNext()) {
         EventListener listener = listeners.next();
         try {
-          MMXUser fromUser = MMXUser.fromMMXid(from);
+          HashSet<String> userToRetrieve = new HashSet<String>();
+          userToRetrieve.add(from.getUserId());
+
+          UserCache userCache = UserCache.getInstance();
+          userCache.fillCache(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+
+          User fromUser = userCache.get(from.getUserId());
           if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
             //listener returning true means consume the message
             break;
@@ -953,7 +959,6 @@ public final class MMX {
     private ApiCallback<Boolean> mCallback;
 
     private MMXModule() {
-
     }
 
     @Override
@@ -984,7 +989,7 @@ public final class MMX {
     }
 
     @Override
-    public void onUserTokenUpdate( final String userToken, final String userName, final String deviceId) {
+    public void onUserTokenUpdate(final String userToken, final String userName, final String deviceId) {
       Log.d(TAG, "onUserTokenUpdate(): userName=" + userName +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
@@ -1080,13 +1085,13 @@ public final class MMX {
 
     @Override
     public String getServerUser() {
-      Log.e(TAG, "getServerUser(): NOT IMPLEMENTED!");
+      Log.d(TAG, "getServerUser(): NOT IMPLEMENTED");
       return null;
     }
 
     @Override
     public String getAnonymousSecret() {
-      Log.e(TAG, "getAnonymousSecret(): NOT IMPLEMENTED!");
+      Log.d(TAG, "getAnonymousSecret(): NOT IMPLEMENTED");
       return null;
     }
 
@@ -1117,7 +1122,7 @@ public final class MMX {
 
     @Override
     public String getDeviceId() {
-      Log.e(TAG, "getDeviceId(): NOT IMPLEMENTED!");
+      Log.d(TAG, "getDeviceId(): NOT IMPLEMENTED");
       return null;
     }
 

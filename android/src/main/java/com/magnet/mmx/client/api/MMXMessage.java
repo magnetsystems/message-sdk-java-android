@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.magnet.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
@@ -134,7 +135,7 @@ public class MMXMessage {
      * @param sender the sender
      * @return this Builder instance
      */
-    MMXMessage.Builder sender(MMXUser sender) {
+    MMXMessage.Builder sender(User sender) {
       mMessage.sender(sender);
       return this;
     }
@@ -159,11 +160,19 @@ public class MMXMessage {
      * @param recipients the recipients
      * @return this Builder instance
      */
-    public MMXMessage.Builder recipients(Set<MMXUser> recipients) {
+    public MMXMessage.Builder recipients(Set<User> recipients) {
       if (mMessage.getChannel() != null) {
         throw new IllegalArgumentException("Cannot set both the recipients and channel in a message.");
       }
       mMessage.recipients(recipients);
+      return this;
+    }
+
+    MMXMessage.Builder recipientUsernames(Set<String> recipientUsernames) {
+      if (mMessage.getChannel() != null) {
+        throw new IllegalArgumentException("Cannot set both the recipients and channel in a message.");
+      }
+      mMessage.recipientUsernames(recipientUsernames);
       return this;
     }
 
@@ -198,7 +207,7 @@ public class MMXMessage {
      */
     public MMXMessage build() {
       //validate message
-      if (mMessage.mChannel == null && mMessage.mRecipients.size() == 0) {
+      if (mMessage.mChannel == null && mMessage.mRecipientUsernames.size() == 0) {
         throw new IllegalArgumentException("No channel and no recipients are specified");
       }
       return mMessage;
@@ -208,9 +217,9 @@ public class MMXMessage {
   private String mId;
   private String mType;
   private Date mTimestamp;
-  private MMXUser mSender;
+  private User mSender;
   private MMXChannel mChannel;
-  private Set<MMXUser> mRecipients = new HashSet<MMXUser>();
+  private Set<String> mRecipientUsernames = new HashSet<String>();
   private Map<String, String> mContent = new HashMap<String, String>();
   private String mReceiptId;
 
@@ -289,7 +298,7 @@ public class MMXMessage {
    * @param sender the sender
    * @return this MMXMessage object
    */
-  MMXMessage sender(MMXUser sender) {
+  MMXMessage sender(User sender) {
     mSender = sender;
     return this;
   }
@@ -300,7 +309,7 @@ public class MMXMessage {
    *
    * @return the sender
    */
-  public MMXUser getSender() {
+  public User getSender() {
     return mSender;
   }
 
@@ -330,8 +339,16 @@ public class MMXMessage {
    * @param recipients the recipients
    * @return this MMXMessage object
    */
-  MMXMessage recipients(Set<MMXUser> recipients) {
-    mRecipients = recipients;
+  MMXMessage recipients(Set<User> recipients) {
+    HashSet<String> recipientUsernames = new HashSet<String>();
+    for (User recipient : recipients) {
+      recipientUsernames.add(recipient.getUserName());
+    }
+    return recipientUsernames(recipientUsernames);
+  }
+
+  private MMXMessage recipientUsernames(Set<String> recipientUsernames) {
+    mRecipientUsernames = recipientUsernames;
     return this;
   }
 
@@ -340,8 +357,8 @@ public class MMXMessage {
    *
    * @return the recipients
    */
-  public Set<MMXUser> getRecipients() {
-    return mRecipients;
+  public Set<String> getRecipients() {
+    return mRecipientUsernames;
   }
 
   /**
@@ -512,10 +529,10 @@ public class MMXMessage {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
-          MMXid[] recipientsArray = new MMXid[mRecipients.size()];
+          MMXid[] recipientsArray = new MMXid[mRecipientUsernames.size()];
           int index = 0;
-          for (MMXUser recipient : mRecipients) {
-            recipientsArray[index++] = new MMXid(recipient.getUsername(), recipient.getDisplayName());
+          for (String recipientUsername : mRecipientUsernames) {
+            recipientsArray[index++] = new MMXid(recipientUsername, recipientUsername);
           }
           if (listener != null) {
             synchronized (sMessageSendListeners) {
@@ -589,12 +606,12 @@ public class MMXMessage {
    * @return a new MMXMessage instance for the reply
    */
   private MMXMessage buildReply(Map<String, String> content, boolean isReplyAll) {
-    MMXUser me = MMX.getCurrentUser();
-    HashSet<MMXUser> replyRecipients = new HashSet<MMXUser>();
-    replyRecipients.add(mSender);
+    User me = MMX.getCurrentUser();
+    HashSet<String> replyRecipients = new HashSet<String>();
+    replyRecipients.add(mSender.getUserName());
     if (isReplyAll) {
-      for (MMXUser recipient : mRecipients) {
-        if (!recipient.equals(me)) {
+      for (String recipient : mRecipientUsernames) {
+        if (!recipient.equalsIgnoreCase(me.getUserIdentifier())) {
           //remove myself from the recipients
           //this applies to instances of me (including other devices)
           replyRecipients.add(recipient);
@@ -603,7 +620,7 @@ public class MMXMessage {
     }
     return new MMXMessage()
             .channel(mChannel)
-            .recipients(replyRecipients)
+            .recipientUsernames(replyRecipients)
             .content(content);
   }
 
@@ -649,16 +666,29 @@ public class MMXMessage {
    * @return a new object of this type
    */
   static MMXMessage fromMMXMessage(MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
-    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+    HashSet<String> recipientUsernames = new HashSet<String>();
+    User sender = null;
+    UserCache userCache = UserCache.getInstance();
     if (topic == null) {
-      //this is normal message.  getReplyAll() returns null for pubsub messages
-      MMXUser receiver = MMXUser.fromMMXid(message.getTo());
-      recipients.add(receiver);
+      //idenfity all the users that need to be retrieved and populate the cache
+      HashSet<String> usersToRetrieve = new HashSet<String>();
+      usersToRetrieve.add(message.getTo().getUserId());
+      usersToRetrieve.add(message.getFrom().getUserId());
+      userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
       MMXid[] otherRecipients = message.getReplyAll();
+
+      //this is normal message.  getReplyAll() returns null for pubsub messages
+      User receiver = userCache.get(message.getTo().getUserId());
+      sender = userCache.get(message.getFrom().getUserId());
+      if (receiver == null || sender == null) {
+        Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender or receiver from cache:  " +
+                "sender=" + sender + ", receiver=" + receiver + ".  Message will be dropped.");
+        return null;
+      }
+      recipientUsernames.add(receiver.getUserName());
       if (otherRecipients != null) {
         for (MMXid otherRecipient : otherRecipients) {
-          MMXUser recipient = MMXUser.fromMMXid(otherRecipient);
-          recipients.add(recipient);
+          recipientUsernames.add(otherRecipient.getUserId());
         }
       }
     }
@@ -668,13 +698,12 @@ public class MMXMessage {
     }
 
     MMXMessage newMessage = new MMXMessage();
-    MMXUser sender = MMXUser.fromMMXid(message.getFrom());
     return newMessage
             .sender(sender)
             .id(message.getId())
             .channel(MMXChannel.fromMMXTopic(topic))
             .timestamp(message.getPayload().getSentTime())
-            .recipients(recipients)
+            .recipientUsernames(recipientUsernames)
             .content(content);
   }
 

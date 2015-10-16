@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.magnet.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;
@@ -673,7 +674,7 @@ public class MMXChannel {
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
                 .setDescription(summary).setSubscribeOnCreate(true);
-        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUsername());
+        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserName());
         return psm.createTopic(topic, options);
       }
 
@@ -701,7 +702,7 @@ public class MMXChannel {
             Log.w(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
                     "falling back to less-populated channel.", ex);
             listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                    .ownerUsername(MMX.getCurrentUser().getUsername())
+                    .ownerUsername(MMX.getCurrentUser().getUserName())
                     .summary(summary));
           }
 
@@ -722,7 +723,7 @@ public class MMXChannel {
    */
   public void create(final OnFinishedListener<MMXChannel> listener) {
     MMXChannel.create(getName(), getSummary(), isPublic(), listener);
-    ownerUsername(MMX.getCurrentUser().getUsername());
+    ownerUsername(MMX.getCurrentUser().getUserName());
   }
 
   /**
@@ -871,9 +872,9 @@ public class MMXChannel {
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
-  public void inviteUser(final MMXUser invitee, final String invitationText,
+  public void inviteUser(final User invitee, final String invitationText,
                          final OnFinishedListener<MMXInvite> listener) {
-    Set<MMXUser> invitees = new HashSet<MMXUser>(1);
+    Set<User> invitees = new HashSet<User>(1);
     invitees.add(invitee);
     inviteUsers(invitees, invitationText, listener);
   }
@@ -886,9 +887,13 @@ public class MMXChannel {
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
-  public void inviteUsers(final Set<MMXUser> invitees, final String invitationText,
+  public void inviteUsers(final Set<User> invitees, final String invitationText,
                           final OnFinishedListener<MMXInvite> listener) {
-    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitees, MMX.getCurrentUser(), this, invitationText);
+    HashSet<String> inviteeUsernames = new HashSet<String>();
+    for (User user : invitees) {
+      inviteeUsernames.add(user.getUserName());
+    }
+    MMXInviteInfo inviteInfo = new MMXInviteInfo(inviteeUsernames, MMX.getCurrentUser(), this, invitationText);
     MMXInvite invite = new MMXInvite(inviteInfo, false);
     invite.send(listener);
   }
@@ -1299,11 +1304,11 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private MMXChannel mChannel;
-    private Set<MMXUser> mInvitees;
-    private MMXUser mInviter;
+    private Set<String> mInvitees;
+    private User mInviter;
     private String mComment;
 
-    private MMXInviteInfo(Set<MMXUser> invitees, MMXUser inviter, MMXChannel channel, String comment) {
+    private MMXInviteInfo(Set<String> invitees, User inviter, MMXChannel channel, String comment) {
       mInvitees = invitees;
       mInviter = inviter;
       mChannel = channel;
@@ -1315,7 +1320,7 @@ public class MMXChannel {
      *
      * @return the users who are being invited
      */
-    public Set<MMXUser> getInvitees() {
+    public Set<String> getInvitees() {
       return mInvitees;
     }
 
@@ -1324,7 +1329,7 @@ public class MMXChannel {
      *
      * @return the user who is inviting someone else to subscribe
      */
-    public MMXUser getInviter() {
+    public User getInviter() {
       return mInviter;
     }
 
@@ -1385,7 +1390,7 @@ public class MMXChannel {
   /**
    * The MMXInvite class is used when sending invites for channels.
    *
-   * @see #inviteUser(MMXUser, String, OnFinishedListener)
+   * @see #inviteUser(User, String, OnFinishedListener)
    */
   public static class MMXInvite {
     static final String TYPE = "invitation";
@@ -1418,7 +1423,7 @@ public class MMXChannel {
                 "a method call (i.e. findBy() or create()");
       }
       MMXMessage message = new MMXMessage.Builder()
-              .recipients(mInviteInfo.getInvitees())
+              .recipientUsernames(mInviteInfo.getInvitees())
               .content(mInviteInfo.buildMessageContent())
               .type(TYPE)
               .build();
@@ -1509,7 +1514,7 @@ public class MMXChannel {
     }
 
     private MMXMessage buildResponse(boolean accepted, String responseText) {
-      HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+      HashSet<User> recipients = new HashSet<User>();
       recipients.add(mInviteInfo.getInviter());
       HashMap<String, String> content = mInviteInfo.buildMessageContent();
       content.put(MMXInviteResponse.KEY_IS_ACCEPTED, String.valueOf(accepted));
@@ -1524,6 +1529,9 @@ public class MMXChannel {
     }
 
     static MMXInvite fromMMXMessage(MMXMessage message) {
+      if (message == null) {
+        return null;
+      }
       MMXInviteInfo info = MMXInviteInfo.fromMMXMessage(message);
       return new MMXInvite(info, true);
     }
@@ -1580,6 +1588,9 @@ public class MMXChannel {
     }
 
     static MMXInviteResponse fromMMXMessage(MMXMessage message) {
+      if (message == null) {
+        return null;
+      }
       MMXInviteInfo inviteInfo = MMXInviteInfo.fromMMXMessage(message);
       MMXInviteResponse response = new MMXInviteResponse(inviteInfo);
 
