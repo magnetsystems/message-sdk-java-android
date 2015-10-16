@@ -889,11 +889,7 @@ public class MMXChannel {
    */
   public void inviteUsers(final Set<User> invitees, final String invitationText,
                           final OnFinishedListener<MMXInvite> listener) {
-    HashSet<String> inviteeUsernames = new HashSet<String>();
-    for (User user : invitees) {
-      inviteeUsernames.add(user.getUserName());
-    }
-    MMXInviteInfo inviteInfo = new MMXInviteInfo(inviteeUsernames, MMX.getCurrentUser(), this, invitationText);
+    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitees, MMX.getCurrentUser(), this, invitationText);
     MMXInvite invite = new MMXInvite(inviteInfo, false);
     invite.send(listener);
   }
@@ -1304,11 +1300,11 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private MMXChannel mChannel;
-    private Set<String> mInvitees;
+    private Set<User> mInvitees;
     private User mInviter;
     private String mComment;
 
-    private MMXInviteInfo(Set<String> invitees, User inviter, MMXChannel channel, String comment) {
+    private MMXInviteInfo(Set<User> invitees, User inviter, MMXChannel channel, String comment) {
       mInvitees = invitees;
       mInviter = inviter;
       mChannel = channel;
@@ -1320,7 +1316,7 @@ public class MMXChannel {
      *
      * @return the users who are being invited
      */
-    public Set<String> getInvitees() {
+    public Set<User> getInvitees() {
       return mInvitees;
     }
 
@@ -1423,7 +1419,7 @@ public class MMXChannel {
                 "a method call (i.e. findBy() or create()");
       }
       MMXMessage message = new MMXMessage.Builder()
-              .recipientUsernames(mInviteInfo.getInvitees())
+              .recipients(mInviteInfo.getInvitees())
               .content(mInviteInfo.buildMessageContent())
               .type(TYPE)
               .build();
