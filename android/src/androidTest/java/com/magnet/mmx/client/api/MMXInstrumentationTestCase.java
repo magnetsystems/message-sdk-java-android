@@ -3,6 +3,11 @@ package com.magnet.mmx.client.api;
 import android.content.Context;
 import android.test.InstrumentationTestCase;
 
+import com.google.gson.Gson;
+import com.magnet.android.ApiCallback;
+import com.magnet.android.ApiError;
+import com.magnet.android.User;
+import com.magnet.android.auth.model.UserRegistrationInfo;
 import com.magnet.mmx.client.ClientTestConfigImpl;
 import com.magnet.mmx.client.common.Log;
 
@@ -15,6 +20,13 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected static final String DISPLAY_NAME_PREFIX = "MMX TestUser";
   protected static final String NO_SUCH_USERNAME_PREFIX = "nosuchuser";
   protected static final String WRONG_USERNAME_PREFIX = "wronguser";
+  protected static final String INVALID_USER_JSON =
+          "{\"clientId\":\"USERNAME-client-id\",\"firstName\":\"USERNAME-first-name\",\"roles\":[\"USER\"],\"userAccountData\":{},\"userIdentifier\":\"USERNAME-user-id\",\"userName\":\"USERNAME\",\"userStatus\":\"ACTIVE\"}";
+
+  protected User getInvalidUser(String username) {
+    Gson gson = new Gson();
+    return gson.fromJson(INVALID_USER_JSON.replace("USERNAME", username), User.class);
+  }
 
   private final MMX.OnFinishedListener<Void> mLoginLogoutListener =
           new MMX.OnFinishedListener<Void>() {
@@ -59,37 +71,38 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     helpRegisterUser(username, displayName, password, ExecMonitor.Status.INVOKED, null);
   }
   
-  protected void helpRegisterUser(String username, String displayName, 
-      byte[] password, ExecMonitor.Status status, MMXUser.FailureCode code) {
-    MMXUser user = new MMXUser.Builder()
-            .displayName(displayName)
-            .username(username)
+  protected void helpRegisterUser(String username, String displayName,
+                                  byte[] password, ExecMonitor.Status status, ApiError apiError) {
+    UserRegistrationInfo userInfo = new UserRegistrationInfo.Builder()
+            .firstName(displayName)
+            .userName(username)
+            .password(new String(password))
             .build();
 
-    final ExecMonitor<Boolean, MMXUser.FailureCode> userReg = new ExecMonitor<Boolean, MMXUser.FailureCode>();
+    final ExecMonitor<User, ApiError> userReg = new ExecMonitor<User, ApiError>();
     //setup the listener for the registration call
-    final MMXUser.OnFinishedListener<Void> listener =
-            new MMXUser.OnFinishedListener<Void>() {
-              public void onSuccess(Void result) {
-                Log.d(TAG, "onSuccess: result=" + result);
-                userReg.invoked(Boolean.TRUE);
-              }
+    ApiCallback<User> listener = new ApiCallback<User>() {
+      public void success(User user) {
+        Log.d(TAG, "onSuccess: result=" + user.getUserName());
+        userReg.invoked(user);
+      }
 
-              public void onFailure(MMXUser.FailureCode code, Throwable ex) {
-                Log.e(TAG, "onFailure(): code=" + code, ex);
-                userReg.failed(code);
-              }
-            };
+      @Override
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "onFailure(): code=" + apiError, apiError.getCause());
+        userReg.failed(apiError);
+      }
+    };
 
     //Register the user.  This may fail
-    user.register(password, listener);
-    
+    User.register(userInfo, listener);
     ExecMonitor.Status actual = userReg.waitFor(10000);
     assertEquals(status, actual);
     if (actual == ExecMonitor.Status.INVOKED) {
-      assertTrue(userReg.getReturnValue());
+      assertEquals(username.toLowerCase(), userReg.getReturnValue().getUserName());
     } else if (actual == ExecMonitor.Status.FAILED) {
-      assertEquals(code, userReg.getFailedValue());
+      assertEquals(apiError.getKind(), userReg.getFailedValue().getKind());
+      fail("NEED TO IMPLEMENT THIS: apiError cause=" + userReg.getFailedValue().getCause().getClass().getName());
     }
   }
 }

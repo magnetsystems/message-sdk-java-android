@@ -650,34 +650,41 @@ public class MMXMessage {
    * @return a new object of this type
    */
   static MMXMessage fromMMXMessage(MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
-    HashSet<User> recipients = new HashSet<User>();
-    User sender = null;
     UserCache userCache = UserCache.getInstance();
-    if (topic == null) {
-      //idenfity all the users that need to be retrieved and populate the cache
-      HashSet<String> usersToRetrieve = new HashSet<String>();
-      usersToRetrieve.add(message.getTo().getUserId());
-      usersToRetrieve.add(message.getFrom().getUserId());
+    HashSet<String> usersToRetrieve = new HashSet<String>();
+    usersToRetrieve.add(message.getFrom().getUserId());
+    usersToRetrieve.add(message.getTo().getUserId());
 
-      MMXid[] otherRecipients = message.getReplyAll();
+    //idenfity all the users that need to be retrieved and populate the cache
+    MMXid[] otherRecipients = message.getReplyAll();
+    if (otherRecipients != null) {
+      //this is normal message.  getReplyAll() returns null for pubsub messages
       for (MMXid mmxId : otherRecipients) {
         usersToRetrieve.add(mmxId.getUserId());
       }
-      userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+    }
 
-      //this is normal message.  getReplyAll() returns null for pubsub messages
-      User receiver = userCache.get(message.getTo().getUserId());
-      sender = userCache.get(message.getFrom().getUserId());
-      if (receiver == null || sender == null) {
-        Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender or receiver from cache:  " +
-                "sender=" + sender + ", receiver=" + receiver + ".  Message will be dropped.");
-        return null;
-      }
-      recipients.add(receiver);
+    //fill the cache
+    userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+
+    //populate the values
+    User receiver = userCache.get(message.getTo().getUserId());
+    User sender = userCache.get(message.getFrom().getUserId());
+    if (receiver == null || sender == null) {
+      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender or receiver from cache:  " +
+              "sender=" + sender + ", receiver=" + receiver + ".  Message will be dropped.");
+      return null;
+    }
+
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(receiver);
+    if (otherRecipients != null) {
       for (MMXid otherRecipient : otherRecipients) {
         recipients.add(userCache.get(otherRecipient.getUserId()));
       }
     }
+
+    //populate the message content
     HashMap<String, String> content = new HashMap<String, String>();
     for (Map.Entry<String,String> entry : message.getPayload().getAllMetaData().entrySet()) {
       content.put(entry.getKey(), entry.getValue());

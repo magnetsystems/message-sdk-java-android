@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
 
+import com.magnet.android.User;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 
 public class MMXChannelTest extends MMXInstrumentationTestCase {
@@ -44,7 +45,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .summary(channelSummary)
             .setPublic(true)
             .build();
-    HashSet<MMXUser> invitees = new HashSet<MMXUser>();
+    HashSet<User> invitees = new HashSet<User>();
     invitees.add(MMX.getCurrentUser());
     Throwable expectedThrowable = null;
     try {
@@ -410,7 +411,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       result = createResult.getReturnValue();
       assertNotNull(result);
       assertNotNull(result.getOwnerUsername());
-      assertEquals(MMX.getCurrentUser().getUsername(), result.getOwnerUsername());
+      assertEquals(MMX.getCurrentUser().getUserName(), result.getOwnerUsername());
       assertEquals(summary, result.getSummary());
       assertEquals(name, result.getName());
       assertEquals(isPublic, result.isPublic());
@@ -556,9 +557,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public boolean onMessageReceived(MMXMessage message) {
         String bar = message.getContent().get("foo");
         //FIXME:  Check the sender name/displayname
-        MMXUser sender = message.getSender();
+        User sender = message.getSender();
         if (sender != null) {
-          senderBuffer.append(sender.getDisplayName());
+          senderBuffer.append(sender.getFirstName());
         }
         if (bar != null) {
           barBuffer.append(bar);
@@ -570,7 +571,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(User from, String messageId) {
         return false;
       }
     };
@@ -604,7 +605,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
     assertEquals(id, pubId.toString());
     assertEquals("bar", barBuffer.toString());
-    assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
+    assertEquals(MMX.getCurrentUser().getFirstName(), senderBuffer.toString());
     MMX.unregisterListener(messageListener);
   }
   

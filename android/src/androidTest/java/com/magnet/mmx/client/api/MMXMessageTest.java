@@ -19,6 +19,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.gson.Gson;
+import com.magnet.android.User;
 import com.magnet.mmx.client.common.Log;
 
 public class MMXMessageTest extends MMXInstrumentationTestCase {
@@ -54,7 +56,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     MMX.EventListener messageListener = new MMX.EventListener() {
       public boolean onMessageReceived(MMXMessage message) {
         Log.d(TAG, "onMessageReceived(): " + message.getId());
-        senderBuffer.append(message.getSender().getDisplayName());
+        senderBuffer.append(message.getSender().getFirstName());
         HashMap<String, Object> receivedContent = new HashMap<String, Object>();
         for (Map.Entry<String, String> entry : message.getContent().entrySet()) {
           receivedContent.put(entry.getKey(), entry.getValue());
@@ -65,18 +67,15 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         return false;
       }
 
-      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(User from, String messageId) {
         acknowledgeResult.invoked(messageId);
         return false;
       }
     };
     MMX.registerListener(messageListener);
 
-    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    recipients.add(new MMXUser.Builder()
-            .username(username)
-            .displayName(displayName)
-            .build());
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(MMX.getCurrentUser());
 
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
@@ -107,7 +106,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       fail("testSendMessage() receive msg timed out");
     }
     assertEquals("bar", receivedResult.getReturnValue().get("foo"));
-    assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
+    assertEquals(MMX.getCurrentUser().getFirstName(), senderBuffer.toString());
 
     //check acknowledgement
 
@@ -130,8 +129,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
   }
   
   public void testSendBeforeLogin() {
-    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    recipients.add(new MMXUser.Builder().username("foo").displayName("foo").build());
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(getInvalidUser("foo"));
     HashMap<String,String> content = new HashMap<String,String>();
     content.put("foo","bar");
     MMXMessage message = new MMXMessage.Builder()
@@ -198,7 +197,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     String noSuchUser = NO_SUCH_USERNAME_PREFIX;
     registerUser(username, displayName, PASSWORD);
     
-    final Set<MMXUser> invalidUsers = new HashSet<MMXUser>();
+    final Set<String> invalidUsers = new HashSet<String>();
     
     //login with credentials
     MMX.login(username, PASSWORD, loginLogoutListener);
@@ -221,7 +220,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         return false;
       }
       @Override
-      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(User from, String messageId) {
         receivedResult.invoked(Boolean.TRUE);
         return false;
       }
@@ -229,7 +228,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       public boolean onMessageSendError(String messageId, 
                         MMXMessage.FailureCode code, String username) {
         Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", username="+username);
-        invalidUsers.add(new MMXUser.Builder().username(username).build());
+        invalidUsers.add(username);
         Log.d(TAG, "invalidUsers="+invalidUsers);
         receivedResult.failed(code);
         return false;
@@ -237,9 +236,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     };
     MMX.registerListener(messageListener);
 
-    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    MMXUser badRecipient = new MMXUser.Builder().username(noSuchUser).build();
-    recipients.add(badRecipient);
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(getInvalidUser("foo"));
     
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
@@ -278,7 +276,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, receivedResult.getFailedValue());
     
     assertEquals(1, invalidUsers.size());
-    assertTrue(invalidUsers.contains(badRecipient));
+    assertTrue(invalidUsers.contains(getInvalidUser("foo").getUserName()));
     
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);
@@ -301,7 +299,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     String wrongUser = WRONG_USERNAME_PREFIX;
     registerUser(username, displayName, PASSWORD);
 
-    final Set<MMXUser> invalidUsers = new HashSet<MMXUser>();
+    final Set<String> invalidUsers = new HashSet<String>();
     
     //login with credentials
     MMX.login(username, PASSWORD, loginLogoutListener);
@@ -324,7 +322,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         return false;
       }
       @Override
-      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(User from, String messageId) {
         receivedResult.invoked(Boolean.TRUE);
         return false;
       }
@@ -332,7 +330,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       public boolean onMessageSendError(String messageId, 
                         MMXMessage.FailureCode code, String username) {
         Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", username="+username);
-        invalidUsers.add(new MMXUser.Builder().username(username).build());
+        invalidUsers.add(username);
         Log.d(TAG, "invalidUsers="+invalidUsers);
         receivedResult.failed(code);
         return false;
@@ -340,10 +338,10 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     };
     MMX.registerListener(messageListener);
 
-    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    MMXUser badRecipient1 = new MMXUser.Builder().username(noSuchUser).build();
+    HashSet<User> recipients = new HashSet<User>();
+    User badRecipient1 = getInvalidUser(noSuchUser);
     recipients.add(badRecipient1);
-    MMXUser badRecipient2 = new MMXUser.Builder().username(wrongUser).build();
+    User badRecipient2 = getInvalidUser(wrongUser);
     recipients.add(badRecipient2);
 
     HashMap<String, String> content = new HashMap<String, String>();
@@ -383,8 +381,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, receivedResult.getFailedValue());
     
     assertEquals(2, invalidUsers.size());
-    assertTrue(invalidUsers.contains(badRecipient1));
-    assertTrue(invalidUsers.contains(badRecipient2));
+    assertTrue(invalidUsers.contains(badRecipient1.getUserName()));
+    assertTrue(invalidUsers.contains(badRecipient2.getUserName()));
     
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);

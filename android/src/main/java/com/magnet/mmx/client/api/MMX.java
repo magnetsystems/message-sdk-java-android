@@ -1049,6 +1049,31 @@ public final class MMX {
     public void onClose(boolean gracefully) {
       Log.d(TAG, "onClose(): gracefully = " + gracefully);
     }
+
+    @Override
+    public void onUserTokenInvalidate() {
+      logoutHelper();
+    }
+
+    @Override
+    public void deInitModule() {
+      logoutHelper();
+    }
+
+    private void logoutHelper() {
+      MMX.logout(new OnFinishedListener<Void>() {
+                   @Override
+                   public void onSuccess(Void result) {
+                     Log.d(TAG, "logoutHelper(): logout successful");
+                   }
+
+                   @Override
+                   public void onFailure(FailureCode code, Throwable ex) {
+                     Log.w(TAG, "logoutHelper(): logout failed: " + code, ex);
+                   }
+                 }
+      );
+    }
   }
 
   private static class MaxClientConfig implements MMXClientConfig {
