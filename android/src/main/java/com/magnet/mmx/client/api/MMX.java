@@ -655,123 +655,113 @@ public final class MMX {
     }
   }
 
-  private static void notifyMessageSendError(String msgId, MMXMessage.FailureCode code, String text) {
+  private static EventListener[] cloneListeners() {
     checkState();
     synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
-        throw new IllegalStateException("Error dropped because there were no listeners registered.");
-      }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onMessageSendError(msgId, code, text)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
+      EventListener[] result = new EventListener[sInstance.mListeners.size()];
+      return sInstance.mListeners.toArray(result);
+    }
+  }
+
+  private static void notifyMessageSendError(String msgId, MMXMessage.FailureCode code, String text) {
+    final EventListener[] listeners = cloneListeners();
+    if (listeners.length == 0) {
+      throw new IllegalStateException("Error dropped because there were no listeners registered.");
+    }
+    for (int i=listeners.length; --i>=0;){
+      EventListener listener = listeners[i];
+      try {
+        if (listener.onMessageSendError(msgId, code, text)) {
+          //listener returning true means consume the message
+          break;
         }
+      } catch (Exception ex) {
+        Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
       }
     }
   }
 
   private static void notifyMessageReceived(MMXMessage message) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
-        throw new IllegalStateException("Message dropped because there were no listeners registered.");
-      }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onMessageReceived(message)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
+    final EventListener[] listeners = cloneListeners();
+    if (listeners.length == 0) {
+      throw new IllegalStateException("Message dropped because there were no listeners registered.");
+    }
+    for (int i=listeners.length; --i>=0;) {
+      EventListener listener = listeners[i];
+      try {
+        if (listener.onMessageReceived(message)) {
+          //listener returning true means consume the message
+          break;
         }
+      } catch (Exception ex) {
+        Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
       }
     }
   }
 
   private static void notifyMessageAcknowledged(MMXid from, String originalMessageId) {
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
-        throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
-      }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          MMXUser fromUser = MMXUser.fromMMXid(from);
-          if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
+    final EventListener[] listeners = cloneListeners();
+    if (listeners.length == 0) {
+      throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
+    }
+    for (int i=listeners.length; --i>=0;) {
+      EventListener listener = listeners[i];
+      try {
+        MMXUser fromUser = MMXUser.fromMMXid(from);
+        if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
+          //listener returning true means consume the message
+          break;
         }
+      } catch (Exception ex) {
+        Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
       }
     }
   }
 
   private static void notifyLoginRequired(LoginReason reason) {
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onLoginRequired(reason)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
+    final EventListener[] listeners = cloneListeners();
+    for (int i=listeners.length;--i>=0;) {
+      EventListener listener = listeners[i];
+      try {
+        if (listener.onLoginRequired(reason)) {
+          //listener returning true means consume the message
+          break;
         }
+      } catch (Exception ex) {
+        Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
       }
     }
   }
 
   private static void notifyInviteReceived(MMXChannel.MMXInvite invite) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onInviteReceived(invite)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
+    final EventListener[] listeners = cloneListeners();
+    for (int i=listeners.length;--i>=0;) {
+      EventListener listener = listeners[i];
+      try {
+        if (listener.onInviteReceived(invite)) {
+          //listener returning true means consume the message
+          break;
         }
+      } catch (Exception ex) {
+        Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
       }
     }
   }
 
   private static void notifyInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onInviteResponseReceived(inviteResponse)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
+    final EventListener[] listeners = cloneListeners();
+    for (int i=listeners.length;--i>=0;) {
+      EventListener listener = listeners[i];
+      try {
+        if (listener.onInviteResponseReceived(inviteResponse)) {
+          //listener returning true means consume the message
+          break;
         }
+      } catch (Exception ex) {
+        Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
       }
     }
   }
-
-
 
   /**
    * Helper method to retrieve the Android context.
