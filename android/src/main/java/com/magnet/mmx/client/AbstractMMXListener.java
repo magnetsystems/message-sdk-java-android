@@ -17,7 +17,6 @@ package com.magnet.mmx.client;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.os.Handler;
 import android.util.Log;
 
 import com.magnet.mmx.client.common.MMXErrorMessage;
@@ -47,13 +46,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    */
   public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
     Log.d(TAG, "onConnectionEvent(): start.  event=" + connectionEvent);
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onConnectionEvent(mmxClient, connectionEvent);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onConnectionEvent(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onConnectionEvent(mmxClient, connectionEvent);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onConnectionEvent(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -74,13 +73,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
     } catch (Throwable throwable) {
       Log.e(TAG, "onMessageReceived(): caught throwable calling handleMessageReceived()", throwable);
     }
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onMessageReceived(mmxClient, mmxMessage, receiptId);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onMessageReceived(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onMessageReceived(mmxClient, mmxMessage, receiptId);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onMessageReceived(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -107,13 +106,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    */
   public void onSendFailed(MMXClient mmxClient, String messageId) {
     Log.d(TAG, "onSendFailed(): start.  ");
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onSendFailed(mmxClient, messageId);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onSendFailed(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onSendFailed(mmxClient, messageId);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onSendFailed(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -133,13 +132,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
     } catch (Throwable throwable) {
       Log.e(TAG, "onMessageReceived(): caught throwable calling handleMessageDelivered()", throwable);
     }
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onMessageDelivered(mmxClient, recipient, messageId);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onMessageDelivered(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onMessageDelivered(mmxClient, recipient, messageId);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onMessageDelivered(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -153,13 +152,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    */
   public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
     Log.d(TAG, "onMessageSubmitted(): start.  ");
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onMessageSubmitted(mmxClient, messageId);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onMessageSubmitted(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onMessageSubmitted(mmxClient, messageId);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onMessageSubmitted(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -174,13 +173,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    */
   public void onMessageAccepted(MMXClient mmxClient, List<MMXid> invalidRecipients, String messageId) {
     Log.d(TAG, "onMessageAccepted(): start.  ");
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onMessageAccepted(mmxClient, invalidRecipients, messageId);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onMessageAccepted(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onMessageAccepted(mmxClient, invalidRecipients, messageId);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onMessageAccepted(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -210,13 +209,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
     } catch (Throwable throwable) {
       Log.e(TAG, "onPubsubItemReceived(): caught throwable calling handlePubsubItemReceived()", throwable);
     }
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onPubsubItemReceived(mmxClient, mmxTopic, mmxMessage);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onPubsubItemReceived(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onPubsubItemReceived(mmxClient, mmxTopic, mmxMessage);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onPubsubItemReceived(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -239,13 +238,13 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    */
   public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
     Log.d(TAG, "onErrorReceived(): start.  ");
-    synchronized (mListeners) {
-      for (MMXClient.MMXListener listener : mListeners) {
-        try {
-          listener.onErrorReceived(mmxClient, error);
-        } catch (Throwable throwable) {
-          Log.e(TAG, "onErrorReceived(): caught throwable from listener: " + listener, throwable);
-        }
+    MMXClient.MMXListener[] listeners = cloneListeners();
+    for (int i=listeners.length; --i>=0;) {
+      MMXClient.MMXListener listener = listeners[i];
+      try {
+        listener.onErrorReceived(mmxClient, error);
+      } catch (Throwable throwable) {
+        Log.e(TAG, "onErrorReceived(): caught throwable from listener: " + listener, throwable);
       }
     }
   }
@@ -277,25 +276,20 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * @param listener the listener to unregister
    */
   public final void unregisterListener(MMXClient.MMXListener listener) {
-    Handler handler = new Handler();
-    handler.post(new UnregisterListenerRunnable(listener));
-  }
-
-  private class UnregisterListenerRunnable implements Runnable {
-    private MMXClient.MMXListener mUnregisterListener = null;
-    UnregisterListenerRunnable(MMXClient.MMXListener listener) {
-      mUnregisterListener = listener;
-    }
-
-    public void run() {
-      synchronized (mListeners) {
-        for (int i=mListeners.size(); --i >= 0;) {
-          if (mListeners.get(i) == mUnregisterListener) {
-            mListeners.remove(i);
-            break;
-          }
+    synchronized (mListeners) {
+      for (int i=mListeners.size(); --i >= 0;) {
+        if (mListeners.get(i) == listener) {
+          mListeners.remove(i);
+          break;
         }
       }
+    }
+  }
+
+  private MMXClient.MMXListener[] cloneListeners() {
+    synchronized (mListeners) {
+      MMXClient.MMXListener[] result = new MMXClient.MMXListener[mListeners.size()];
+      return mListeners.toArray(result);
     }
   }
 }
