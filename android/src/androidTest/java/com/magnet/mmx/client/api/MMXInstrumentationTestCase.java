@@ -6,11 +6,13 @@ import android.test.InstrumentationTestCase;
 import com.google.gson.Gson;
 import com.magnet.android.ApiCallback;
 import com.magnet.android.ApiError;
+import com.magnet.android.MaxCore;
 import com.magnet.android.User;
 import com.magnet.android.auth.model.UserRegistrationInfo;
-import com.magnet.mmx.client.ClientTestConfigImpl;
+import com.magnet.android.config.MagnetAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
   private static final String TAG = MMXInstrumentationTestCase.class.getSimpleName();
@@ -28,26 +30,11 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     return gson.fromJson(INVALID_USER_JSON.replace("USERNAME", username), User.class);
   }
 
-  private final MMX.OnFinishedListener<Void> mLoginLogoutListener =
-          new MMX.OnFinishedListener<Void>() {
-            public void onSuccess(Void result) {
-              synchronized (this) {
-                this.notify();
-              }
-            }
-
-            public void onFailure(MMX.FailureCode code, Throwable ex) {
-              synchronized (this) {
-                this.notify();
-              }
-            }
-          };
-
   @Override
   protected final void setUp() throws Exception {
     Log.setLoggable(null, Log.VERBOSE);
     mContext = this.getInstrumentation().getTargetContext();
-    MMX.init(mContext, new ClientTestConfigImpl(mContext));
+    MaxCore.init(mContext, new MagnetAndroidPropertiesConfig(mContext, com.magnet.mmx.test.R.raw.test));
     postSetUp();
   }
 
@@ -59,8 +46,85 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
 
   }
 
-  protected MMX.OnFinishedListener<Void> getLoginLogoutListener() {
-    return mLoginLogoutListener;
+  protected void logoutMMX() {
+    final AtomicBoolean logoutResult = new AtomicBoolean(false);
+    MMX.logout(new MMX.OnFinishedListener<Void>() {
+      @Override
+      public void onSuccess(Void result) {
+        logoutResult.set(true);
+        synchronized (logoutResult) {
+          logoutResult.notify();
+        }
+      }
+
+      @Override
+      public void onFailure(MMX.FailureCode code, Throwable ex) {
+        synchronized (logoutResult) {
+          logoutResult.notify();
+        }
+      }
+    });
+    try {
+      Log.d(TAG, "logoutMMX(): result=" + logoutResult.get());
+      synchronized (logoutResult) {
+        logoutResult.wait(10000);
+      }
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+
+  protected ApiCallback<Boolean> getLoginListener() {
+    return new ApiCallback<Boolean>() {
+      @Override
+      public void success(Boolean aBoolean) {
+        if (aBoolean.booleanValue()) {
+          MaxCore.initModule(MMX.getModule(), new ApiCallback<Boolean>() {
+            @Override
+            public void success(Boolean aBoolean) {
+              synchronized (this) {
+                this.notify();
+              }
+            }
+
+            @Override
+            public void failure(ApiError apiError) {
+              synchronized (this) {
+                this.notify();
+              }
+            }
+          });
+        } else {
+          synchronized (this) {
+            this.notify();
+          }
+        }
+      }
+
+      @Override
+      public void failure(ApiError apiError) {
+        synchronized (this) {
+          this.notify();
+        }
+      }
+    };
+  }
+
+  protected ApiCallback<Boolean> getLogoutListener() { return new ApiCallback<Boolean>() {
+    @Override
+    public void success(Boolean aBoolean) {
+      synchronized (this) {
+        this.notify();
+      }
+    }
+
+    @Override
+    public void failure(ApiError apiError) {
+      synchronized (this) {
+        this.notify();
+      }
+    }
+  };
   }
 
   protected Context getContext() {

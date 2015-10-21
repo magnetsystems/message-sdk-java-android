@@ -319,7 +319,10 @@ public final class MMX {
 
     @Override
     public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, com.magnet.mmx.client.common.MMXMessage mmxMessage) {
-      notifyMessageReceived(MMXMessage.fromMMXMessage(mmxTopic, mmxMessage));
+      MMXMessage message = MMXMessage.fromMMXMessage(mmxTopic, mmxMessage);
+      if (message != null) {
+        notifyMessageReceived(MMXMessage.fromMMXMessage(mmxTopic, mmxMessage));
+      }
     }
 
     @Override

@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
 
+import com.magnet.android.ApiCallback;
 import com.magnet.android.User;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 
@@ -512,8 +513,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertTrue(channel.isSubscribed());
 
     final ExecMonitor<Integer, FailureCode> getSubsResult = new ExecMonitor<Integer, FailureCode>();
-    channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXUser>>() {
-      public void onSuccess(ListResult<MMXUser> result) {
+    channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<User>>() {
+      public void onSuccess(ListResult<User> result) {
         getSubsResult.invoked(result.totalCount);
       }
 
@@ -837,7 +838,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpLogin(String userNamePrefix, String displayNamePrefix,
         String suffix, boolean regUser) {
-    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
+    ApiCallback<Boolean> loginListener = getLoginListener();
     String username = userNamePrefix + suffix;
     String displayName = displayNamePrefix + suffix;
     if (regUser) {
@@ -845,10 +846,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
 
     //login with credentials
-    MMX.login(username, PASSWORD, loginLogoutListener);
-    synchronized (loginLogoutListener) {
+    User.login(username, new String(PASSWORD), false, loginListener);
+    synchronized (loginListener) {
       try {
-        loginLogoutListener.wait(10000);
+        loginListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -858,15 +859,16 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   private void helpLogout() {
-    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
-    MMX.logout(loginLogoutListener);
-    synchronized (loginLogoutListener) {
+    logoutMMX();
+    ApiCallback<Boolean> logoutListener = getLogoutListener();
+    User.logout(logoutListener);
+    synchronized (logoutListener) {
       try {
-        loginLogoutListener.wait(10000);
+        logoutListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
-    assertFalse(MMX.getMMXClient().isConnected());
+    //assertFalse(MMX.getMMXClient().isConnected());
   }
 }

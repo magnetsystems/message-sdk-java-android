@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.magnet.android.ApiCallback;
 import com.magnet.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
@@ -243,7 +244,7 @@ public class MMXMessage {
   private Date mTimestamp;
   private User mSender;
   private MMXChannel mChannel;
-  private Set<User> mRecipients;
+  private Set<User> mRecipients = new HashSet<User>();
   private Map<String, String> mContent = new HashMap<String, String>();
   private String mReceiptId;
 
@@ -482,7 +483,7 @@ public class MMXMessage {
    * {@link FailureCode#INVALID_RECIPIENT} in 
    * {@link OnFinishedListener#onFailure(FailureCode, Throwable)} will be
    * invoked.  The message ID and a set of invalid recipients can be retrieved
-   * from {@link MMXUser.InvalidUserException#getUsers()}. If this message is
+   * from {@link User#getUsersByUserNames(List, ApiCallback)}. If this message is
    * addressed to a channel, the listener will be called with the id of the
    * published message.  Common failure codes are 
    * {@link FailureCode#CONTENT_TOO_LARGE}, {@link FailureCode#BAD_REQUEST}, or

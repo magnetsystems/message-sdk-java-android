@@ -69,7 +69,7 @@ import com.magnet.mmx.util.TimeUtil;
  * </ol>
  * The channel owner may invite people to a channel via
  * <ul>
- * <li>{@link #inviteUser(MMXUser, String, OnFinishedListener)}</li>
+ * <li>{@link #inviteUser(User, String, OnFinishedListener)}</li>
  * <li>{@link #inviteUsers(Set, String, OnFinishedListener)}</li>
  * </ul>
  */
@@ -903,7 +903,7 @@ public class MMXChannel {
    * @deprecated {@link #getAllSubscribers(int, int, OnFinishedListener)}
    */
   @Deprecated
-  public void getAllSubscribers(final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
+  public void getAllSubscribers(final int limit, final OnFinishedListener<ListResult<User>> listener) {
     getAllSubscribers(0, limit, listener);
   }
 
@@ -915,7 +915,7 @@ public class MMXChannel {
      * @param limit the maximum number of subscribers to return
      * @param listener the listener for the subscribers
      */
-  public void getAllSubscribers(final int offset, final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
+  public void getAllSubscribers(final int offset, final int limit, final OnFinishedListener<ListResult<User>> listener) {
     MMXTask<MMXResult<List<UserInfo>>> task =
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -937,11 +937,25 @@ public class MMXChannel {
         if (listener == null) {
           return;
         }
-        ArrayList<MMXUser> users = new ArrayList<MMXUser>();
+
+        HashSet<String> usersToRetrieve = new HashSet<String>();
         for (UserInfo userInfo : result.getResult()) {
-          users.add(MMXUser.fromUserInfo(userInfo));
+          usersToRetrieve.add(userInfo.getUserId());
         }
-        listener.onSuccess(new ListResult<MMXUser>(result.getTotal(), users));
+        UserCache userCache = UserCache.getInstance();
+        userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+        ArrayList<User> users = new ArrayList<User>();
+        for (String username : usersToRetrieve) {
+          User user = userCache.get(username);
+          if (user == null) {
+            Log.e(TAG, "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + username);
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+            return;
+          }
+          users.add(user);
+        }
+
+        listener.onSuccess(new ListResult<User>(result.getTotal(), users));
       }
     };
     task.execute();
