@@ -215,7 +215,7 @@ abstract class MMXIQHandler<Request, Result>
     synchronized(this) {
       mResult = result;
       mTimedOut = false;
-      this.notify();
+      this.notifyAll();
     }
   }
 
@@ -225,7 +225,7 @@ abstract class MMXIQHandler<Request, Result>
     synchronized(this) {
       mError = status;
       mTimedOut = false;
-      this.notify();
+      this.notifyAll();
     }
   }
 
@@ -237,7 +237,7 @@ abstract class MMXIQHandler<Request, Result>
       mError.setMessage(xml);
       mError.setCode(Constants.STATUS_CODE_500);
       mTimedOut = false;
-      this.notify();
+      this.notifyAll();
     }
   }
 
@@ -327,10 +327,6 @@ abstract class MMXIQHandler<Request, Result>
       PacketListener packetListener = new PacketListener() {
         @Override
         public void processPacket(Packet packet) throws NotConnectedException {
-          if (listener == null) {
-            xmppCon.removePacketListener(this);
-            return;
-          }
           if (packet instanceof MMXIQHandler.MMXIQ) {
             MMXIQ iq = (MMXIQ) packet;
             if (GsonData.CONTENT_TYPE_JSON.equals(iq.getContentType())) {

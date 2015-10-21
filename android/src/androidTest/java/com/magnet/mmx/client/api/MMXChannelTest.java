@@ -108,13 +108,13 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpDelete(channel);
   }
 
-//  public void testPrivateChannelInvite() {
-//    helpTestChannelInvite(false);
-//  }
+  public void testPrivateChannelInvite() {
+    helpTestChannelInvite(false);
+  }
 
-//  public void testPublicChannelInvite() {
-//    helpTestChannelInvite(true);
-//  }
+  public void testPublicChannelInvite() {
+    helpTestChannelInvite(true);
+  }
 
   public void helpTestChannelInvite(boolean isPublic) {
     String channelName = (isPublic ? "public-channel" : "private-channel") + System.currentTimeMillis();
@@ -187,7 +187,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     status = inviteFromCallbackSent.waitFor(10000);
     assertEquals(ExecMonitor.Status.INVOKED, status);
     assertTrue(inviteFromCallbackSent.getReturnValue());
-
+    
+    MMX.unregisterListener(inviteListener);
     helpDelete(channel);
   }
 

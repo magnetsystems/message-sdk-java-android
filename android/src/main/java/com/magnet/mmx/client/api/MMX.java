@@ -18,6 +18,7 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -329,15 +330,15 @@ public final class MMX {
     }
 
     @Override
-    public void onMessageSubmitted(MMXClient mmxClient, MMXid recipient, String messageId) {
-      MMXMessage.handleMessageSubmitted(recipient, messageId);
-      super.onMessageSubmitted(mmxClient, recipient, messageId);
+    public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
+      MMXMessage.handleMessageSubmitted(messageId);
+      super.onMessageSubmitted(mmxClient, messageId);
     }
     
     @Override
-    public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
-      MMXMessage.handleMessageAccepted(recipient, messageId);
-      super.onMessageAccepted(mmxClient, recipient, messageId);
+    public void onMessageAccepted(MMXClient mmxClient, List<MMXid> invalidRecipients, String messageId) {
+      MMXMessage.handleMessageAccepted(invalidRecipients, messageId);
+      super.onMessageAccepted(mmxClient, invalidRecipients, messageId);
     }
 
     @Override
@@ -551,9 +552,9 @@ public final class MMX {
 
       public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) { }
 
-      public void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId) { }
+      public void onMessageSubmitted(MMXClient client, String messageId) { }
       
-      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) { }
+      public void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId) { }
 
       public void onPubsubItemReceived(MMXClient client, MMXTopic topic,
                                        com.magnet.mmx.client.common.MMXMessage message) { }
@@ -595,9 +596,9 @@ public final class MMX {
 
       public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) { }
 
-      public void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId) { }
+      public void onMessageSubmitted(MMXClient client, String messageId) { }
       
-      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) { }
+      public void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId) { }
 
       public void onPubsubItemReceived(MMXClient client,
                                        MMXTopic topic,

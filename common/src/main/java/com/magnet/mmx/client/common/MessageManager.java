@@ -221,11 +221,13 @@ public class MessageManager implements Closeable {
           MmxHeaders mmxMeta = extension.getMmxMeta();
           SignalMsg sigMsg = SignalMsg.parse(mmxMeta);
           if (sigMsg.getType() == SignalMsg.Type.ACK_ONCE) {
-            mCon.getMessageListener().onMessageSubmitted(sigMsg.getReceiver(), sigMsg.getMsgId());
+            mCon.getMessageListener().onMessageAccepted(
+                sigMsg.getInvalidReceivers(), sigMsg.getMsgId());
           } else if (sigMsg.getType() == SignalMsg.Type.ACK_BEGIN) {
-            mCon.getMessageListener().onMessageSubmitted(null, sigMsg.getMsgId());
+            mCon.getMessageListener().onMessageSubmitted(sigMsg.getMsgId());
           } else if (sigMsg.getType() == SignalMsg.Type.ACK_END) {
-            mCon.getMessageListener().onMessageAccepted(null, sigMsg.getMsgId());
+            mCon.getMessageListener().onMessageAccepted(
+                sigMsg.getInvalidReceivers(), sigMsg.getMsgId());
           }
         }
       });

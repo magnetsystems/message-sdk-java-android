@@ -21,6 +21,7 @@ import java.util.Set;
 
 import com.google.gson.Gson;
 import com.magnet.android.User;
+import com.magnet.mmx.client.api.MMXMessage.InvalidRecipientException;
 import com.magnet.mmx.client.common.Log;
 
 public class MMXMessageTest extends MMXInstrumentationTestCase {
@@ -226,10 +227,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
       @Override
       public boolean onMessageSendError(String messageId, 
-                        MMXMessage.FailureCode code, String username) {
-        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", username="+username);
-        invalidUsers.add(username);
-        Log.d(TAG, "invalidUsers="+invalidUsers);
+                        MMXMessage.FailureCode code, String text) {
+        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", text="+text);
         receivedResult.failed(code);
         return false;
       }
@@ -254,30 +253,26 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
       @Override
       public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+        Log.d(TAG, "Unicast Send Msg failed: code="+code+", ex="+ex);
+        if (code.equals(MMXMessage.FailureCode.INVALID_RECIPIENT)) {
+          InvalidRecipientException irEx = (InvalidRecipientException) ex;
+          invalidUsers.addAll(irEx.getUserIds());
+        }
         sendResult.failed(code);
       }
     });
     
-    // Send success despite invalid recipients
+    // Send failed because of an invalid recipient
     ExecMonitor.Status status = sendResult.waitFor(10000);
-    assertEquals(ExecMonitor.Status.INVOKED, status);
-    assertTrue(sendResult.getReturnValue());
-    assertNull(sendResult.getFailedValue());
-    
-    // Do a sleep; one error message per invalid recipient will be received.
-    try {
-      Thread.sleep(2000);
-    } catch (InterruptedException e) {
-      // Ignored.
-    }
-    // Make sure that send error is received.
-    status = receivedResult.waitFor(1000);
     assertEquals(ExecMonitor.Status.FAILED, status);
-    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, receivedResult.getFailedValue());
-    
+    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(1, invalidUsers.size());
-    assertTrue(invalidUsers.contains(getInvalidUser("foo").getUserName()));
+    assertTrue(invalidUsers.contains("foo"));
     
+    // Make sure that no error message came and no message arrived.
+    status = receivedResult.waitFor(2000);
+    assertEquals(ExecMonitor.Status.WAITING, status);
+
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);
     synchronized (loginLogoutListener) {
@@ -328,10 +323,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
       @Override
       public boolean onMessageSendError(String messageId, 
-                        MMXMessage.FailureCode code, String username) {
-        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", username="+username);
-        invalidUsers.add(username);
-        Log.d(TAG, "invalidUsers="+invalidUsers);
+                        MMXMessage.FailureCode code, String text) {
+        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", text="+text);
         receivedResult.failed(code);
         return false;
       }
@@ -343,6 +336,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     recipients.add(badRecipient1);
     User badRecipient2 = getInvalidUser(wrongUser);
     recipients.add(badRecipient2);
+    User goodRecipient = MMX.getCurrentUser();
+    recipients.add(goodRecipient);
 
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
@@ -359,15 +354,22 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
       @Override
       public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+        Log.d(TAG, "Multicast onFailure() ex="+ex);
+        if (code.equals(MMXMessage.FailureCode.INVALID_RECIPIENT)) {
+          InvalidRecipientException irEx = (InvalidRecipientException) ex;
+          invalidUsers.addAll(irEx.getUserIds());
+        }
         sendResult.failed(code);
       }
     });
     
-    // Send success despite invalid recipients
+    // Send partial failure despite invalid recipients
     ExecMonitor.Status status = sendResult.waitFor(10000);
-    assertEquals(ExecMonitor.Status.INVOKED, status);
-    assertTrue(sendResult.getReturnValue());
-    assertNull(sendResult.getFailedValue());
+    assertEquals(ExecMonitor.Status.FAILED, status);
+    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
+    assertEquals(2, invalidUsers.size());
+    assertTrue(invalidUsers.contains(badRecipient1.getUserName()));
+    assertTrue(invalidUsers.contains(badRecipient2.getUserName()));
     
     // Do a sleep; one error message per invalid recipient will be received.
     try {
@@ -375,14 +377,10 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     } catch (InterruptedException e) {
       // Ignored.
     }
-    // Make sure that send error is received.
+    // One message should arrive.
     status = receivedResult.waitFor(1000);
-    assertEquals(ExecMonitor.Status.FAILED, status);
-    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, receivedResult.getFailedValue());
-    
-    assertEquals(2, invalidUsers.size());
-    assertTrue(invalidUsers.contains(badRecipient1.getUserName()));
-    assertTrue(invalidUsers.contains(badRecipient2.getUserName()));
+    assertEquals(ExecMonitor.Status.INVOKED, status);
+    assertTrue(receivedResult.getReturnValue());
     
     MMX.unregisterListener(messageListener);
     MMX.logout(loginLogoutListener);

@@ -17,6 +17,7 @@ package com.magnet.mmx.client.api;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,6 +30,7 @@ import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXid;
+import com.magnet.mmx.protocol.StatusCode;
 
 /**
  * This class holds the message payload, and operations for the message.  If
@@ -203,6 +205,36 @@ public class MMXMessage {
         throw new IllegalArgumentException("No channel and no recipients are specified");
       }
       return mMessage;
+    }
+  }
+  
+  /**
+   * The exception contains a list of recipient user ID's that a message
+   * cannot be sent to.
+   */
+  public static class InvalidRecipientException extends MMXException {
+    private String mMsgId;
+    private Set<String> mUserIds = new HashSet<String>();
+    
+    public InvalidRecipientException(String msg, String messageId) {
+      super(msg, StatusCode.NOT_FOUND);
+      mMsgId = messageId;
+    }
+    
+    public String getMessageId() {
+      return mMsgId;
+    }
+    
+    private void addUserId(String userId) {
+      mUserIds.add(userId);
+    }
+    
+    public Set<String> getUserIds() {
+      return mUserIds;
+    }
+    
+    public String toString() {
+      return super.toString()+", msgId="+mMsgId+", uids="+mUserIds;
     }
   }
 
@@ -714,18 +746,31 @@ public class MMXMessage {
   private static HashMap<String, MessageListenerPair> sMessageSendListeners =
           new HashMap<String, MessageListenerPair>();
 
-  static void handleMessageSubmitted(MMXid recipient, String messageId) {
-    synchronized (sMessageSendListeners) {
-      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
-      if (listenerPair != null) {
-        listenerPair.listener.onSuccess(messageId);
-      }
-    }
+  static void handleMessageSubmitted(String messageId) {
+//    synchronized (sMessageSendListeners) {
+//      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
+//      if (listenerPair != null) {
+//        listenerPair.listener.onSuccess(messageId);
+//      }
+//    }
   }
   
-  static void handleMessageAccepted(MMXid recipient, String messageId) {
+  static void handleMessageAccepted(List<MMXid> invalidRecipients, String messageId) {
+    Log.d(TAG, "handleMessageAccepted() invalid="+invalidRecipients+" msgId="+messageId);
     synchronized (sMessageSendListeners) {
-      sMessageSendListeners.remove(messageId);
+      MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
+      if (listenerPair != null) {
+        if (invalidRecipients == null || invalidRecipients.isEmpty()) {
+          listenerPair.listener.onSuccess(messageId);
+        } else {
+          InvalidRecipientException ex = new InvalidRecipientException(
+              "Invalid recipients", messageId);
+          for (MMXid xid : invalidRecipients) {
+            ex.addUserId(xid.getUserId());
+          }
+          listenerPair.listener.onFailure(MMXMessage.FailureCode.INVALID_RECIPIENT, ex);
+        }
+      }
     }
   }
   

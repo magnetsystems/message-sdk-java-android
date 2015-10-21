@@ -82,4 +82,9 @@ public class MMXException extends Exception implements StatusCode {
   public int getCode() {
     return mCode;
   }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", code="+mCode;
+  }
 }

@@ -15,6 +15,8 @@
 package com.magnet.mmx.client.common;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import com.magnet.mmx.protocol.Constants;
@@ -48,12 +50,14 @@ public class SignalMsg implements Serializable {
   private final static String ACK_MSG_ID = "ackForMsgId";
   private final static String SENDER = "sender";
   private final static String RECEIVER = "receiver";
+  private final static String BAD_RECEIVERS = "badReceivers";
   private final static String USER_ID = "userId";
   private final static String DEV_ID = "devId";
 
   private String mMsgId;
   private MMXid mSender;
   private MMXid mReceiver;
+  private List<MMXid> mInvalidReceivers;
   private Type mType;
 
   /**
@@ -73,6 +77,14 @@ public class SignalMsg implements Serializable {
   }
 
   /**
+   * Get a list of invalid message receivers.
+   * @return An empty list or a list of invalid recipients.
+   */
+  public List<MMXid> getInvalidReceivers() {
+    return mInvalidReceivers;
+  }
+
+  /**
    * Get the message ID that this ack is for.
    * @return
    */
@@ -87,12 +99,13 @@ public class SignalMsg implements Serializable {
   public Type getType() {
     return mType;
   }
+
   /**
    * Get the String representation for debug purpose.
    */
   @Override
   public String toString() {
-    return "{msgid="+mMsgId+", sndr="+mSender+", rcvr="+mReceiver+", type="+mType+"}";
+    return "{type="+mType+", msgid="+mMsgId+", sndr="+mSender+", rcvr="+mReceiver+", bad="+mInvalidReceivers+"}";
   }
 
   public static SignalMsg parse(MmxHeaders mmxMeta) {
@@ -112,6 +125,7 @@ public class SignalMsg implements Serializable {
     }
     Map<String, String> sender = (Map<String, String>) map.get(SENDER);
     Map<String, String> receiver = (Map<String, String>) map.get(RECEIVER);
+    List<Map<String, String>> badReceivers = (List<Map<String, String>>) map.get(BAD_RECEIVERS);
 
     sigMsg.mMsgId = (String) map.get(ACK_MSG_ID);
     if (sender != null) {
@@ -119,6 +133,12 @@ public class SignalMsg implements Serializable {
     }
     if (receiver != null) {
       sigMsg.mReceiver = new MMXid(receiver.get(USER_ID), null, null);
+    }
+    if (badReceivers != null) {
+      sigMsg.mInvalidReceivers = new ArrayList<MMXid>(badReceivers.size());
+      for (Map<String, String> entry : badReceivers) {
+        sigMsg.mInvalidReceivers.add(new MMXid(entry.get(USER_ID), null, entry.get(DEV_ID)));
+      }
     }
 
     return sigMsg;
