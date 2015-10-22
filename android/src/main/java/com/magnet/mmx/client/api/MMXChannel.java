@@ -57,7 +57,7 @@ import com.magnet.mmx.util.TimeUtil;
  * <ol>
  *  <li>locate a channel by
  *    <ul>
- *      <li>{@link #create(String, String, boolean, OnFinishedListener)}</li>
+ *      <li>{@link #create(String, String, boolean, PublishPermission, OnFinishedListener)}</li>
  *      <li>{@link #findPublicChannelsByName(String, int, int, OnFinishedListener)}</li>
  *      <li>{@link #findPrivateChannelsByName(String, int, int, OnFinishedListener)}</li>
  *      <li>{@link #findByTags(Set, int, int, OnFinishedListener)}</li>
@@ -75,6 +75,44 @@ import com.magnet.mmx.util.TimeUtil;
  */
 public class MMXChannel {
   private static final String TAG = MMXChannel.class.getSimpleName();
+
+  /**
+   * Describes the publishing permissions for this channel.
+   *
+   * @see #create(String, String, boolean, PublishPermission, OnFinishedListener)
+   */
+  public enum PublishPermission {
+    /**
+     * Only the owner can publish
+     */
+    OWNER_ONLY(TopicAction.PublisherType.owner),
+    /**
+     * Only the owner and subscribers can publish
+     */
+    SUBSCRIBER(TopicAction.PublisherType.subscribers),
+    /**
+     * Anyone can publish
+     */
+    ANYONE(TopicAction.PublisherType.anyone);
+
+    private final TopicAction.PublisherType type;
+    PublishPermission(TopicAction.PublisherType type) {
+      this.type = type;
+    }
+
+    private static PublishPermission fromPublisherType(TopicAction.PublisherType type) {
+      switch (type) {
+        case anyone:
+          return ANYONE;
+        case owner:
+          return OWNER_ONLY;
+        case subscribers:
+          return SUBSCRIBER;
+      }
+      Log.w(TAG, "Role.fromPublisherType():  Unknown publisher type: " + type + ".  Returning ANYONE");
+      return ANYONE;
+    }
+  };
 
   /**
    * Failure codes for the MMXChannel class.
@@ -133,9 +171,8 @@ public class MMXChannel {
   /**
    * The builder for a MMXChannel object
    *
-   * @deprecated to get a channel object, use one of the existing static methods.
    */
-  public static final class Builder {
+  static final class Builder {
     private MMXChannel mChannel;
 
     public Builder() {
@@ -219,6 +256,11 @@ public class MMXChannel {
       return this;
     }
 
+    Builder publishPermission(PublishPermission publishPermission) {
+      mChannel.setPublishPermission(publishPermission);
+      return this;
+    }
+
     /**
      * Set the creation date for this channel
      *
@@ -246,6 +288,7 @@ public class MMXChannel {
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private boolean mPublic;
+  private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
 
@@ -635,6 +678,30 @@ public class MMXChannel {
   }
 
   /**
+   * Whether or not the current user can publish to this channel
+   *
+   * @return true if the current user is allowed to publish to this channel
+   */
+  public boolean canPublish() {
+    if (mPublishPermission == null) {
+      throw new IllegalStateException("MMXChannel.canPublish(): " +
+              "The publish permission cannot be null.  " +
+              "This channel was improperly constructed.");
+    }
+    switch (mPublishPermission) {
+      case OWNER_ONLY:
+        return getOwnerUsername().equalsIgnoreCase(MMX.getCurrentUser().getUserName());
+      case SUBSCRIBER:
+        return isSubscribed();
+      case ANYONE:
+        return true;
+      default:
+        throw new IllegalArgumentException("MMXChannel.canPublish(): " +
+                "Unknown publish permission type: " + mPublishPermission);
+    }
+  }
+
+  /**
    * Set the public flag for this channel
    *
    * @param isPublic the public flag
@@ -654,6 +721,21 @@ public class MMXChannel {
     return mPublic;
   }
 
+  MMXChannel setPublishPermission(PublishPermission publishPermission) {
+    mPublishPermission = publishPermission;
+    return this;
+  }
+
+  /**
+   * Who can publish to this channel
+   *
+   * @see com.magnet.mmx.client.api.MMXChannel.PublishPermission
+   * @return the PublishPermission for this channel
+   */
+  public PublishPermission getPublishPermission() {
+    return mPublishPermission;
+  }
+
   /**
    * Create a channel.  Upon successful completion, the current user
    * automatically subscribes to the channel.
@@ -663,17 +745,22 @@ public class MMXChannel {
    * @param name the name of the channel
    * @param summary the channel summary
    * @param isPublic whether or not this channel is public
+   * @param publishPermission who can publish to this topic
    * @param listener the listener for the newly created channel
    */
-  public static void create(final String name, final String summary, final boolean isPublic,
-                                   final OnFinishedListener<MMXChannel> listener) {
+  public static void create(final String name, final String summary,
+                            final boolean isPublic, final PublishPermission publishPermission,
+                            final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
         validateClient(mmxClient);
+
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
-                .setDescription(summary).setSubscribeOnCreate(true);
+                .setDescription(summary).setSubscribeOnCreate(true)
+                .setPublisherType(publishPermission == null ?
+                        TopicAction.PublisherType.anyone : publishPermission.type);
         MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserName());
         return psm.createTopic(topic, options);
       }
@@ -717,12 +804,12 @@ public class MMXChannel {
    * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
    * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
    *
-   * @deprecated use {@link #create(String, String, boolean, OnFinishedListener)} instead
+   * @deprecated use {@link #create(String, String, boolean, PublishPermission, OnFinishedListener)} instead
    * @param listener the listener for the newly created channel
    * @see Builder#setPublic(boolean)
    */
   public void create(final OnFinishedListener<MMXChannel> listener) {
-    MMXChannel.create(getName(), getSummary(), isPublic(), listener);
+    MMXChannel.create(getName(), getSummary(), isPublic(), getPublishPermission(), listener);
     ownerUsername(MMX.getCurrentUser().getUserName());
   }
 
@@ -1287,6 +1374,7 @@ public class MMXChannel {
                 .subscribed(subMap.containsKey(topic))
                 .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
                 .setPublic(!topic.isUserTopic())
+                .publishPermission(PublishPermission.fromPublisherType(info.getPublisherType()))
                 .creationDate(info.getCreationDate())
                 .build());
       }

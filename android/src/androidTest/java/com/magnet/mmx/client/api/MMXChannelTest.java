@@ -397,7 +397,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //**************
   private MMXChannel helpCreate(String name, String summary, boolean isPublic) {
     final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
-    MMXChannel.create(name, summary, isPublic, new MMXChannel.OnFinishedListener<MMXChannel>() {
+    MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE,
+            new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         Log.e(TAG, "helpCreate.onSuccess ");
         createResult.invoked(result);
