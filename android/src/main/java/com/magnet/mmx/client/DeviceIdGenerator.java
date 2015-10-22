@@ -31,7 +31,7 @@ import android.text.TextUtils;
  * a combination of hardware and the app package name.  Each device ID has an
  * accessor and it may require a specific Android permission.
  */
-class DeviceIdGenerator {
+public class DeviceIdGenerator {
   private static final String SHARED_PREF_FILENAME = "com.magnet.mmx.device";
   private static final String KEY_DEVICE_ID = "DEVICE_ID";
   static DeviceIdAccessor sDevIdAccessor = DeviceIdAccessor.sPhoneIdAccessor;
@@ -41,10 +41,15 @@ class DeviceIdGenerator {
    * Set a custom device ID accessor.
    * @param accessor A non-null device ID accessor.
    */
-  public static void setDeviceIdAccessor(DeviceIdAccessor accessor) {
+  public static void setDeviceIdAccessor(Context context, DeviceIdAccessor accessor) {
     if ((sDevIdAccessor = accessor) == null) {
       throw new IllegalArgumentException("device ID generator cannot be null");
     }
+    SharedPreferences shared =
+            context.getApplicationContext().
+                    getSharedPreferences(SHARED_PREF_FILENAME, Context.MODE_PRIVATE);
+    shared.edit().remove(KEY_DEVICE_ID).commit();
+    uniqueIdRef.set(null);
   }
   
   /**
@@ -80,7 +85,6 @@ class DeviceIdGenerator {
     SharedPreferences shared =
         context.getApplicationContext().
             getSharedPreferences(SHARED_PREF_FILENAME, Context.MODE_PRIVATE);
-
     String result = shared.getString(KEY_DEVICE_ID, null);
     if (TextUtils.isEmpty(result)) {
       String devId;

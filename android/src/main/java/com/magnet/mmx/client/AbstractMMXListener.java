@@ -15,8 +15,8 @@
 package com.magnet.mmx.client;
 
 import java.util.ArrayList;
+import java.util.List;
 
-import android.os.Handler;
 import android.util.Log;
 
 import com.magnet.mmx.client.common.MMXErrorMessage;
@@ -148,16 +148,15 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * The listeners will be called in the order registered.
    *
    * @param mmxClient the MMXClient instance
-   * @param recipient The recipient for unicast message, null for mulitcast message
    * @param messageId The id of the message for which the receipt was returned
    */
-  public void onMessageSubmitted(MMXClient mmxClient, MMXid recipient, String messageId) {
+  public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
     Log.d(TAG, "onMessageSubmitted(): start.  ");
     MMXClient.MMXListener[] listeners = cloneListeners();
     for (int i=listeners.length; --i>=0;) {
       MMXClient.MMXListener listener = listeners[i];
       try {
-        listener.onMessageSubmitted(mmxClient, recipient, messageId);
+        listener.onMessageSubmitted(mmxClient, messageId);
       } catch (Throwable throwable) {
         Log.e(TAG, "onMessageSubmitted(): caught throwable from listener: " + listener, throwable);
       }
@@ -169,16 +168,16 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * The listeners will be called in the order registered.
    *
    * @param mmxClient the MMXClient instance
-   * @param recipient The recipient for unicast message, null for mulitcast message
+   * @param invalidRecipients The invalid recipients
    * @param messageId The id of the message for which the receipt was returned
    */
-  public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
+  public void onMessageAccepted(MMXClient mmxClient, List<MMXid> invalidRecipients, String messageId) {
     Log.d(TAG, "onMessageAccepted(): start.  ");
     MMXClient.MMXListener[] listeners = cloneListeners();
     for (int i=listeners.length; --i>=0;) {
       MMXClient.MMXListener listener = listeners[i];
       try {
-        listener.onMessageAccepted(mmxClient, recipient, messageId);
+        listener.onMessageAccepted(mmxClient, invalidRecipients, messageId);
       } catch (Throwable throwable) {
         Log.e(TAG, "onMessageAccepted(): caught throwable from listener: " + listener, throwable);
       }

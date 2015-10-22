@@ -15,6 +15,8 @@
 
 package com.magnet.mmx.client.common;
 
+import java.util.List;
+
 import com.magnet.mmx.protocol.AuthData;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXid;
@@ -37,18 +39,16 @@ public interface MMXMessageListener {
    */
   public void onMessageSent( String msgId );
   /**
-   * A callback when a message is submitted to the server.
-   * @param recipient The recipient ID for unicast message, or null for multicast message.
+   * A callback when a multicast message is submitted to the server.
    * @param msgId The message ID.
    */
-  public void onMessageSubmitted(MMXid recipient, String msgId );
+  public void onMessageSubmitted( String msgId );
   /**
-   * A callback when a unicast or multicast message is accepted and validated by
-   * the server.
-   * @param recipient The recipient ID for unicast message, or null for multicast message.
+   * A callback when the recipients of a message are validated by the server.
+   * @param invalidRecipients A list of invalid recipient ID's.
    * @param msgId The message ID.
    */
-  public void onMessageAccepted(MMXid recipient, String msgId );
+  public void onMessageAccepted( List<MMXid> invalidRecipients, String msgId );
   /**
    * A callback when sending a message failed due to network issue.  Typically
    * it will be followed by the connection close callback.

@@ -102,11 +102,11 @@ public class MMXClientTest extends InstrumentationTestCase {
       }
     }
     
-    public void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId) {
+    public void onMessageSubmitted(MMXClient client, String messageId) {
       Log.d(TAG, "onMessageSubmitted message id =" + messageId);
     }
     
-    public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
+    public void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId) {
       Log.d(TAG, "onMessageAccepted message id =" + messageId);
     }
 

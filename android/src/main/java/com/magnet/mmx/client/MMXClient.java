@@ -26,9 +26,9 @@ import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.SocketFactory;
@@ -52,6 +52,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.android.ApiCallback;
+import com.magnet.android.ApiError;
+import com.magnet.android.Device;
+import com.magnet.android.auth.model.DeviceInfo;
 import com.magnet.mmx.client.common.DeviceManager;
 import com.magnet.mmx.client.common.Invitation;
 import com.magnet.mmx.client.common.Log;
@@ -341,18 +345,18 @@ public final class MMXClient {
       }
     }
     
-    public void onMessageSubmitted(MMXid recipient, String msgId) {
+    public void onMessageSubmitted(String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onMessageSubmitted() start: recipient="+recipient+", msgID="+msgId);
+        Log.d(TAG, "onMessageSubmitted() start: msgID="+msgId);
       }
-      notifyMessageSubmitted(recipient, msgId);
+      notifyMessageSubmitted(msgId);
     }
     
-    public void onMessageAccepted(MMXid recipient, String msgId) {
+    public void onMessageAccepted(List<MMXid> invalidRecipients, String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onMessageAccepted() start: recipient="+recipient+", msgID="+msgId);
+        Log.d(TAG, "onMessageAccepted() start: invalid="+invalidRecipients+", msgID="+msgId);
       }
-      notifyMessageAccepted(recipient, msgId);
+      notifyMessageAccepted(invalidRecipients, msgId);
     }
     
     public void onMessageFailed(String msgId) {
@@ -490,10 +494,12 @@ public final class MMXClient {
 
     // Use a new accessor for the device ID.  It is not optimal because we don't
     // know if the device ID is changed.
-    DeviceIdGenerator.setDeviceIdAccessor(new DeviceIdAccessor() {
+    DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+      @Override
       public String getId(Context context) {
         return mConfig.getDeviceId();
       }
+      @Override
       public boolean obfuscated() {
         return mConfig.obfuscateDeviceId();
       }
@@ -1130,12 +1136,12 @@ public final class MMXClient {
     }
   }
 
-  private void notifyMessageSubmitted(final MMXid receiver, final String messageId) {
+  private void notifyMessageSubmitted(final String messageId) {
     synchronized (this) {
       mCallbackExecutorService.execute(new Runnable() {
         public void run() {
           try {
-            mMMXListener.onMessageSubmitted(MMXClient.this, receiver, messageId);
+            mMMXListener.onMessageSubmitted(MMXClient.this, messageId);
           } catch (Exception ex) {
             Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
                     "the callback", ex);
@@ -1145,12 +1151,12 @@ public final class MMXClient {
     }
   }
   
-  private void notifyMessageAccepted(final MMXid receiver, final String messageId) {
+  private void notifyMessageAccepted(final List<MMXid> invalidReceivers, final String messageId) {
     synchronized (this) {
       mCallbackExecutorService.execute(new Runnable() {
         public void run() {
           try {
-            mMMXListener.onMessageAccepted(MMXClient.this, receiver, messageId);
+            mMMXListener.onMessageAccepted(MMXClient.this, invalidReceivers, messageId);
           } catch (Exception ex) {
             Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
                 "the callback", ex);
@@ -1275,21 +1281,26 @@ public final class MMXClient {
           // Register the client protocol version numbers.
           devReg.setVersionMajor(Constants.MMX_VERSION_MAJOR);
           devReg.setVersionMinor(Constants.MMX_VERSION_MINOR);
-          try {
-            MMXStatus status = getDeviceManager().register(devReg);
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-              Log.d(TAG, "registerDeviceWithServer(): device registration completed with status=" + status);
+
+          Device.register(new DeviceInfo.Builder()
+                  .deviceToken(devReg.getPushToken())
+                  .label(devReg.getDisplayName())
+                  .build(), new ApiCallback<Device>() {
+            public void success(Device device) {
+              if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "registerDeviceWithServer(): Device registration successful: " + device.getDeviceId());
+              }
+              notifyConnectionEvent(ConnectionEvent.CONNECTED);
+              getQueue().processPendingItems();
             }
-            notifyConnectionEvent(ConnectionEvent.CONNECTED);
-            getQueue().processPendingItems();
-          } catch (MMXException e) {
-            Log.e(TAG, "registerDeviceWithServer(): caught MMXException code=" + e.getCode(), e);
-            if (e.getCode() == 400) {
+
+            public void failure(ApiError apiError) {
+              Log.e(TAG, "registerDeviceWithServer(): Device registration failed: " + apiError);
               //if status is unsuccessful, disconnect
               notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
               disconnect();
             }
-          }
+          });
         }
       });
     }
@@ -1320,6 +1331,7 @@ public final class MMXClient {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onAuthenticated() begin");
       }
+      //FIXME: Figure out how to deal with Wakeups/GCM
       registerDeviceWithServer();
     }
 
@@ -1420,21 +1432,20 @@ public final class MMXClient {
     void onMessageDelivered(MMXClient client, MMXid recipient, String messageId);
 
     /**
-     * Called when a message has been submitted to the server.
+     * Called when a multicast message has been submitted to the server.
      * @param client
-     * @param recipient A non-null recipient for unicast message, or null for multicast message
      * @param messageId
      */
-    void onMessageSubmitted(MMXClient client, MMXid recipient, String messageId);
+    void onMessageSubmitted(MMXClient client, String messageId);
     
     /**
      * Called when a message has been accepted for delivery by the MMX server
      *
      * @param client the instance of the MMXClient
-     * @param receiver the recipient A non-null recipient for unicast message, or null for multicast message
+     * @param invalidRecipients A list of invalid recipients
      * @param messageId the message id of the message
      */
-    void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
+    void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId);
 
     /**
      * Called when a pubsub item is received.
@@ -1526,6 +1537,7 @@ public final class MMXClient {
       prefEditor.apply();
       mConnectionInfo = null;
     }
+    //FIXME: Figure out how to deal with Wakeups/GCM
     registerDeviceWithServer();
   }
 

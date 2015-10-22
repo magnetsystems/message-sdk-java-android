@@ -41,6 +41,7 @@ import javax.net.ssl.SSLContext;
 
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.ConnectionListener;
+import org.jivesoftware.smack.SASLAuthentication;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
@@ -49,6 +50,7 @@ import org.jivesoftware.smack.debugger.ConsoleDebugger;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Presence.Mode;
+import org.jivesoftware.smack.sasl.MMXBFOAuthMechanism;
 import org.jivesoftware.smack.sasl.SASLError;
 import org.jivesoftware.smack.sasl.SASLErrorException;
 
@@ -120,7 +122,12 @@ public class MMXConnection implements ConnectionListener {
   public final static int NO_DELIVERY_ON_LOGIN = 0x4;
 
   static {
-    // Register the Message Providers, so it can parse unsolicited messages.
+    // Register Magnet Message Server OAuth mechanism with the highest priority.
+    SASLAuthentication.registerSASLMechanism(MMXBFOAuthMechanism.NAME,
+        MMXBFOAuthMechanism.class);
+    SASLAuthentication.supportSASLMechanism(MMXBFOAuthMechanism.NAME, 0);
+
+    // Register the Message Provider, so it can parse unsolicited messages.
     MMXPayloadMsgHandler.registerMsgProvider();
     MMXSignalMsgHandler.registerMsgProvider();
   }

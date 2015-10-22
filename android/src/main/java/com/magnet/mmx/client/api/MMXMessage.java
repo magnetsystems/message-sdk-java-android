@@ -17,9 +17,12 @@ package com.magnet.mmx.client.api;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.magnet.android.ApiCallback;
+import com.magnet.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
 import com.magnet.mmx.client.common.Log;
@@ -28,6 +31,7 @@ import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXid;
+import com.magnet.mmx.protocol.StatusCode;
 
 /**
  * This class holds the message payload, and operations for the message.  If
@@ -134,7 +138,7 @@ public class MMXMessage {
      * @param sender the sender
      * @return this Builder instance
      */
-    MMXMessage.Builder sender(MMXUser sender) {
+    MMXMessage.Builder sender(User sender) {
       mMessage.sender(sender);
       return this;
     }
@@ -159,7 +163,7 @@ public class MMXMessage {
      * @param recipients the recipients
      * @return this Builder instance
      */
-    public MMXMessage.Builder recipients(Set<MMXUser> recipients) {
+    public MMXMessage.Builder recipients(Set<User> recipients) {
       if (mMessage.getChannel() != null) {
         throw new IllegalArgumentException("Cannot set both the recipients and channel in a message.");
       }
@@ -204,13 +208,43 @@ public class MMXMessage {
       return mMessage;
     }
   }
+  
+  /**
+   * The exception contains a list of recipient user ID's that a message
+   * cannot be sent to.
+   */
+  public static class InvalidRecipientException extends MMXException {
+    private String mMsgId;
+    private Set<String> mUserIds = new HashSet<String>();
+    
+    public InvalidRecipientException(String msg, String messageId) {
+      super(msg, StatusCode.NOT_FOUND);
+      mMsgId = messageId;
+    }
+    
+    public String getMessageId() {
+      return mMsgId;
+    }
+    
+    private void addUserId(String userId) {
+      mUserIds.add(userId);
+    }
+    
+    public Set<String> getUserIds() {
+      return mUserIds;
+    }
+    
+    public String toString() {
+      return super.toString()+", msgId="+mMsgId+", uids="+mUserIds;
+    }
+  }
 
   private String mId;
   private String mType;
   private Date mTimestamp;
-  private MMXUser mSender;
+  private User mSender;
   private MMXChannel mChannel;
-  private Set<MMXUser> mRecipients = new HashSet<MMXUser>();
+  private Set<User> mRecipients = new HashSet<User>();
   private Map<String, String> mContent = new HashMap<String, String>();
   private String mReceiptId;
 
@@ -289,7 +323,7 @@ public class MMXMessage {
    * @param sender the sender
    * @return this MMXMessage object
    */
-  MMXMessage sender(MMXUser sender) {
+  MMXMessage sender(User sender) {
     mSender = sender;
     return this;
   }
@@ -300,7 +334,7 @@ public class MMXMessage {
    *
    * @return the sender
    */
-  public MMXUser getSender() {
+  public User getSender() {
     return mSender;
   }
 
@@ -330,7 +364,7 @@ public class MMXMessage {
    * @param recipients the recipients
    * @return this MMXMessage object
    */
-  MMXMessage recipients(Set<MMXUser> recipients) {
+  MMXMessage recipients(Set<User> recipients) {
     mRecipients = recipients;
     return this;
   }
@@ -340,7 +374,7 @@ public class MMXMessage {
    *
    * @return the recipients
    */
-  public Set<MMXUser> getRecipients() {
+  public Set<User> getRecipients() {
     return mRecipients;
   }
 
@@ -449,7 +483,7 @@ public class MMXMessage {
    * {@link FailureCode#INVALID_RECIPIENT} in 
    * {@link OnFinishedListener#onFailure(FailureCode, Throwable)} will be
    * invoked.  The message ID and a set of invalid recipients can be retrieved
-   * from {@link MMXUser.InvalidUserException#getUsers()}. If this message is
+   * from {@link User#getUsersByUserNames(List, ApiCallback)}. If this message is
    * addressed to a channel, the listener will be called with the id of the
    * published message.  Common failure codes are 
    * {@link FailureCode#CONTENT_TOO_LARGE}, {@link FailureCode#BAD_REQUEST}, or
@@ -514,8 +548,8 @@ public class MMXMessage {
         public String doRun(MMXClient mmxClient) throws Throwable {
           MMXid[] recipientsArray = new MMXid[mRecipients.size()];
           int index = 0;
-          for (MMXUser recipient : mRecipients) {
-            recipientsArray[index++] = new MMXid(recipient.getUsername(), recipient.getDisplayName());
+          for (User recipient : mRecipients) {
+            recipientsArray[index++] = new MMXid(recipient.getUserName(), recipient.getUserName());
           }
           if (listener != null) {
             synchronized (sMessageSendListeners) {
@@ -589,12 +623,12 @@ public class MMXMessage {
    * @return a new MMXMessage instance for the reply
    */
   private MMXMessage buildReply(Map<String, String> content, boolean isReplyAll) {
-    MMXUser me = MMX.getCurrentUser();
-    HashSet<MMXUser> replyRecipients = new HashSet<MMXUser>();
+    User me = MMX.getCurrentUser();
+    HashSet<User> replyRecipients = new HashSet<User>();
     replyRecipients.add(mSender);
     if (isReplyAll) {
-      for (MMXUser recipient : mRecipients) {
-        if (!recipient.equals(me)) {
+      for (User recipient : mRecipients) {
+        if (!recipient.getUserIdentifier().equals(me.getUserIdentifier())) {
           //remove myself from the recipients
           //this applies to instances of me (including other devices)
           replyRecipients.add(recipient);
@@ -649,26 +683,47 @@ public class MMXMessage {
    * @return a new object of this type
    */
   static MMXMessage fromMMXMessage(MMXTopic topic, com.magnet.mmx.client.common.MMXMessage message) {
-    HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-    if (topic == null) {
+    UserCache userCache = UserCache.getInstance();
+    HashSet<String> usersToRetrieve = new HashSet<String>();
+    usersToRetrieve.add(message.getFrom().getUserId());
+    usersToRetrieve.add(message.getTo().getUserId());
+
+    //idenfity all the users that need to be retrieved and populate the cache
+    MMXid[] otherRecipients = message.getReplyAll();
+    if (otherRecipients != null) {
       //this is normal message.  getReplyAll() returns null for pubsub messages
-      MMXUser receiver = MMXUser.fromMMXid(message.getTo());
-      recipients.add(receiver);
-      MMXid[] otherRecipients = message.getReplyAll();
-      if (otherRecipients != null) {
-        for (MMXid otherRecipient : otherRecipients) {
-          MMXUser recipient = MMXUser.fromMMXid(otherRecipient);
-          recipients.add(recipient);
-        }
+      for (MMXid mmxId : otherRecipients) {
+        usersToRetrieve.add(mmxId.getUserId());
       }
     }
+
+    //fill the cache
+    userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+
+    //populate the values
+    User receiver = userCache.get(message.getTo().getUserId());
+    User sender = userCache.get(message.getFrom().getUserId());
+    if (receiver == null || sender == null) {
+      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender or receiver from cache:  " +
+              "sender=" + sender + ", receiver=" + receiver + ".  Message will be dropped.");
+      return null;
+    }
+
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(receiver);
+    if (otherRecipients != null) {
+      for (MMXid otherRecipient : otherRecipients) {
+        recipients.add(userCache.get(otherRecipient.getUserId()));
+      }
+    }
+
+    //populate the message content
     HashMap<String, String> content = new HashMap<String, String>();
     for (Map.Entry<String,String> entry : message.getPayload().getAllMetaData().entrySet()) {
       content.put(entry.getKey(), entry.getValue());
     }
 
     MMXMessage newMessage = new MMXMessage();
-    MMXUser sender = MMXUser.fromMMXid(message.getFrom());
     return newMessage
             .sender(sender)
             .id(message.getId())
@@ -692,18 +747,31 @@ public class MMXMessage {
   private static HashMap<String, MessageListenerPair> sMessageSendListeners =
           new HashMap<String, MessageListenerPair>();
 
-  static void handleMessageSubmitted(MMXid recipient, String messageId) {
-    synchronized (sMessageSendListeners) {
-      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
-      if (listenerPair != null) {
-        listenerPair.listener.onSuccess(messageId);
-      }
-    }
+  static void handleMessageSubmitted(String messageId) {
+//    synchronized (sMessageSendListeners) {
+//      MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
+//      if (listenerPair != null) {
+//        listenerPair.listener.onSuccess(messageId);
+//      }
+//    }
   }
   
-  static void handleMessageAccepted(MMXid recipient, String messageId) {
+  static void handleMessageAccepted(List<MMXid> invalidRecipients, String messageId) {
+    Log.d(TAG, "handleMessageAccepted() invalid="+invalidRecipients+" msgId="+messageId);
     synchronized (sMessageSendListeners) {
-      sMessageSendListeners.remove(messageId);
+      MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
+      if (listenerPair != null) {
+        if (invalidRecipients == null || invalidRecipients.isEmpty()) {
+          listenerPair.listener.onSuccess(messageId);
+        } else {
+          InvalidRecipientException ex = new InvalidRecipientException(
+              "Invalid recipients", messageId);
+          for (MMXid xid : invalidRecipients) {
+            ex.addUserId(xid.getUserId());
+          }
+          listenerPair.listener.onFailure(MMXMessage.FailureCode.INVALID_RECIPIENT, ex);
+        }
+      }
     }
   }
   
