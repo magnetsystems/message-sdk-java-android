@@ -1401,6 +1401,7 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
     private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
+    private static final String KEY_CHANNEL_PUBLISH_PERMISSIONS = "channelPublishPermissions";
     private MMXChannel mChannel;
     private Set<User> mInvitees;
     private User mInviter;
@@ -1463,6 +1464,7 @@ public class MMXChannel {
       if (mChannel.getCreationDate() != null) {
         content.put(KEY_CHANNEL_CREATION_DATE, TimeUtil.toString(mChannel.getCreationDate()));
       }
+      content.put(KEY_CHANNEL_PUBLISH_PERMISSIONS, mChannel.mPublishPermission.type.name());
       return content;
     }
 
@@ -1474,12 +1476,14 @@ public class MMXChannel {
       String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
       String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
       String channelCreationDate = content.get(KEY_CHANNEL_CREATION_DATE);
+      String channelPublishPermissions = content.get(KEY_CHANNEL_PUBLISH_PERMISSIONS);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPublic(Boolean.parseBoolean(channelIsPublic))
               .ownerUsername(channelOwnerUsername)
               .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
+              .publishPermission(PublishPermission.fromPublisherType(TopicAction.PublisherType.valueOf(channelPublishPermissions)))
               .build();
       return new MMXInviteInfo(message.getRecipients(), message.getSender(), channel, text);
     }
