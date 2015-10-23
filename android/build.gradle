@@ -122,30 +122,29 @@ clean.dependsOn eclipseClean
 
 def javadocSource = [sourceSets.main.allJava, '../common/src/main/java', '../../message-common/src/main/java']
 
-task androidJavadocs(type: Javadoc) {
-    println "generating JAVADOCS task:"
-    println System.getenv('JAVA_HOME')
-    source = javadocSource
-    destinationDir = reporting.file("$projectDir/build/docs")
-    title = null
-    options.docletpath = configurations.jaxDoclet.files.asType(List)
-    options.doclet = "com.google.doclava.Doclava"
-    ext.androidJar = "${System.env.ANDROID_HOME}/platforms/${android.compileSdkVersion}/android.jar"
-    ext.googlePlayServicesJar = "${System.env.ANDROID_HOME}/extras/google/google_play_services/libproject/google-play-services_lib/libs/google-play-services.jar"
-    ext.androidSupportV4Jar = "${System.env.ANDROID_HOME}/extras/android/support/v4/android-support-v4.jar"
-    classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath
-
-    options {
-        doclet "com.google.doclava.Doclava"
-        addStringOption "hdf project.name", "Magnet Messaging SDK for Android"
-//        addStringOption "templatedir", "$projectDir" //for pointing to the template when we have one
-        addStringOption "federate android", "http://d.android.com/reference"
-        addStringOption "federationxml android", "http://doclava.googlecode.com/svn/static/api/android-10.xml"
-        addStringOption 'XDignore.symbol.file', '-quiet'
-    }
+//task androidJavadocs(type: Javadoc) {
+//    println "generating JAVADOCS task:"
+//    println System.getenv('JAVA_HOME')
+//    source = javadocSource
+//    destinationDir = reporting.file("$projectDir/build/docs")
+//    title = null
+//    options.docletpath = configurations.jaxDoclet.files.asType(List)
+//    options.doclet = "com.google.doclava.Doclava"
+//    ext.androidJar = "${System.env.ANDROID_HOME}/platforms/${android.compileSdkVersion}/android.jar"
+//    ext.googlePlayServicesJar = "${System.env.ANDROID_HOME}/extras/google/google_play_services/libproject/google-play-services_lib/libs/google-play-services.jar"
+//    ext.androidSupportV4Jar = "${System.env.ANDROID_HOME}/extras/android/support/v4/android-support-v4.jar"
+//    classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath
+//
+//    options {
+//        doclet "com.google.doclava.Doclava"
+//        addStringOption "hdf project.name", "Magnet Messaging SDK for Android"
+//        addStringOption "federate android", "http://d.android.com/reference"
+//        addStringOption "federationxml android", "http://doclava.googlecode.com/svn/static/api/android-10.xml"
+//        addStringOption 'XDignore.symbol.file', '-quiet'
+//    }
 
 // ADD PUBLIC APIS for JavaDoc here
-    include '**/client/api/*'
+//    include '**/client/api/*'
 //    include '**/AbstractMMXListener.java'
 //    include '**/MMXClient.java'
 //    include '**/MMXClientConfig.java'
@@ -191,22 +190,22 @@ task androidJavadocs(type: Javadoc) {
 //    include '**/PushType.java'
 //    include '**/UserInfo.java'
 //    include '**/DeviceInfo.java'
-}
+//}
 
 task sourcesJar(type: Jar) {
     from android.sourceSets.main.java.srcDirs
     classifier = 'sources'
 }
 
-task androidJavadocsZip(type: Zip, dependsOn: androidJavadocs) {
-    classifier = 'javadoc'
-    from "$projectDir/build/docs"
-}
-
-task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
-    classifier = 'javadoc'
-    from "$projectDir/build/docs"
-}
+//task androidJavadocsZip(type: Zip, dependsOn: androidJavadocs) {
+//    classifier = 'javadoc'
+//    from "$projectDir/build/docs"
+//}
+//
+//task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
+//    classifier = 'javadoc'
+//    from "$projectDir/build/docs"
+//}
 
 task makeZips {
 
