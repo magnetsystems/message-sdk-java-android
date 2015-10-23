@@ -202,13 +202,13 @@ public class MMXChannel {
     }
 
     /**
-     * Set the owner's username for this channel
+     * Set the owner's user identifier for this channel
      *
-     * @param ownerUsername the owner username
+     * @param ownerId the owner userId
      * @return this Builder object
      */
-    Builder ownerUsername(String ownerUsername) {
-      mChannel.ownerUsername(ownerUsername);
+    Builder ownerId(String ownerId) {
+      mChannel.ownerId(ownerId);
       return this;
     }
 
@@ -284,7 +284,7 @@ public class MMXChannel {
 
   private String mName;
   private String mSummary;
-  private String mOwnerUsername;
+  private String mOwnerId;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private boolean mPublic;
@@ -342,11 +342,11 @@ public class MMXChannel {
   /**
    * Set the owner for this channel
    *
-   * @param ownerUsername the owner username
+   * @param ownerId the owner userId
    * @return this MMXChannel object
    */
-  MMXChannel ownerUsername(String ownerUsername) {
-    mOwnerUsername = ownerUsername;
+  MMXChannel ownerId(String ownerId) {
+    mOwnerId = ownerId;
     return this;
   }
 
@@ -355,8 +355,8 @@ public class MMXChannel {
    *
    * @return the owner, null if not yet retrieved
    */
-  public String getOwnerUsername() {
-    return mOwnerUsername;
+  public String getOwnerId() {
+    return mOwnerId;
   }
 
   /**
@@ -494,7 +494,7 @@ public class MMXChannel {
   }
 
   MMXTopic getMMXTopic() {
-    return getMMXTopic(isPublic(), getName(), getOwnerUsername());
+    return getMMXTopic(isPublic(), getName(), getOwnerId());
   }
 
   /**
@@ -690,7 +690,7 @@ public class MMXChannel {
     }
     switch (mPublishPermission) {
       case OWNER_ONLY:
-        return getOwnerUsername().equalsIgnoreCase(MMX.getCurrentUser().getUserName());
+        return getOwnerId().equalsIgnoreCase(MMX.getCurrentUser().getUserIdentifier());
       case SUBSCRIBER:
         return isSubscribed();
       case ANYONE:
@@ -761,7 +761,7 @@ public class MMXChannel {
                 .setDescription(summary).setSubscribeOnCreate(true)
                 .setPublisherType(publishPermission == null ?
                         TopicAction.PublisherType.anyone : publishPermission.type);
-        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserName());
+        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserIdentifier());
         return psm.createTopic(topic, options);
       }
 
@@ -789,7 +789,7 @@ public class MMXChannel {
             Log.w(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
                     "falling back to less-populated channel.", ex);
             listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                    .ownerUsername(MMX.getCurrentUser().getUserName())
+                    .ownerId(MMX.getCurrentUser().getUserIdentifier())
                     .summary(summary));
           }
 
@@ -810,7 +810,7 @@ public class MMXChannel {
    */
   public void create(final OnFinishedListener<MMXChannel> listener) {
     MMXChannel.create(getName(), getSummary(), isPublic(), getPublishPermission(), listener);
-    ownerUsername(MMX.getCurrentUser().getUserName());
+    ownerId(MMX.getCurrentUser().getUserIdentifier());
   }
 
   /**
@@ -1030,12 +1030,12 @@ public class MMXChannel {
           usersToRetrieve.add(userInfo.getUserId());
         }
         UserCache userCache = UserCache.getInstance();
-        userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+        userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
         ArrayList<User> users = new ArrayList<User>();
-        for (String username : usersToRetrieve) {
-          User user = userCache.get(username);
+        for (String userId : usersToRetrieve) {
+          User user = userCache.getByUserId(userId);
           if (user == null) {
-            Log.e(TAG, "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + username);
+            Log.e(TAG, "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + userId);
             listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
             return;
           }
@@ -1315,7 +1315,7 @@ public class MMXChannel {
     boolean isUserTopic = topic.isUserTopic();
     return new MMXChannel.Builder()
             .name(topic.getName())
-            .ownerUsername(isUserTopic ? topic.getUserId() : null)
+            .ownerId(isUserTopic ? topic.getUserId() : null)
             .setPublic(!isUserTopic)
             .build();
   }
@@ -1370,7 +1370,7 @@ public class MMXChannel {
                         summary.getLastPubTime() : info.getCreationDate())
                 .name(topic.getName())
                 .numberOfMessages(summary.getCount())
-                .ownerUsername(info.getCreator().getUserId())
+                .ownerId(info.getCreator().getUserId())
                 .subscribed(subMap.containsKey(topic))
                 .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
                 .setPublic(!topic.isUserTopic())
@@ -1399,7 +1399,7 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_NAME = "channelName";
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
     private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
-    private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
+    private static final String KEY_CHANNEL_OWNER_ID = "channelOwnerId";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private static final String KEY_CHANNEL_PUBLISH_PERMISSIONS = "channelPublishPermissions";
     private MMXChannel mChannel;
@@ -1460,7 +1460,7 @@ public class MMXChannel {
         content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
       }
       content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
-      content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
+      content.put(KEY_CHANNEL_OWNER_ID, mChannel.getOwnerId());
       if (mChannel.getCreationDate() != null) {
         content.put(KEY_CHANNEL_CREATION_DATE, TimeUtil.toString(mChannel.getCreationDate()));
       }
@@ -1474,14 +1474,14 @@ public class MMXChannel {
       String channelName = content.get(KEY_CHANNEL_NAME);
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
       String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
-      String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
+      String channelOwnerId = content.get(KEY_CHANNEL_OWNER_ID);
       String channelCreationDate = content.get(KEY_CHANNEL_CREATION_DATE);
       String channelPublishPermissions = content.get(KEY_CHANNEL_PUBLISH_PERMISSIONS);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPublic(Boolean.parseBoolean(channelIsPublic))
-              .ownerUsername(channelOwnerUsername)
+              .ownerId(channelOwnerId)
               .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
               .publishPermission(PublishPermission.fromPublisherType(TopicAction.PublisherType.valueOf(channelPublishPermissions)))
               .build();
@@ -1517,7 +1517,7 @@ public class MMXChannel {
       if (mIncoming) {
         //coding error
         throw new RuntimeException("Cannot call send on an incoming invitation.");
-      } else if (mInviteInfo.mChannel.getOwnerUsername() == null) {
+      } else if (mInviteInfo.mChannel.getOwnerId() == null) {
         //coding error
         throw new RuntimeException("Cannot invite for an invalid channel.  " +
                 "Likely cause is that this MMXChannel instance was created using " +

@@ -549,7 +549,7 @@ public class MMXMessage {
           MMXid[] recipientsArray = new MMXid[mRecipients.size()];
           int index = 0;
           for (User recipient : mRecipients) {
-            recipientsArray[index++] = new MMXid(recipient.getUserName(), recipient.getUserName());
+            recipientsArray[index++] = new MMXid(recipient.getUserIdentifier(), recipient.getUserName());
           }
           if (listener != null) {
             synchronized (sMessageSendListeners) {
@@ -698,11 +698,11 @@ public class MMXMessage {
     }
 
     //fill the cache
-    userCache.fillCache(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+    userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
 
     //populate the values
-    User receiver = userCache.get(message.getTo().getUserId());
-    User sender = userCache.get(message.getFrom().getUserId());
+    User receiver = userCache.getByUserId(message.getTo().getUserId());
+    User sender = userCache.getByUserId(message.getFrom().getUserId());
     if (receiver == null || sender == null) {
       Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender or receiver from cache:  " +
               "sender=" + sender + ", receiver=" + receiver + ".  Message will be dropped.");
@@ -713,7 +713,7 @@ public class MMXMessage {
     recipients.add(receiver);
     if (otherRecipients != null) {
       for (MMXid otherRecipient : otherRecipients) {
-        recipients.add(userCache.get(otherRecipient.getUserId()));
+        recipients.add(userCache.getByUserId(otherRecipient.getUserId()));
       }
     }
 

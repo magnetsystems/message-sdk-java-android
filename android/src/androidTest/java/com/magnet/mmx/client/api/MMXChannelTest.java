@@ -258,6 +258,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     // Register and login as user1, create and auto-subscribe a private channel.
     String suffix = String.valueOf(System.currentTimeMillis());
     helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, true);
+    User user1 = MMX.getCurrentUser();
     MMXChannel channel = helpCreate(CHANNEL_NAME + suffix, "Private Channel 1", false);
     helpLogout();
     
@@ -286,7 +287,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       List<MMXChannel> subChannels = channels.getReturnValue();
       assertNotNull(subChannels);
       assertEquals(1, subChannels.size());
-      assertEquals(USERNAME_1+suffix, subChannels.get(0).getOwnerUsername());
+      assertEquals(user1.getUserIdentifier(), subChannels.get(0).getOwnerId());
     }
     helpLogout();
     
@@ -336,7 +337,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       assertEquals(2, priChannel.getNumberOfMessages().intValue());
       assertNotNull(priChannel.getName());
       assertNotNull(priChannel.getSummary());
-      assertNotNull(priChannel.getOwnerUsername());
+      assertNotNull(priChannel.getOwnerId());
       assertFalse(priChannel.isPublic());
       assertTrue(priChannel.isSubscribed());
     }
@@ -412,8 +413,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED) {
       result = createResult.getReturnValue();
       assertNotNull(result);
-      assertNotNull(result.getOwnerUsername());
-      assertEquals(MMX.getCurrentUser().getUserName(), result.getOwnerUsername());
+      assertNotNull(result.getOwnerId());
+      assertEquals(MMX.getCurrentUser().getUserIdentifier(), result.getOwnerId());
       assertEquals(summary, result.getSummary());
       assertEquals(name, result.getName());
       assertEquals(isPublic, result.isPublic());
@@ -810,7 +811,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(expectedMsgs, priChannel.getNumberOfMessages().intValue());
     assertNotNull(priChannel.getName());
     assertNotNull(priChannel.getSummary());
-    assertNotNull(priChannel.getOwnerUsername());
+    assertNotNull(priChannel.getOwnerId());
     assertFalse(priChannel.isPublic());
     assertTrue(priChannel.isSubscribed());
   }
@@ -831,7 +832,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(expectedMsgs, pubChannel.getNumberOfMessages().intValue());
     assertNotNull(pubChannel.getName());
     assertNotNull(pubChannel.getSummary());
-    assertNotNull(pubChannel.getOwnerUsername());
+    assertNotNull(pubChannel.getOwnerId());
     assertTrue(pubChannel.isPublic());
     assertTrue(pubChannel.isSubscribed());
   }

@@ -29,7 +29,8 @@ final class UserCache {
 
   private static final String TAG = UserCache.class.getSimpleName();
   static final long DEFAULT_ACCEPTED_AGE = 5 * 60000; // five minutes
-  private final HashMap<String,CachedUser> mUserCache = new HashMap<String,CachedUser>();
+  private final HashMap<String,CachedUser> mUserNameCache = new HashMap<String,CachedUser>();
+  private final HashMap<String,CachedUser> mUserIdCache = new HashMap<String,CachedUser>();
   private final Handler mHandler;
   private static UserCache sInstance = null;
 
@@ -52,17 +53,33 @@ final class UserCache {
    * @param usernames the usernames to lookup
    * @param acceptedAgeMillis the allowed age in milliseconds
    */
-  void fillCache(Set<String> usernames, long acceptedAgeMillis) {
-    final ArrayList<String> retrieveUsers = new ArrayList<String>();
+  void fillCacheByUsername(Set<String> usernames, long acceptedAgeMillis) {
+    fillCacheHelper(usernames, false, acceptedAgeMillis);
+  }
 
-    synchronized (mUserCache) {
-      for (String username : usernames) {
-        CachedUser cachedUser = mUserCache.get(username);
+  /**
+   * Fills the cache with the specified userIds.  This is a blocking call.
+   *
+   * @param userIds the userIds to lookup
+   * @param acceptedAgeMillis the allowed age in milliseconds
+   */
+  void fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {
+    fillCacheHelper(userIds, true, acceptedAgeMillis);
+  }
+
+  void fillCacheHelper(Set<String> keys, final boolean isUserIds, long acceptedAgeMillis) {
+    final ArrayList<String> retrieveList = new ArrayList<String>();
+
+    synchronized (this) {
+      for (String key : keys) {
+        CachedUser cachedUser = isUserIds ? mUserIdCache.get(key) : mUserNameCache.get(key);
         if (cachedUser == null ||
                 (System.currentTimeMillis() - cachedUser.timestamp) > acceptedAgeMillis) {
-          Log.v(TAG, "fillCache(): retrieving user: " + username + ", cachedUser=" + cachedUser);
-          mUserCache.remove(username);
-          retrieveUsers.add(username);
+          Log.v(TAG, "fillCache(): retrieving user: " + key + ", isUserId=" +
+                  isUserIds +  ", cachedUser=" + cachedUser);
+          mUserNameCache.remove(key);
+          mUserIdCache.remove(key);
+          retrieveList.add(key);
         }
       }
     }
@@ -71,9 +88,11 @@ final class UserCache {
       public void success(List<User> users) {
         Log.d(TAG, "fillCache(): retrieved users " + users.size());
         long timestamp = System.currentTimeMillis();
-        synchronized (mUserCache) {
+        synchronized (UserCache.this) {
           for (User user : users) {
-            mUserCache.put(user.getUserName().toLowerCase(), new CachedUser(user, timestamp));
+            CachedUser cachedUser = new CachedUser(user, timestamp);
+            mUserNameCache.put(user.getUserName().toLowerCase(), cachedUser);
+            mUserIdCache.put(user.getUserIdentifier().toLowerCase(), cachedUser);
           }
         }
         synchronized (this) {
@@ -91,7 +110,11 @@ final class UserCache {
 
     mHandler.post(new Runnable() {
       public void run() {
-        User.getUsersByUserNames(retrieveUsers, listener);
+        if (isUserIds) {
+          User.getUsersByUserIds(retrieveList, listener);
+        } else {
+          User.getUsersByUserNames(retrieveList, listener);
+        }
       }
     });
     synchronized (listener) {
@@ -109,9 +132,16 @@ final class UserCache {
    * @param username the user to retrieve
    * @return the user or null if user is not in the cache
    */
-  User get(String username) {
-    synchronized (mUserCache) {
-      CachedUser cachedUser = mUserCache.get(username.toLowerCase());
+  User getByUsername(String username) {
+    synchronized (this) {
+      CachedUser cachedUser = mUserNameCache.get(username.toLowerCase());
+      return cachedUser == null ? null : cachedUser.user;
+    }
+  }
+
+  User getByUserId(String userId) {
+    synchronized (this) {
+      CachedUser cachedUser = mUserIdCache.get(userId.toLowerCase());
       return cachedUser == null ? null : cachedUser.user;
     }
   }

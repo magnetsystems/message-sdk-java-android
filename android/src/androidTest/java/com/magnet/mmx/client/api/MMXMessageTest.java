@@ -237,8 +237,9 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     };
     MMX.registerListener(messageListener);
 
+    User fooUser = getInvalidUser("foo");
     HashSet<User> recipients = new HashSet<User>();
-    recipients.add(getInvalidUser("foo"));
+    recipients.add(fooUser);
     
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
@@ -269,7 +270,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(1, invalidUsers.size());
-    assertTrue(invalidUsers.contains("foo"));
+    assertTrue(invalidUsers.contains(fooUser.getUserIdentifier()));
     
     // Make sure that no error message came and no message arrived.
     status = receivedResult.waitFor(2000);
@@ -372,8 +373,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(2, invalidUsers.size());
-    assertTrue(invalidUsers.contains(badRecipient1.getUserName()));
-    assertTrue(invalidUsers.contains(badRecipient2.getUserName()));
+    assertTrue(invalidUsers.contains(badRecipient1.getUserIdentifier()));
+    assertTrue(invalidUsers.contains(badRecipient2.getUserIdentifier()));
     
     // Do a sleep; one error message per invalid recipient will be received.
     try {

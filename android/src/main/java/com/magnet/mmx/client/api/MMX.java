@@ -721,9 +721,9 @@ public final class MMX {
         userToRetrieve.add(from.getUserId());
 
         UserCache userCache = UserCache.getInstance();
-        userCache.fillCache(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+        userCache.fillCacheByUserId(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
 
-        User fromUser = userCache.get(from.getUserId());
+        User fromUser = userCache.getByUserId(from.getUserId());
         if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
           //listener returning true means consume the message
           break;
@@ -986,8 +986,8 @@ public final class MMX {
     }
 
     @Override
-    public void onUserTokenUpdate(final String userToken, final String userName, final String deviceId) {
-      Log.d(TAG, "onUserTokenUpdate(): userName=" + userName +
+    public void onUserTokenUpdate(final String userToken, final String userId, final String deviceId) {
+      Log.d(TAG, "onUserTokenUpdate(): userId=" + userId +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
       DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
@@ -1005,23 +1005,23 @@ public final class MMX {
         MMX.logout(new MMX.OnFinishedListener<Void>() {
           public void onSuccess(Void result) {
             Log.d(TAG, "onUserTokenUpdate(): logout success");
-            loginHelper(userName, deviceId, userToken);
+            loginHelper(userId, deviceId, userToken);
           }
 
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "onUserTokenUpdate(): logout failure: " + code, ex);
-            loginHelper(userName, deviceId, userToken);
+            loginHelper(userId, deviceId, userToken);
           }
         });
       } else {
-        loginHelper(userName, deviceId, userToken);
+        loginHelper(userId, deviceId, userToken);
       }
     }
 
-    private void loginHelper(final String userName, final String deviceId,
+    private void loginHelper(final String userId, final String deviceId,
                              final String userToken) {
-      if (userName != null && deviceId != null && userToken != null) {
-        MMX.login(userName, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
+      if (userId != null && deviceId != null && userToken != null) {
+        MMX.login(userId, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
           @Override
           public void onSuccess(Void result) {
             Log.d(TAG, "loginHelper(): success");
