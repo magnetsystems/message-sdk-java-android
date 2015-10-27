@@ -156,19 +156,11 @@ public class MessageManager implements Closeable {
   private PacketListener mMsgPayloadPacketListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
-      Message xmppmsg = (Message) packet;
+      final Message xmppmsg = (Message) packet;
       final MMXMessage msg = new MMXMessage(xmppmsg);
       final MMXMessageListener listener = mCon.getMessageListener();
       final String orgMsgId = msg.getMsgIdFromReceipt();
       try {
-        // Only reliable messages (non-normal type with a body) will trigger
-        // an ACK to be sent.
-//        if (xmppmsg.getType() != Type.normal && ".".equals(xmppmsg.getBody())) {
-        if (xmppmsg.getType() != Type.normal) {
-          // Must run in a thread because IQ is a blocking call.
-          mAckExecutor.post(new SendAck(packet));
-        }
-
         if (orgMsgId != null) {
           // Original sender received the delivery receipt.
           if (listener != null) {
@@ -195,7 +187,18 @@ public class MessageManager implements Closeable {
             mCon.getExecutor().post(new Runnable() {
               @Override
               public void run() {
-                listener.onMessageReceived(msg, msg.getReceiptId());
+                try {
+                  listener.onMessageReceived(msg, msg.getReceiptId());
+                  // Only reliable messages (non-normal type with a body) will trigger
+                  // an ACK to be sent.
+//        if (xmppmsg.getType() != Type.normal && ".".equals(xmppmsg.getBody())) {
+                  if (xmppmsg.getType() != Type.normal) {
+                    // Must run in a thread because IQ is a blocking call.
+                    mAckExecutor.post(new SendAck(packet));
+                  }
+                } catch (MessageHandlingException ex) {
+                  Log.i(TAG, "Unable to handle the message. NOT sending the ack.", ex);
+                }
               }
             });
           } else {

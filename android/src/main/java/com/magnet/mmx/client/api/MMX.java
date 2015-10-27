@@ -44,6 +44,7 @@ import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXErrorMessage;
 import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MessageHandlingException;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
@@ -304,10 +305,13 @@ public final class MMX {
           notifyInviteResponseReceived(inviteResponse);
         }
       } else {
+
         MMXMessage message = MMXMessage.fromMMXMessage(null, mmxMessage);
         if (message != null) {
           message.receiptId(receiptId);
           notifyMessageReceived(message);
+        } else {
+          throw new MessageHandlingException("Unable to handle message.");
         }
       }
     }
