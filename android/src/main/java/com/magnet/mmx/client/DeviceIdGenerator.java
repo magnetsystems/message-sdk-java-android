@@ -89,8 +89,7 @@ public class DeviceIdGenerator {
     if (TextUtils.isEmpty(result)) {
       String devId;
       // emulator or rogue prototype devices that don't have dev ID
-      if (isAndroidEmulator() ||
-          TextUtils.isEmpty(devId = getHardwareDeviceId(context))) {
+      if (TextUtils.isEmpty(devId = getHardwareDeviceId(context))) {
         UUID uuid = UUID.randomUUID();
         result = Long.toString(uuid.getMostSignificantBits() & Long.MAX_VALUE, 36) +
                  Long.toString(uuid.getLeastSignificantBits() & Long.MAX_VALUE, 36);
