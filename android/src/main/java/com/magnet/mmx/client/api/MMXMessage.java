@@ -686,7 +686,10 @@ public class MMXMessage {
     UserCache userCache = UserCache.getInstance();
     HashSet<String> usersToRetrieve = new HashSet<String>();
     usersToRetrieve.add(message.getFrom().getUserId());
-    usersToRetrieve.add(message.getTo().getUserId());
+    MMXid toUserId = message.getTo();
+    if (toUserId != null) {
+      usersToRetrieve.add(message.getTo().getUserId());
+    }
 
     //idenfity all the users that need to be retrieved and populate the cache
     MMXid[] otherRecipients = message.getReplyAll();
@@ -700,17 +703,25 @@ public class MMXMessage {
     //fill the cache
     userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
 
+    HashSet<User> recipients = new HashSet<User>();
     //populate the values
-    User receiver = userCache.getByUserId(message.getTo().getUserId());
+    User receiver;
+    if (toUserId != null) {
+      receiver = userCache.getByUserId(message.getTo().getUserId());
+      if (receiver == null) {
+        Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve receiver from cache:  " +
+                "receiver=" + receiver + ".  Message will be dropped.");
+        return null;
+      }
+      recipients.add(receiver);
+    }
     User sender = userCache.getByUserId(message.getFrom().getUserId());
-    if (receiver == null || sender == null) {
-      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender or receiver from cache:  " +
-              "sender=" + sender + ", receiver=" + receiver + ".  Message will be dropped.");
+    if (sender == null) {
+      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender from cache:  " +
+              "sender=" + sender + ".  Message will be dropped.");
       return null;
     }
 
-    HashSet<User> recipients = new HashSet<User>();
-    recipients.add(receiver);
     if (otherRecipients != null) {
       for (MMXid otherRecipient : otherRecipients) {
         recipients.add(userCache.getByUserId(otherRecipient.getUserId()));
