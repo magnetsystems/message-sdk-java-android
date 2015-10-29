@@ -427,7 +427,7 @@ public class MMXMessage {
       if (listener == null) {
         Log.w(TAG, "send() failed", exception);
       } else {
-        MMX.getHandler().post(new Runnable() {
+        MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
             listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
                     MMX.FailureCode.BAD_REQUEST, exception), exception);
@@ -456,17 +456,25 @@ public class MMXMessage {
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
-              MMXChannel.FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
+                      MMXChannel.FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
-      public void onResult(String result) {
+      public void onResult(final String result) {
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
     };
@@ -499,7 +507,7 @@ public class MMXMessage {
       if (listener == null) {
         Log.w(TAG, "send() failed", exception);
       } else {
-        MMX.getHandler().post(new Runnable() {
+        MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
             listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.BAD_REQUEST, exception), exception);
           }
@@ -528,17 +536,25 @@ public class MMXMessage {
         }
 
         @Override
-        public void onException(Throwable exception) {
+        public void onException(final Throwable exception) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(
-                FailureCode.DEVICE_ERROR, exception), exception);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(FailureCode.fromMMXFailureCode(
+                        FailureCode.DEVICE_ERROR, exception), exception);
+              }
+            });
           }
         }
 
         @Override
-        public void onResult(String result) {
+        public void onResult(final String result) {
           if (listener != null) {
-            listener.onSuccess(result);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(result);
+              }
+            });
           }
         }
       };
@@ -567,9 +583,13 @@ public class MMXMessage {
         }
 
         @Override
-        public void onException(Throwable exception) {
+        public void onException(final Throwable exception) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+              }
+            });
           }
         }
 
@@ -660,16 +680,24 @@ public class MMXMessage {
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
       public void onResult(Void result) {
         if (listener != null) {
-          listener.onSuccess(null);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(null);
+            }
+          });
         }
       }
     };
@@ -767,20 +795,28 @@ public class MMXMessage {
 //    }
   }
   
-  static void handleMessageAccepted(List<MMXid> invalidRecipients, String messageId) {
+  static void handleMessageAccepted(List<MMXid> invalidRecipients, final String messageId) {
     Log.d(TAG, "handleMessageAccepted() invalid="+invalidRecipients+" msgId="+messageId);
     synchronized (sMessageSendListeners) {
-      MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
+      final MessageListenerPair listenerPair = sMessageSendListeners.remove(messageId);
       if (listenerPair != null) {
         if (invalidRecipients == null || invalidRecipients.isEmpty()) {
-          listenerPair.listener.onSuccess(messageId);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listenerPair.listener.onSuccess(messageId);
+            }
+          });
         } else {
-          InvalidRecipientException ex = new InvalidRecipientException(
+          final InvalidRecipientException ex = new InvalidRecipientException(
               "Invalid recipients", messageId);
           for (MMXid xid : invalidRecipients) {
             ex.addUserId(xid.getUserId());
           }
-          listenerPair.listener.onFailure(MMXMessage.FailureCode.INVALID_RECIPIENT, ex);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listenerPair.listener.onFailure(MMXMessage.FailureCode.INVALID_RECIPIENT, ex);
+            }
+          });
         }
       }
     }

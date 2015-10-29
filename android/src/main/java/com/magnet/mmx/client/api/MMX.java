@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 
 import com.magnet.android.ApiCallback;
 import com.magnet.android.ApiError;
@@ -282,6 +283,7 @@ public final class MMX {
   private static MMXModule sModule = null;
   private static MMX sInstance = null;
   private static SharedPreferences sSharedPrefs = null;
+  private static Handler sCallbackHandler = new Handler(Looper.getMainLooper());
 
   /**
    * The listeners will be added in order (most recent at end)
@@ -517,7 +519,11 @@ public final class MMX {
                            final OnFinishedListener<Void> listener) {
     if (!sInstance.mLoggingIn.compareAndSet(false, true)) {
       Log.d(TAG, "login() already logging in, returning failure");
-      listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+      getCallbackHandler().post(new Runnable() {
+        public void run() {
+          listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+        }
+      });
       return;
     }
 
@@ -527,17 +533,29 @@ public final class MMX {
         boolean unregisterListener = false;
         switch (event) {
           case AUTHENTICATION_FAILURE:
-            listener.onFailure(MMX.FailureCode.SERVER_AUTH_FAILED, null);
+            getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(MMX.FailureCode.SERVER_AUTH_FAILED, null);
+              }
+            });
             unregisterListener = true;
             break;
           case CONNECTED:
             sInstance.mCurrentUser = User.getCurrentUser();
-            listener.onSuccess(null);
+            getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(null);
+              }
+            });
             unregisterListener = true;
             break;
           case CONNECTION_FAILED:
             sInstance.mCurrentUser = null;
-            listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
+            getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
+              }
+            });
             unregisterListener = true;
             break;
         }
@@ -584,7 +602,11 @@ public final class MMX {
         switch (event) {
           case DISCONNECTED:
             if (listener != null) {
-              listener.onSuccess(null);
+              getCallbackHandler().post(new Runnable() {
+                public void run() {
+                  listener.onSuccess(null);
+                }
+              });
             }
             unregisterListener = true;
             break;
@@ -677,110 +699,135 @@ public final class MMX {
     }
   }
 
-  private static void notifyMessageSendError(String msgId, MMXMessage.FailureCode code, String text) {
+  private static void notifyMessageSendError(final String msgId,
+                                             final MMXMessage.FailureCode code, final String text) {
     final EventListener[] listeners = cloneListeners();
     if (listeners.length == 0) {
       throw new IllegalStateException("Error dropped because there were no listeners registered.");
     }
-    for (int i=listeners.length; --i>=0;){
-      EventListener listener = listeners[i];
-      try {
-        if (listener.onMessageSendError(msgId, code, text)) {
-          //listener returning true means consume the message
-          break;
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        for (int i=listeners.length; --i>=0;){
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onMessageSendError(msgId, code, text)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
+          }
         }
-      } catch (Exception ex) {
-        Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
       }
-    }
+    });
   }
 
-  private static void notifyMessageReceived(MMXMessage message) {
+  private static void notifyMessageReceived(final MMXMessage message) {
     final EventListener[] listeners = cloneListeners();
     if (listeners.length == 0) {
       throw new IllegalStateException("Message dropped because there were no listeners registered.");
     }
-    for (int i=listeners.length; --i>=0;) {
-      EventListener listener = listeners[i];
-      try {
-        if (listener.onMessageReceived(message)) {
-          //listener returning true means consume the message
-          break;
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        for (int i=listeners.length; --i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onMessageReceived(message)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
+          }
         }
-      } catch (Exception ex) {
-        Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
       }
-    }
+    });
   }
 
-  private static void notifyMessageAcknowledged(MMXid from, String originalMessageId) {
+  private static void notifyMessageAcknowledged(final MMXid from, final String originalMessageId) {
     final EventListener[] listeners = cloneListeners();
     if (listeners.length == 0) {
         throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
       }
-    for (int i=listeners.length; --i>=0;) {
-      EventListener listener = listeners[i];
-      try {
-        HashSet<String> userToRetrieve = new HashSet<String>();
-        userToRetrieve.add(from.getUserId());
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        for (int i=listeners.length; --i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            HashSet<String> userToRetrieve = new HashSet<String>();
+            userToRetrieve.add(from.getUserId());
 
-        UserCache userCache = UserCache.getInstance();
-        userCache.fillCacheByUserId(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+            UserCache userCache = UserCache.getInstance();
+            userCache.fillCacheByUserId(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
 
-        User fromUser = userCache.getByUserId(from.getUserId());
-        if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
-          //listener returning true means consume the message
-          break;
+            User fromUser = userCache.getByUserId(from.getUserId());
+            if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
+          }
         }
-      } catch (Exception ex) {
-        Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
       }
-    }
+    });
   }
 
-  private static void notifyLoginRequired(LoginReason reason) {
-    final EventListener[] listeners = cloneListeners();
-    for (int i=listeners.length;--i>=0;) {
-      EventListener listener = listeners[i];
-      try {
-        if (listener.onLoginRequired(reason)) {
-          //listener returning true means consume the message
-          break;
+  private static void notifyLoginRequired(final LoginReason reason) {
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        EventListener[] listeners = cloneListeners();
+        for (int i=listeners.length;--i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onLoginRequired(reason)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
+          }
         }
-      } catch (Exception ex) {
-        Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
       }
-    }
+    });
   }
 
-  private static void notifyInviteReceived(MMXChannel.MMXInvite invite) {
-    final EventListener[] listeners = cloneListeners();
-    for (int i=listeners.length;--i>=0;) {
-      EventListener listener = listeners[i];
-      try {
-        if (listener.onInviteReceived(invite)) {
-          //listener returning true means consume the message
-          break;
+  private static void notifyInviteReceived(final MMXChannel.MMXInvite invite) {
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        EventListener[] listeners = cloneListeners();
+        for (int i=listeners.length;--i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onInviteReceived(invite)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
+          }
         }
-      } catch (Exception ex) {
-        Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
       }
-    }
+    });
   }
 
-  private static void notifyInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
-    final EventListener[] listeners = cloneListeners();
-    for (int i=listeners.length;--i>=0;) {
-      EventListener listener = listeners[i];
-      try {
-        if (listener.onInviteResponseReceived(inviteResponse)) {
-          //listener returning true means consume the message
-          break;
+  private static void notifyInviteResponseReceived(final MMXChannel.MMXInviteResponse inviteResponse) {
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        final EventListener[] listeners = cloneListeners();
+        for (int i=listeners.length;--i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onInviteResponseReceived(inviteResponse)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
+          }
         }
-      } catch (Exception ex) {
-        Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
       }
-    }
+    });
   }
 
   /**
@@ -1156,6 +1203,28 @@ public final class MMX {
     public boolean obfuscateDeviceId() {
       return false;
     }
+  }
+
+  /**
+   * FOR TESTING:  Sets the callback handler for MMX callbacks.
+   * By default, the MMX will make callbacks on the main thread.
+   *
+   * @param handler the handler to use for callbacks
+   */
+  public static void setCallbackHandler(Handler handler) {
+    if (handler == null) {
+      throw new IllegalArgumentException("Callback handler cannot be null.");
+    }
+    sCallbackHandler = handler;
+  }
+
+  /**
+   * Retrieve the callback handler for MMX.
+   *
+   * @return the callback handler
+   */
+  static Handler getCallbackHandler() {
+    return sCallbackHandler;
   }
 }
 

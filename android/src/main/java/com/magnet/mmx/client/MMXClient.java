@@ -27,10 +27,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.HostnameVerifier;
@@ -322,7 +319,6 @@ public final class MMXClient {
   private final Handler mMessagingHandler;
   private ConnectionInfo mConnectionInfo = null;
   private PersistentQueue mQueue = null;
-  private ExecutorService mCallbackExecutorService = null;
 
   //managers
   private HashMap<Class, MMXManager> mManagers = new HashMap<Class, MMXManager>();
@@ -410,7 +406,6 @@ public final class MMXClient {
     mMessagingThread = new HandlerThread("MMXHandlerThread-" + name);
     mMessagingThread.start();
     mMessagingHandler = new Handler(mMessagingThread.getLooper());
-    mCallbackExecutorService = Executors.newCachedThreadPool();
 
     applyConfig(config);
     mConnection = new MMXConnection(mMMXContext, getQueue(), mSettings);
@@ -1049,125 +1044,77 @@ public final class MMXClient {
 
 
   private void notifyConnectionEvent(final ConnectionEvent event) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onConnectionEvent(MMXClient.this, event);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onConnectionEvent(MMXClient.this, event);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
+    }
   }
 
   private void notifyErrorReceived(final MMXErrorMessage message) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onErrorReceived(MMXClient.this, message);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onErrorReceived(MMXClient.this, message);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
+    }
   }
   
   private void notifyMessageReceived(final MMXMessage message, final String receiptId) {
-    final AtomicReference<MessageHandlingException> ref = new AtomicReference<>();
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onMessageReceived(MMXClient.this, message, receiptId);
-        } catch (MessageHandlingException mex) {
-          ref.set(mex);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-        synchronized (ref) {
-          ref.notify();
-        }
-      }
-    });
-    //make this blocking for now because we don't want to ack if there is an exception
-    synchronized (ref) {
-      try {
-        ref.wait(10000);
-      } catch (InterruptedException e) {
-        //ignore this for now
-      }
-    }
-    MessageHandlingException mex = ref.get();
-    if (mex != null) {
+    try {
+      mMMXListener.onMessageReceived(MMXClient.this, message, receiptId);
+    } catch (MessageHandlingException mex) {
       throw mex;
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
 
   private void notifyPubsubItemReceived(final MMXTopic topic, final MMXMessage message) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onPubsubItemReceived(MMXClient.this, topic, message);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onPubsubItemReceived(MMXClient.this, topic, message);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
+    }
   }
 
   private void notifyMessageDelivered(final MMXid recipient, final String messageId) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onMessageDelivered(MMXClient.this, recipient, messageId);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onMessageDelivered(MMXClient.this, recipient, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
+    }
   }
 
   private void notifySendFailed(final String messageId, final MMXException cause) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onSendFailed(MMXClient.this, messageId);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifySendFailed(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onSendFailed(MMXClient.this, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifySendFailed(): Caught runtime exception during " +
+              "the callback", ex);
+    }
   }
 
   private void notifyMessageSubmitted(final String messageId) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onMessageSubmitted(MMXClient.this, messageId);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
-                  "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onMessageSubmitted(MMXClient.this, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+              "the callback", ex);
+    }
   }
   
   private void notifyMessageAccepted(final List<MMXid> invalidReceivers, final String messageId) {
-    mCallbackExecutorService.execute(new Runnable() {
-      public void run() {
-        try {
-          mMMXListener.onMessageAccepted(MMXClient.this, invalidReceivers, messageId);
-        } catch (Exception ex) {
-          Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
-              "the callback", ex);
-        }
-      }
-    });
+    try {
+      mMMXListener.onMessageAccepted(MMXClient.this, invalidReceivers, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+          "the callback", ex);
+    }
   }
   
   /**

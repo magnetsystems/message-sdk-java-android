@@ -1,6 +1,8 @@
 package com.magnet.mmx.client.api;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.test.InstrumentationTestCase;
 
 import com.google.gson.Gson;
@@ -34,6 +36,9 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected final void setUp() throws Exception {
     Log.setLoggable(null, Log.VERBOSE);
     mContext = this.getInstrumentation().getTargetContext();
+    HandlerThread callbackThread = new HandlerThread("TestCaseCallbackThread");
+    callbackThread.start();
+    MMX.setCallbackHandler(new Handler(callbackThread.getLooper()));
     MaxCore.init(mContext, new MagnetAndroidPropertiesConfig(mContext, com.magnet.mmx.test.R.raw.test));
     postSetUp();
   }
