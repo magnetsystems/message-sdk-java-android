@@ -1117,6 +1117,7 @@ public class MMXChannel {
         for (UserInfo userInfo : result.getResult()) {
           usersToRetrieve.add(userInfo.getUserId());
         }
+        //This shouldn't be the main thread so we can fillCache.
         UserCache userCache = UserCache.getInstance();
         userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
         final ArrayList<User> users = new ArrayList<User>();

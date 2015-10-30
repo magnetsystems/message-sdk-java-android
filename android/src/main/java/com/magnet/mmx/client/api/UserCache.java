@@ -31,13 +31,9 @@ final class UserCache {
   static final long DEFAULT_ACCEPTED_AGE = 5 * 60000; // five minutes
   private final HashMap<String,CachedUser> mUserNameCache = new HashMap<String,CachedUser>();
   private final HashMap<String,CachedUser> mUserIdCache = new HashMap<String,CachedUser>();
-  private final Handler mHandler;
   private static UserCache sInstance = null;
 
   private UserCache() {
-    HandlerThread thread = new HandlerThread("UserCacheThread");
-    thread.start();
-    mHandler = new Handler(thread.getLooper());
   }
 
   static synchronized UserCache getInstance() {
@@ -48,7 +44,8 @@ final class UserCache {
   }
 
   /**
-   * Fills the cache with the specified usernames.  This is a blocking call.
+   * Fills the cache with the specified usernames.  This is a blocking call and should not be
+   * called from the main thread.
    *
    * @param usernames the usernames to lookup
    * @param acceptedAgeMillis the allowed age in milliseconds
@@ -58,7 +55,8 @@ final class UserCache {
   }
 
   /**
-   * Fills the cache with the specified userIds.  This is a blocking call.
+   * Fills the cache with the specified userIds.  This is a blocking call and should not be
+   * called from the main thread.
    *
    * @param userIds the userIds to lookup
    * @param acceptedAgeMillis the allowed age in milliseconds
@@ -108,15 +106,11 @@ final class UserCache {
       }
     };
 
-    mHandler.post(new Runnable() {
-      public void run() {
-        if (isUserIds) {
-          User.getUsersByUserIds(retrieveList, listener);
-        } else {
-          User.getUsersByUserNames(retrieveList, listener);
-        }
-      }
-    });
+    if (isUserIds) {
+      User.getUsersByUserIds(retrieveList, listener);
+    } else {
+      User.getUsersByUserNames(retrieveList, listener);
+    }
     synchronized (listener) {
       try {
         listener.wait(10000);

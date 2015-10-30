@@ -327,7 +327,7 @@ public final class MMX {
     public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, com.magnet.mmx.client.common.MMXMessage mmxMessage) {
       MMXMessage message = MMXMessage.fromMMXMessage(mmxTopic, mmxMessage);
       if (message != null) {
-        notifyMessageReceived(MMXMessage.fromMMXMessage(mmxTopic, mmxMessage));
+        notifyMessageReceived(message);
       }
     }
 
@@ -748,19 +748,18 @@ public final class MMX {
     final EventListener[] listeners = cloneListeners();
     if (listeners.length == 0) {
         throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
-      }
+    }
+    HashSet<String> userToRetrieve = new HashSet<String>();
+    userToRetrieve.add(from.getUserId());
+
+    UserCache userCache = UserCache.getInstance();
+    userCache.fillCacheByUserId(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+    final User fromUser = userCache.getByUserId(from.getUserId());
     getCallbackHandler().post(new Runnable() {
       public void run() {
         for (int i=listeners.length; --i>=0;) {
           EventListener listener = listeners[i];
           try {
-            HashSet<String> userToRetrieve = new HashSet<String>();
-            userToRetrieve.add(from.getUserId());
-
-            UserCache userCache = UserCache.getInstance();
-            userCache.fillCacheByUserId(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
-
-            User fromUser = userCache.getByUserId(from.getUserId());
             if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
               //listener returning true means consume the message
               break;
