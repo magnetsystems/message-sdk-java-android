@@ -11,7 +11,7 @@ import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.auth.model.UserRegistrationInfo;
-import com.magnet.max.android.config.MagnetAndroidPropertiesConfig;
+import com.magnet.max.android.config.MaxAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,7 +39,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     HandlerThread callbackThread = new HandlerThread("TestCaseCallbackThread");
     callbackThread.start();
     MMX.setCallbackHandler(new Handler(callbackThread.getLooper()));
-    MaxCore.init(mContext, new MagnetAndroidPropertiesConfig(mContext, com.magnet.mmx.test.R.raw.test));
+    MaxCore.init(mContext, new MaxAndroidPropertiesConfig(mContext, com.magnet.mmx.test.R.raw.test));
     postSetUp();
   }
 
