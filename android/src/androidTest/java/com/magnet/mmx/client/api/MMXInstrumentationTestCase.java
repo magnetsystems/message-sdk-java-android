@@ -6,12 +6,12 @@ import android.os.HandlerThread;
 import android.test.InstrumentationTestCase;
 
 import com.google.gson.Gson;
-import com.magnet.android.ApiCallback;
-import com.magnet.android.ApiError;
-import com.magnet.android.MaxCore;
-import com.magnet.android.User;
-import com.magnet.android.auth.model.UserRegistrationInfo;
-import com.magnet.android.config.MagnetAndroidPropertiesConfig;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.User;
+import com.magnet.max.android.auth.model.UserRegistrationInfo;
+import com.magnet.max.android.config.MagnetAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
 
 import java.util.concurrent.atomic.AtomicBoolean;

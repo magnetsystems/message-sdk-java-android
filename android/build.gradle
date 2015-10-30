@@ -77,7 +77,7 @@ dependencies {
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    compile ('com.magnet.android:magnet-android-sdk:3.0.9-SNAPSHOT') {
+    compile ('com.magnet.max.android:magnet-max-android-core:2.0.0-SNAPSHOT') {
         transitive=true
     }
 }

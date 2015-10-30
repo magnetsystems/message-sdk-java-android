@@ -50,10 +50,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 
-import com.magnet.android.ApiCallback;
-import com.magnet.android.ApiError;
-import com.magnet.android.Device;
-import com.magnet.android.auth.model.DeviceInfo;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.max.android.Device;
+import com.magnet.max.android.auth.model.DeviceInfo;
 import com.magnet.mmx.client.common.DeviceManager;
 import com.magnet.mmx.client.common.Invitation;
 import com.magnet.mmx.client.common.Log;

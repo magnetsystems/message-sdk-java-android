@@ -1,11 +1,8 @@
 package com.magnet.mmx.client.api;
 
-import android.os.Handler;
-import android.os.HandlerThread;
-
-import com.magnet.android.ApiCallback;
-import com.magnet.android.ApiError;
-import com.magnet.android.User;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
 
 import java.util.ArrayList;

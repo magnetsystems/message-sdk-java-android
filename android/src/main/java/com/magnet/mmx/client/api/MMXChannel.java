@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.magnet.android.User;
+import com.magnet.max.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;

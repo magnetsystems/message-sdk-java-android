@@ -30,11 +30,11 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 
-import com.magnet.android.ApiCallback;
-import com.magnet.android.ApiError;
-import com.magnet.android.MaxCore;
-import com.magnet.android.MaxModule;
-import com.magnet.android.User;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.MaxModule;
+import com.magnet.max.android.User;
 import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
 import com.magnet.mmx.client.DeviceIdAccessor;

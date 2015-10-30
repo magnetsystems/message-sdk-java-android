@@ -1,7 +1,7 @@
 package com.magnet.mmx.client.api;
 
-import com.magnet.android.ApiCallback;
-import com.magnet.android.User;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.User;
 
 public class MMXTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXTest.class.getSimpleName();

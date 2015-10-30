@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
 
-import com.magnet.android.ApiCallback;
-import com.magnet.android.User;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 
 public class MMXChannelTest extends MMXInstrumentationTestCase {
