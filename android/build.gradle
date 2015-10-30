@@ -123,7 +123,14 @@ task eclipseClean(type: Delete) {
 
 clean.dependsOn eclipseClean
 
-def javadocSource = [sourceSets.main.allJava, '../common/src/main/java', '../../message-common/src/main/java']
+def javadocSource = [sourceSets.main.allJava]
+if (project.hasProperty('externalJavadocSourceDirs')) {
+    println "Adding external javadoc source dirs: ${externalJavadocSourceDirs}"
+    new File("${externalJavadocSourceDirs}").eachLine { line ->
+        println line
+        javadocSource << line
+    }
+}
 
 task androidJavadocs(type: Javadoc) {
     println "generating JAVADOCS task:"
@@ -149,6 +156,16 @@ task androidJavadocs(type: Javadoc) {
 
 // ADD PUBLIC APIS for JavaDoc here
     include '**/client/api/*'
+    include '**/max/android/Max.java'
+    include '**/max/android/MaxModule.java'
+    include '**/max/android/ApiCallback.java'
+    include '**/max/android/ApiError.java'
+    include '**/max/android/config/MaxAndroidPropertiesConfig.java'
+    include '**/max/android/config/MaxAndroidConfig.java'
+    include '**/max/android/User.java'
+    include '**/max/android/auth/model/UserRegistrationInfo.java'
+    include '**/max/android/auth/model/UserRealm.java'
+    include '**/max/android/auth/model/UserStatus.java'
 //    include '**/AbstractMMXListener.java'
 //    include '**/MMXClient.java'
 //    include '**/MMXClientConfig.java'

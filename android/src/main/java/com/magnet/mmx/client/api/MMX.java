@@ -1000,6 +1000,9 @@ public final class MMX {
     return sModule;
   }
 
+  /**
+   * The MaxModule implementation to be used with Max.initModule()
+   */
   public static class MMXModule implements MaxModule {
     private final String TAG = MMXModule.class.getSimpleName();
     private Context mContext;
