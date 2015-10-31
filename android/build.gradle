@@ -23,17 +23,6 @@ repositories {
             password = "${devPassword}"
         }
     }
-
-    maven {
-        url "http://dev-repo.magneteng.com:8081/artifactory/blowfish-internal-repo"
-        credentials {
-            username = "intern_build"
-            password = "password"
-        }
-    }
-    maven {
-        url "https://oss.sonatype.org/content/repositories/snapshots/"
-    }
 }
 
 //apply plugin: 'android-sdk-manager'
@@ -147,7 +136,7 @@ task androidJavadocs(type: Javadoc) {
 
     options {
         doclet "com.google.doclava.Doclava"
-        addStringOption "hdf project.name", "Magnet Messaging SDK for Android"
+        addStringOption "hdf project.name", "Magnet Max SDK for Android"
 //        addStringOption "templatedir", "$projectDir" //for pointing to the template when we have one
         addStringOption "federate android", "http://d.android.com/reference"
         addStringOption "federationxml android", "http://doclava.googlecode.com/svn/static/api/android-10.xml"
@@ -219,11 +208,13 @@ task sourcesJar(type: Jar) {
 }
 
 task androidJavadocsZip(type: Zip, dependsOn: androidJavadocs) {
+    archiveName = "magnet-max-android-${project.version}-javadocs.zip"
     classifier = 'javadoc'
     from "$projectDir/build/docs"
 }
 
 task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
+    archiveName = "magnet-max-android-${project.version}-javadocs.jar"
     classifier = 'javadoc'
     from "$projectDir/build/docs"
 }
