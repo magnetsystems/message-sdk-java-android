@@ -168,10 +168,8 @@ public class MessageManager implements Closeable {
               @Override
               public void run() {
                 listener.onMessageDelivered(msg.getFrom(), orgMsgId);
-                if (xmppmsg.getType() != Type.normal) {
-                  // Must run in a thread because IQ is a blocking call.
-                  mAckExecutor.post(new SendAck(packet));
-                }
+                // Must run in a thread because IQ is a blocking call.
+                mAckExecutor.post(new SendAck(packet));
               }
             });
           }
