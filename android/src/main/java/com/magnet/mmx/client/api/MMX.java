@@ -354,6 +354,7 @@ public final class MMX {
       switch (connectionEvent) {
         case AUTHENTICATION_FAILURE:
           if (!mLoggingIn.get()) {
+            MaxCore.userTokenInvalid(null, null);
             notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
           }
           break;
