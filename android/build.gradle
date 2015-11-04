@@ -7,10 +7,15 @@ buildscript {
     }
 }
 
-repositories {
+if (hasProperty('localMavenRepo')) {
+  repositories {
     maven {
-        url uri("${localMavenRepo}")
+      url uri("${localMavenRepo}")
     }
+  }
+}
+
+repositories {
     jcenter()
     mavenLocal()
 
