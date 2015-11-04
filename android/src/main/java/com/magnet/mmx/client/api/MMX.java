@@ -150,10 +150,6 @@ public final class MMX {
    */
   public enum LoginReason {
     /**
-     * @deprecated
-     */
-    DISCONNECTED,
-    /**
      * If current credentials are invalid.  Possible action: prompt user for
      * new credential, account may be disabled.
      */
@@ -470,9 +466,8 @@ public final class MMX {
    * @param enable true to receving incoming message, false otherwise
    * @throws IllegalStateException if the user is not logged-in
    * @see #login(String, byte[], OnFinishedListener)
-   * @deprecated {@link #start()}
    */
-  public static void enableIncomingMessages(boolean enable) {
+  private static void enableIncomingMessages(boolean enable) {
     try {
       if (enable) {
         getMMXClient().resumeDelivery();
@@ -487,7 +482,7 @@ public final class MMX {
       }
     }
   }
-  
+
   /**
    * Start the MMX messaging service.  The client application must call this
    * method when it is ready; otherwise, the communication between this client and
