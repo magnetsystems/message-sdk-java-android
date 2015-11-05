@@ -1107,18 +1107,22 @@ public final class MMX {
     }
 
     private void logoutHelper() {
-      MMX.logout(new OnFinishedListener<Void>() {
-                   @Override
-                   public void onSuccess(Void result) {
-                     Log.d(TAG, "logoutHelper(): logout successful");
-                   }
+      if (getCurrentUser() != null) {
+        MMX.logout(new OnFinishedListener<Void>() {
+                     @Override
+                     public void onSuccess(Void result) {
+                       Log.d(TAG, "logoutHelper(): logout successful");
+                     }
 
-                   @Override
-                   public void onFailure(FailureCode code, Throwable ex) {
-                     Log.w(TAG, "logoutHelper(): logout failed: " + code, ex);
+                     @Override
+                     public void onFailure(FailureCode code, Throwable ex) {
+                       Log.w(TAG, "logoutHelper(): logout failed: " + code, ex);
+                     }
                    }
-                 }
-      );
+        );
+      } else {
+        Log.d(TAG, "logoutHelper(): not logged in");
+      }
     }
   }
 
