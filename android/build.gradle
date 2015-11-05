@@ -35,7 +35,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "2.0.11"
+version = "2.0.12"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -64,14 +64,14 @@ dependencies {
 
 //    compile 'com.google.code.gson:gson:2.3'
 
-    compile 'com.magnet.mmx:mmx-common-api:2.0.11'
+    compile 'com.magnet.mmx:mmx-common-api:2.0.12'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    compile ('com.magnet.max.android:magnet-max-android-core:2.0.11') {
+    compile ('com.magnet.max.android:magnet-max-android-core:2.0.12') {
         transitive=true
     }
 }
@@ -83,7 +83,7 @@ android {
     defaultConfig {
         minSdkVersion 16
         versionCode 1
-        versionName "2.0.11"
+        versionName "2.0.12"
     }
 
     buildTypes {
