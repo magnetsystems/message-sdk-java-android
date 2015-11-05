@@ -60,7 +60,7 @@ import com.magnet.mmx.protocol.MMXid;
  * <li>{@link #start()} to start MMX service</li>
  * </ol>
  * Optionally, the application may invoke<ul>
- * <li>{@link #registerWakeupBroadcast(Intent)} to register a GCM wake up listener</li>
+ * <li>{@link #registerWakeupBroadcast(Context, Intent)} to register a GCM wake up listener</li>
  * </ul>
  * Upon successful completion, the application may proceed with {@link MMXMessage} or
  * {@link MMXChannel}.
@@ -865,9 +865,9 @@ public final class MMX {
     return sInstance.mGlobalListener;
   }
 
-  private synchronized static SharedPreferences getSharedPrefs() {
+  private synchronized static SharedPreferences getSharedPrefs(Context context) {
     if (sSharedPrefs == null) {
-      sSharedPrefs = MaxCore.getApplicationContext()
+      sSharedPrefs = context
               .getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
     }
     return sSharedPrefs;
@@ -888,9 +888,9 @@ public final class MMX {
    * @param intent the intent to register
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
-  public synchronized static void registerWakeupBroadcast(Intent intent) {
+  public synchronized static void registerWakeupBroadcast(Context context, Intent intent) {
     //FIXME:  check to see if the broadcast receiver was registered
-    getSharedPrefs().edit().putString(PREF_WAKEUP_INTENT_URI,
+    getSharedPrefs(context).edit().putString(PREF_WAKEUP_INTENT_URI,
             intent.toUri(Intent.URI_INTENT_SCHEME)).apply();
   }
 
@@ -898,17 +898,15 @@ public final class MMX {
    * Unregisters the wakeup broadcast intent.
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
-  public synchronized static void unregisterWakeupBroadcast() {
-    getSharedPrefs().edit().remove(PREF_WAKEUP_INTENT_URI).apply();
+  public synchronized static void unregisterWakeupBroadcast(Context context) {
+    getSharedPrefs(context).edit().remove(PREF_WAKEUP_INTENT_URI).apply();
   }
 
   /**
    * Perform the wakeup
    */
-  private synchronized static void wakeup(Intent nestedIntent) {
-    checkState();
-    Context context = sInstance.mContext;
-    String intentUri = getSharedPrefs().getString(PREF_WAKEUP_INTENT_URI, null);
+  private synchronized static void wakeup(Context context, Intent nestedIntent) {
+    String intentUri = getSharedPrefs(context).getString(PREF_WAKEUP_INTENT_URI, null);
     if (intentUri != null) {
       try {
         Intent intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME);
@@ -928,12 +926,12 @@ public final class MMX {
    * Default implementation for the internal wakeup listener.  This will ultimately cause the
    * intent registered in registerWakeupBroadcast() to be broadcast.
    *
-   * @see #registerWakeupBroadcast(Intent)
+   * @see #registerWakeupBroadcast(Context, Intent)
    */
   public static final class MMXWakeupListener implements MMXClient.MMXWakeupListener {
     public void onWakeupReceived(Context applicationContext, Intent intent) {
       Log.d(TAG, "onWakeupReceived() start");
-      wakeup(intent);
+      wakeup(applicationContext, intent);
     }
   }
 
