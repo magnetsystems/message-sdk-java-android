@@ -159,6 +159,7 @@ task androidJavadocs(type: Javadoc) {
     include '**/max/android/User.java'
     include '**/max/android/auth/model/UserRegistrationInfo.java'
     include '**/max/android/auth/model/UserRealm.java'
+    include '**/max/android/auth/model/UpdateProfileRequest.java'
     include '**/max/android/Constants.java'
 
 //    include '**/AbstractMMXListener.java'
