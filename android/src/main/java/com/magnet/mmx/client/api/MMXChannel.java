@@ -569,7 +569,10 @@ public class MMXChannel {
         if (result != null && result.items.size() > 0) {
           //convert MMXMessages
           for (com.magnet.mmx.client.common.MMXMessage message : result.items) {
-            resultList.add(MMXMessage.fromMMXMessage(getMMXTopic(), message));
+            MMXMessage mmxMessage = MMXMessage.fromMMXMessage(getMMXTopic(), message);
+            if (mmxMessage != null) {
+              resultList.add(mmxMessage);
+            }
           }
         }
         MMX.getCallbackHandler().post(new Runnable() {
@@ -622,8 +625,10 @@ public class MMXChannel {
         if (result != null && result.size() > 0) {
           //convert MMXMessages
           for (Map.Entry<String, com.magnet.mmx.client.common.MMXMessage> entry : result.entrySet()) {
-            resultMap.put(entry.getKey(),
-                    MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
+            MMXMessage mmxMessage = MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue());
+            if (mmxMessage != null) {
+              resultMap.put(entry.getKey(), mmxMessage);
+            }
           }
         }
         MMX.getCallbackHandler().post(new Runnable() {
