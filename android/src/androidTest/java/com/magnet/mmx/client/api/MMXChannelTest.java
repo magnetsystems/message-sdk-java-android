@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
 
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 
 public class MMXChannelTest extends MMXInstrumentationTestCase {
@@ -44,7 +46,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
             .summary(channelSummary)
             .setPublic(true)
             .build();
-    HashSet<MMXUser> invitees = new HashSet<MMXUser>();
+    HashSet<User> invitees = new HashSet<User>();
     invitees.add(MMX.getCurrentUser());
     Throwable expectedThrowable = null;
     try {
@@ -120,7 +122,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     String channelSummary = channelName + " Summary";
     MMXChannel channel = helpCreate(channelName, channelSummary, isPublic);
 
-    final AtomicBoolean inviteResponseValue = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, Boolean> inviteResponseValue = new ExecMonitor<Boolean, Boolean>();
     final StringBuffer inviteResponseText = new StringBuffer();
     final StringBuffer inviteTextBuffer = new StringBuffer();
     MMX.EventListener inviteListener = new MMX.EventListener() {
@@ -139,11 +141,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       public boolean onInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
-        inviteResponseValue.set(inviteResponse.isAccepted());
         inviteResponseText.append(inviteResponse.getResponseText());
-        synchronized (inviteResponseValue) {
-          inviteResponseValue.notify();
-        }
+        inviteResponseValue.invoked(inviteResponse.isAccepted());
         return true;
       }
     };
@@ -166,45 +165,30 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
         }
       }
     });
-    synchronized (inviteResponseValue) {
-      try {
-        inviteResponseValue.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    ExecMonitor.Status status = inviteResponseValue.waitFor(15000);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals("foobar", inviteTextBuffer.toString());
-    assertTrue(inviteResponseValue.get());
+    assertTrue(inviteResponseValue.getReturnValue());
     assertEquals("foobar response", inviteResponseText.toString());
 
     //test invite from the callback channel
-    final AtomicBoolean inviteFromCallbackSent = new AtomicBoolean(false);
+    final ExecMonitor<Boolean, Boolean> inviteFromCallbackSent = new ExecMonitor<Boolean, Boolean>();
     channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMXChannel.OnFinishedListener<MMXChannel.MMXInvite>() {
       @Override
       public void onSuccess(MMXChannel.MMXInvite result) {
-        inviteFromCallbackSent.set(true);
-        synchronized (inviteSent) {
-          inviteFromCallbackSent.notify();
-        }
+        inviteFromCallbackSent.invoked(true);
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        synchronized (inviteFromCallbackSent) {
-          inviteFromCallbackSent.notify();
-        }
+        inviteFromCallbackSent.failed(true);
       }
     });
-    synchronized (inviteFromCallbackSent) {
-      try {
-        inviteFromCallbackSent.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    assertTrue(inviteFromCallbackSent.get());
-
+    status = inviteFromCallbackSent.waitFor(10000);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
+    assertTrue(inviteFromCallbackSent.getReturnValue());
+    MMX.unregisterListener(inviteListener);
     helpDelete(channel);
   }
 
@@ -274,6 +258,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     // Register and login as user1, create and auto-subscribe a private channel.
     String suffix = String.valueOf(System.currentTimeMillis());
     helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, true);
+    User user1 = MMX.getCurrentUser();
     MMXChannel channel = helpCreate(CHANNEL_NAME + suffix, "Private Channel 1", false);
     helpLogout();
     
@@ -302,7 +287,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       List<MMXChannel> subChannels = channels.getReturnValue();
       assertNotNull(subChannels);
       assertEquals(1, subChannels.size());
-      assertEquals(USERNAME_1+suffix, subChannels.get(0).getOwnerUsername());
+      assertEquals(user1.getUserIdentifier(), subChannels.get(0).getOwnerId());
     }
     helpLogout();
     
@@ -334,7 +319,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
     // getting all private channels
     final ExecMonitor<ListResult<MMXChannel>, FailureCode> channelsRes = new ExecMonitor<ListResult<MMXChannel>, FailureCode>();
-    MMXChannel.getAllPrivateChannels(0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.getAllPrivateChannels(null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         channelsRes.invoked(result);
       }
@@ -352,7 +337,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       assertEquals(2, priChannel.getNumberOfMessages().intValue());
       assertNotNull(priChannel.getName());
       assertNotNull(priChannel.getSummary());
-      assertNotNull(priChannel.getOwnerUsername());
+      assertNotNull(priChannel.getOwnerId());
       assertFalse(priChannel.isPublic());
       assertTrue(priChannel.isSubscribed());
     }
@@ -366,7 +351,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   public void testFindError() {
     //find public channels 
     final ExecMonitor<Integer, FailureCode> findNullResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findPublicChannelsByName(null, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(null, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findNullResult.invoked(result.totalCount);
       }
@@ -387,7 +372,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
     //test empty
     final ExecMonitor<Integer, FailureCode> findEmptyResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findPublicChannelsByName("", 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName("", null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findEmptyResult.invoked(result.totalCount);
       }
@@ -412,7 +397,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //**************
   private MMXChannel helpCreate(String name, String summary, boolean isPublic) {
     final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
-    MMXChannel.create(name, summary, isPublic, new MMXChannel.OnFinishedListener<MMXChannel>() {
+    MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE,
+            new MMXChannel.OnFinishedListener<MMXChannel>() {
       public void onSuccess(MMXChannel result) {
         Log.e(TAG, "helpCreate.onSuccess ");
         createResult.invoked(result);
@@ -427,8 +413,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED) {
       result = createResult.getReturnValue();
       assertNotNull(result);
-      assertNotNull(result.getOwnerUsername());
-      assertEquals(MMX.getCurrentUser().getUsername(), result.getOwnerUsername());
+      assertNotNull(result.getOwnerId());
+      assertEquals(MMX.getCurrentUser().getUserIdentifier(), result.getOwnerId());
       assertEquals(summary, result.getSummary());
       assertEquals(name, result.getName());
       assertEquals(isPublic, result.isPublic());
@@ -441,7 +427,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpCreateError(MMXChannel channel, final FailureCode expected) {
     final ExecMonitor<FailureCode, String> obj = new ExecMonitor<FailureCode, String>();
-    channel.create(new MMXChannel.OnFinishedListener<MMXChannel>() {
+    MMXChannel.create(channel.getName(), channel.getSummary(), channel.isPublic(), channel.getPublishPermission(),
+            new MMXChannel.OnFinishedListener<MMXChannel>() {
       @Override
       public void onSuccess(MMXChannel result) {
         obj.failed("Unexpected success on creating an existing channel");
@@ -462,7 +449,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFind(String channelName, int expectedCount) {
     //find
     final ExecMonitor<Integer, FailureCode> findResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findPublicChannelsByName(channelName, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       public void onSuccess(ListResult<MMXChannel> result) {
         findResult.invoked(result.totalCount);
       }
@@ -484,7 +471,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpFindError(String channelName, final int expected) {
     final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
-    MMXChannel.findPublicChannelsByName(channelName, 0, 10, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         obj.invoked(result);
@@ -528,8 +515,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertTrue(channel.isSubscribed());
 
     final ExecMonitor<Integer, FailureCode> getSubsResult = new ExecMonitor<Integer, FailureCode>();
-    channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXUser>>() {
-      public void onSuccess(ListResult<MMXUser> result) {
+    channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<User>>() {
+      public void onSuccess(ListResult<User> result) {
         getSubsResult.invoked(result.totalCount);
       }
 
@@ -574,9 +561,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       public boolean onMessageReceived(MMXMessage message) {
         String bar = message.getContent().get("foo");
         //FIXME:  Check the sender name/displayname
-        MMXUser sender = message.getSender();
+        User sender = message.getSender();
         if (sender != null) {
-          senderBuffer.append(sender.getDisplayName());
+          senderBuffer.append(sender.getFirstName());
         }
         if (bar != null) {
           barBuffer.append(bar);
@@ -588,7 +575,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override
-      public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+      public boolean onMessageAcknowledgementReceived(User from, String messageId) {
         return false;
       }
     };
@@ -622,7 +609,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
     assertEquals(id, pubId.toString());
     assertEquals("bar", barBuffer.toString());
-    assertEquals(MMX.getCurrentUser().getDisplayName(), senderBuffer.toString());
+    assertEquals(MMX.getCurrentUser().getFirstName(), senderBuffer.toString());
     MMX.unregisterListener(messageListener);
   }
   
@@ -651,7 +638,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     //get topic again
     final AtomicInteger itemCount = new AtomicInteger(0);
     final ExecMonitor<Integer, FailureCode> channelCount = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findPublicChannelsByName(channelName, 0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         if (result.items.size() > 0) {
@@ -678,7 +665,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   
   private void helpChannelSummaryError(String channelName, int expected) {
     final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
-    MMXChannel.findPublicChannelsByName(channelName, 0, 100, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         obj.invoked(result);
@@ -788,7 +775,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFetch(MMXChannel channel, int expectedCount) {
     //test basic fetch
     final ExecMonitor<Integer, FailureCode> fetchCount = new ExecMonitor<Integer, FailureCode>();
-    channel.getMessages(null, null, 0, 100, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
+    channel.getMessages(null, null, null, null, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
       @Override
       public void onSuccess(ListResult<MMXMessage> result) {
         fetchCount.invoked(result.totalCount);
@@ -825,7 +812,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(expectedMsgs, priChannel.getNumberOfMessages().intValue());
     assertNotNull(priChannel.getName());
     assertNotNull(priChannel.getSummary());
-    assertNotNull(priChannel.getOwnerUsername());
+    assertNotNull(priChannel.getOwnerId());
     assertFalse(priChannel.isPublic());
     assertTrue(priChannel.isSubscribed());
   }
@@ -846,14 +833,14 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertEquals(expectedMsgs, pubChannel.getNumberOfMessages().intValue());
     assertNotNull(pubChannel.getName());
     assertNotNull(pubChannel.getSummary());
-    assertNotNull(pubChannel.getOwnerUsername());
+    assertNotNull(pubChannel.getOwnerId());
     assertTrue(pubChannel.isPublic());
     assertTrue(pubChannel.isSubscribed());
   }
   
   private void helpLogin(String userNamePrefix, String displayNamePrefix,
         String suffix, boolean regUser) {
-    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
+    ApiCallback<Boolean> loginListener = getLoginListener();
     String username = userNamePrefix + suffix;
     String displayName = displayNamePrefix + suffix;
     if (regUser) {
@@ -861,28 +848,29 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
 
     //login with credentials
-    MMX.login(username, PASSWORD, loginLogoutListener);
-    synchronized (loginLogoutListener) {
+    User.login(username, new String(PASSWORD), false, loginListener);
+    synchronized (loginListener) {
       try {
-        loginLogoutListener.wait(10000);
+        loginListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
     assertTrue(MMX.getMMXClient().isConnected());
-    MMX.enableIncomingMessages(true);
+    MMX.start();
   }
 
   private void helpLogout() {
-    MMX.OnFinishedListener<Void> loginLogoutListener = getLoginLogoutListener();
-    MMX.logout(loginLogoutListener);
-    synchronized (loginLogoutListener) {
+    logoutMMX();
+    ApiCallback<Boolean> logoutListener = getLogoutListener();
+    User.logout(logoutListener);
+    synchronized (logoutListener) {
       try {
-        loginLogoutListener.wait(10000);
+        logoutListener.wait(10000);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
-    assertFalse(MMX.getMMXClient().isConnected());
+    //assertFalse(MMX.getMMXClient().isConnected());
   }
 }

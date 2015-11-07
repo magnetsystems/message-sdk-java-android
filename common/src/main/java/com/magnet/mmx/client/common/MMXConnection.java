@@ -15,6 +15,7 @@
 
 package com.magnet.mmx.client.common;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -40,6 +41,7 @@ import javax.net.ssl.SSLContext;
 
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.ConnectionListener;
+import org.jivesoftware.smack.SASLAuthentication;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
@@ -48,6 +50,7 @@ import org.jivesoftware.smack.debugger.ConsoleDebugger;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Presence.Mode;
+import org.jivesoftware.smack.sasl.MMXBFOAuthMechanism;
 import org.jivesoftware.smack.sasl.SASLError;
 import org.jivesoftware.smack.sasl.SASLErrorException;
 
@@ -119,7 +122,12 @@ public class MMXConnection implements ConnectionListener {
   public final static int NO_DELIVERY_ON_LOGIN = 0x4;
 
   static {
-    // Register the Message Providers, so it can parse unsolicited messages.
+    // Register Magnet Message Server OAuth mechanism with the highest priority.
+    SASLAuthentication.registerSASLMechanism(MMXBFOAuthMechanism.NAME,
+        MMXBFOAuthMechanism.class);
+    SASLAuthentication.supportSASLMechanism(MMXBFOAuthMechanism.NAME, 0);
+
+    // Register the Message Provider, so it can parse unsolicited messages.
     MMXPayloadMsgHandler.registerMsgProvider();
     MMXSignalMsgHandler.registerMsgProvider();
   }
@@ -175,13 +183,23 @@ public class MMXConnection implements ConnectionListener {
   public void destroy() {
     disconnect();
 
-    mExecutor.quit();
-    mExecutor = null;
+    if (mExecutor != null) {
+      mExecutor.quit();
+      mExecutor = null;
+    }
     mSettings = null;
     mConListener = null;
     mMsgListener = null;
 
     mContext = null;
+  }
+
+  /**
+   * Implicit destructor.
+   */
+  @Override
+  protected void finalize() {
+    destroy();
   }
 
   // Get a singleton manager by name, or register a new instance by name.
@@ -359,7 +377,7 @@ public class MMXConnection implements ConnectionListener {
     }
 
     mConListener = listener;
-    mManagers.clear();
+    destroyManagers();
 
     mCon = new MagnetXMPPConnection(config);
     mCon.setFromMode(FromMode.USER);
@@ -376,6 +394,19 @@ public class MMXConnection implements ConnectionListener {
     } catch (Throwable e) {
       throw new MMXException(e.getMessage(), e);
     }
+  }
+
+  private void destroyManagers() {
+    for (Object mgr : mManagers.values()) {
+      if (mgr instanceof Closeable) {
+        try {
+          ((Closeable) mgr).close();
+        } catch (IOException e) {
+          // Ignored.
+        }
+      }
+    }
+    mManagers.clear();
   }
 
   /**
@@ -417,7 +448,7 @@ public class MMXConnection implements ConnectionListener {
           mCon.disconnect();
           mXID = null;
           mAnonyAcct = null;
-          mManagers.clear();
+          destroyManagers();
         } catch (NotConnectedException e) {
           e.printStackTrace();
         }

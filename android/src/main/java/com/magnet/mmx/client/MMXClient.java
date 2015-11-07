@@ -26,6 +26,7 @@ import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.SocketFactory;
@@ -49,6 +50,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.max.android.Device;
+import com.magnet.max.android.auth.model.DeviceInfo;
 import com.magnet.mmx.client.common.DeviceManager;
 import com.magnet.mmx.client.common.Invitation;
 import com.magnet.mmx.client.common.Log;
@@ -60,6 +65,7 @@ import com.magnet.mmx.client.common.MMXMessage;
 import com.magnet.mmx.client.common.MMXMessageListener;
 import com.magnet.mmx.client.common.MMXPayload;
 import com.magnet.mmx.client.common.MMXSettings;
+import com.magnet.mmx.client.common.MessageHandlingException;
 import com.magnet.mmx.protocol.AuthData;
 import com.magnet.mmx.protocol.CarrierEnum;
 import com.magnet.mmx.protocol.Constants;
@@ -338,11 +344,18 @@ public final class MMXClient {
       }
     }
     
-    public void onMessageAccepted(MMXid recipient, String msgId) {
+    public void onMessageSubmitted(String msgId) {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "onMessageAccepted() start; recipeint="+recipient+", msgID="+msgId);
+        Log.d(TAG, "onMessageSubmitted() start: msgID="+msgId);
       }
-      notifyMessageAccepted(recipient, msgId);
+      notifyMessageSubmitted(msgId);
+    }
+    
+    public void onMessageAccepted(List<MMXid> invalidRecipients, String msgId) {
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "onMessageAccepted() start: invalid="+invalidRecipients+", msgID="+msgId);
+      }
+      notifyMessageAccepted(invalidRecipients, msgId);
     }
     
     public void onMessageFailed(String msgId) {
@@ -479,9 +492,14 @@ public final class MMXClient {
 
     // Use a new accessor for the device ID.  It is not optimal because we don't
     // know if the device ID is changed.
-    DeviceIdGenerator.setDeviceIdAccessor(new DeviceIdAccessor() {
+    DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+      @Override
       public String getId(Context context) {
         return mConfig.getDeviceId();
+      }
+      @Override
+      public boolean obfuscated() {
+        return mConfig.obfuscateDeviceId();
       }
     });
   }
@@ -1027,107 +1045,76 @@ public final class MMXClient {
 
 
   private void notifyConnectionEvent(final ConnectionEvent event) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-            mMMXListener.onConnectionEvent(MMXClient.this, event);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                    "the callback", ex);
-          }
-        }
-      });
+    try {
+      mMMXListener.onConnectionEvent(MMXClient.this, event);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
 
   private void notifyErrorReceived(final MMXErrorMessage message) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-            mMMXListener.onErrorReceived(MMXClient.this, message);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                "the callback", ex);
-          }
-        }
-      });
+    try {
+      mMMXListener.onErrorReceived(MMXClient.this, message);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
   
   private void notifyMessageReceived(final MMXMessage message, final String receiptId) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-              mMMXListener.onMessageReceived(MMXClient.this, message, receiptId);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                "the callback", ex);
-          }
-        }
-      });
+    try {
+      mMMXListener.onMessageReceived(MMXClient.this, message, receiptId);
+    } catch (MessageHandlingException mex) {
+      throw mex;
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
 
   private void notifyPubsubItemReceived(final MMXTopic topic, final MMXMessage message) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-            mMMXListener.onPubsubItemReceived(MMXClient.this, topic, message);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                    "the callback", ex);
-          }
-        }
-      });
+    try {
+      mMMXListener.onPubsubItemReceived(MMXClient.this, topic, message);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
 
   private void notifyMessageDelivered(final MMXid recipient, final String messageId) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-            mMMXListener.onMessageDelivered(MMXClient.this, recipient, messageId);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
-                "the callback", ex);
-          }
-        }
-      });
+    try {
+      mMMXListener.onMessageDelivered(MMXClient.this, recipient, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyConnectionEvent(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
 
   private void notifySendFailed(final String messageId, final MMXException cause) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-            mMMXListener.onSendFailed(MMXClient.this, messageId);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifySendFailed(): Caught runtime exception during " +
-                "the callback", ex);
-          }
-        }
-      });
+    try {
+      mMMXListener.onSendFailed(MMXClient.this, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifySendFailed(): Caught runtime exception during " +
+              "the callback", ex);
     }
   }
 
-  private void notifyMessageAccepted(final MMXid recipient, final String messageId) {
-    synchronized (this) {
-      mMessagingHandler.post(new Runnable() {
-        public void run() {
-          try {
-            mMMXListener.onMessageAccepted(MMXClient.this, recipient, messageId);
-          } catch (Exception ex) {
-            Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
-                "the callback", ex);
-          }
-        }
-      });
+  private void notifyMessageSubmitted(final String messageId) {
+    try {
+      mMMXListener.onMessageSubmitted(MMXClient.this, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+              "the callback", ex);
+    }
+  }
+  
+  private void notifyMessageAccepted(final List<MMXid> invalidReceivers, final String messageId) {
+    try {
+      mMMXListener.onMessageAccepted(MMXClient.this, invalidReceivers, messageId);
+    } catch (Exception ex) {
+      Log.e(TAG, "notifyMessageAccepted(): Caught runtime exception during " +
+          "the callback", ex);
     }
   }
   
@@ -1246,21 +1233,26 @@ public final class MMXClient {
           // Register the client protocol version numbers.
           devReg.setVersionMajor(Constants.MMX_VERSION_MAJOR);
           devReg.setVersionMinor(Constants.MMX_VERSION_MINOR);
-          try {
-            MMXStatus status = getDeviceManager().register(devReg);
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-              Log.d(TAG, "registerDeviceWithServer(): device registration completed with status=" + status);
+
+          Device.register(new DeviceInfo.Builder()
+                  .deviceToken(devReg.getPushToken())
+                  .label(devReg.getDisplayName())
+                  .build(), new ApiCallback<Device>() {
+            public void success(Device device) {
+              if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "registerDeviceWithServer(): Device registration successful: " + device.getDeviceId());
+              }
+              notifyConnectionEvent(ConnectionEvent.CONNECTED);
+              getQueue().processPendingItems();
             }
-            notifyConnectionEvent(ConnectionEvent.CONNECTED);
-            getQueue().processPendingItems();
-          } catch (MMXException e) {
-            Log.e(TAG, "registerDeviceWithServer(): caught MMXException code=" + e.getCode(), e);
-            if (e.getCode() == 400) {
+
+            public void failure(ApiError apiError) {
+              Log.e(TAG, "registerDeviceWithServer(): Device registration failed: " + apiError);
               //if status is unsuccessful, disconnect
               notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
               disconnect();
             }
-          }
+          });
         }
       });
     }
@@ -1291,6 +1283,7 @@ public final class MMXClient {
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "onAuthenticated() begin");
       }
+      //FIXME: Figure out how to deal with Wakeups/GCM
       registerDeviceWithServer();
     }
 
@@ -1391,13 +1384,20 @@ public final class MMXClient {
     void onMessageDelivered(MMXClient client, MMXid recipient, String messageId);
 
     /**
+     * Called when a multicast message has been submitted to the server.
+     * @param client
+     * @param messageId
+     */
+    void onMessageSubmitted(MMXClient client, String messageId);
+    
+    /**
      * Called when a message has been accepted for delivery by the MMX server
      *
      * @param client the instance of the MMXClient
-     * @param recipient the recipient for which the message was accepted
+     * @param invalidRecipients A list of invalid recipients
      * @param messageId the message id of the message
      */
-    void onMessageAccepted(MMXClient client, MMXid recipient, String messageId);
+    void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId);
 
     /**
      * Called when a pubsub item is received.
@@ -1489,6 +1489,7 @@ public final class MMXClient {
       prefEditor.apply();
       mConnectionInfo = null;
     }
+    //FIXME: Figure out how to deal with Wakeups/GCM
     registerDeviceWithServer();
   }
 

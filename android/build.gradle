@@ -7,6 +7,14 @@ buildscript {
     }
 }
 
+if (hasProperty('localMavenRepo')) {
+  repositories {
+    maven {
+      url uri("${localMavenRepo}")
+    }
+  }
+}
+
 repositories {
     jcenter()
     mavenLocal()
@@ -27,7 +35,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "1.10.3"
+version = "2.0.14"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -54,27 +62,28 @@ sourceSets {
 dependencies {
 //    compile fileTree(dir: 'libs', include: ['*.jar'])       // use a local build from libs
 
-    compile 'com.google.code.gson:gson:2.3'
+//    compile 'com.google.code.gson:gson:2.3'
 
-    compile 'com.magnet.mmx:mmx-common-api:1.10.3'
-    compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p2'
+    compile 'com.magnet.mmx:mmx-common-api:2.0.14'
+    compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    androidTestCompile 'com.google.android.gms:play-services-base:7.8.0'
-    androidTestCompile 'com.google.android.gms:play-services-gcm:7.8.0'
+    compile ('com.magnet.max.android:magnet-max-android-core:2.0.14') {
+        transitive=true
+    }
 }
 
 android {
-    compileSdkVersion 19
+    compileSdkVersion 23
     buildToolsVersion "22.0.1"
 
     defaultConfig {
         minSdkVersion 16
         versionCode 1
-        versionName "1.10.3"
+        versionName "2.0.14"
     }
 
     buildTypes {
@@ -108,7 +117,14 @@ task eclipseClean(type: Delete) {
 
 clean.dependsOn eclipseClean
 
-def javadocSource = [sourceSets.main.allJava, '../common/src/main/java', '../../message-common/src/main/java']
+def javadocSource = [sourceSets.main.allJava]
+if (project.hasProperty('externalJavadocSourceDirs')) {
+    println "Adding external javadoc source dirs: ${externalJavadocSourceDirs}"
+    new File("${externalJavadocSourceDirs}").eachLine { line ->
+        println line
+        javadocSource << line
+    }
+}
 
 task androidJavadocs(type: Javadoc) {
     println "generating JAVADOCS task:"
@@ -125,7 +141,7 @@ task androidJavadocs(type: Javadoc) {
 
     options {
         doclet "com.google.doclava.Doclava"
-        addStringOption "hdf project.name", "Magnet Messaging SDK for Android"
+        addStringOption "hdf project.name", "Magnet Max SDK for Android"
 //        addStringOption "templatedir", "$projectDir" //for pointing to the template when we have one
         addStringOption "federate android", "http://d.android.com/reference"
         addStringOption "federationxml android", "http://doclava.googlecode.com/svn/static/api/android-10.xml"
@@ -134,6 +150,18 @@ task androidJavadocs(type: Javadoc) {
 
 // ADD PUBLIC APIS for JavaDoc here
     include '**/client/api/*'
+    include '**/max/android/Max.java'
+    include '**/max/android/MaxModule.java'
+    include '**/max/android/ApiCallback.java'
+    include '**/max/android/ApiError.java'
+    include '**/max/android/config/MaxAndroidPropertiesConfig.java'
+    include '**/max/android/config/MaxAndroidConfig.java'
+    include '**/max/android/User.java'
+    include '**/max/android/auth/model/UserRegistrationInfo.java'
+    include '**/max/android/auth/model/UserRealm.java'
+    include '**/max/android/auth/model/UpdateProfileRequest.java'
+    include '**/max/android/Constants.java'
+
 //    include '**/AbstractMMXListener.java'
 //    include '**/MMXClient.java'
 //    include '**/MMXClientConfig.java'
@@ -187,11 +215,13 @@ task sourcesJar(type: Jar) {
 }
 
 task androidJavadocsZip(type: Zip, dependsOn: androidJavadocs) {
+    archiveName = "magnet-max-android-${project.version}-javadocs.zip"
     classifier = 'javadoc'
     from "$projectDir/build/docs"
 }
 
 task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
+    archiveName = "magnet-max-android-${project.version}-javadocs.jar"
     classifier = 'javadoc'
     from "$projectDir/build/docs"
 }
@@ -296,13 +326,26 @@ artifacts {
 
 def homeDir = System.getenv('HOME')
 
-task uploadLocal(type: Upload) {
-  configuration = configurations.archives
-  repositories {
-     mavenDeployer {
-       repository(url: mavenLocal().url)
-     }
-   }
+if (hasProperty('localMavenRepo')) {
+    task uploadLocal(type: Upload) {
+      configuration = configurations.archives
+      repositories {
+         mavenDeployer {
+             println("Using overidden mavenLocal: ${localMavenRepo}")
+             repository(url: uri("${localMavenRepo}"))
+         }
+       }
+    }
+} else {
+    task uploadLocal(type: Upload) {
+        configuration = configurations.archives
+        repositories {
+            mavenDeployer {
+                println("Using mavenLocal from ~/.m2/settings.xml")
+                repository(url: mavenLocal().url)
+            }
+        }
+    }
 }
 
 task uploadRelease(type: Upload) {

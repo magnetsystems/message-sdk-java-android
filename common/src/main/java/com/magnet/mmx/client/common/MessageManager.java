@@ -15,6 +15,8 @@
 
 package com.magnet.mmx.client.common;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -65,7 +67,7 @@ import com.magnet.mmx.util.XIDUtil;
  * The singleton MessageManager allows user to send application data and send
  * delivery receipt as an acknowledgment, and the message status.  It
  */
-public class MessageManager {
+public class MessageManager implements Closeable {
   private static final String TAG = "MessageManager";
   private int mAckErrors;
   private int mAckCounters;
@@ -154,19 +156,11 @@ public class MessageManager {
   private PacketListener mMsgPayloadPacketListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
-      Message xmppmsg = (Message) packet;
+      final Message xmppmsg = (Message) packet;
       final MMXMessage msg = new MMXMessage(xmppmsg);
       final MMXMessageListener listener = mCon.getMessageListener();
       final String orgMsgId = msg.getMsgIdFromReceipt();
       try {
-        // Only reliable messages (non-normal type with a body) will trigger
-        // an ACK to be sent.
-//        if (xmppmsg.getType() != Type.normal && ".".equals(xmppmsg.getBody())) {
-        if (xmppmsg.getType() != Type.normal) {
-          // Must run in a thread because IQ is a blocking call.
-          mAckExecutor.post(new SendAck(packet));
-        }
-
         if (orgMsgId != null) {
           // Original sender received the delivery receipt.
           if (listener != null) {
@@ -174,6 +168,8 @@ public class MessageManager {
               @Override
               public void run() {
                 listener.onMessageDelivered(msg.getFrom(), orgMsgId);
+                // Must run in a thread because IQ is a blocking call.
+                mAckExecutor.post(new SendAck(packet));
               }
             });
           }
@@ -193,7 +189,18 @@ public class MessageManager {
             mCon.getExecutor().post(new Runnable() {
               @Override
               public void run() {
-                listener.onMessageReceived(msg, msg.getReceiptId());
+                try {
+                  listener.onMessageReceived(msg, msg.getReceiptId());
+                  // Only reliable messages (non-normal type with a body) will trigger
+                  // an ACK to be sent.
+//        if (xmppmsg.getType() != Type.normal && ".".equals(xmppmsg.getBody())) {
+                  if (xmppmsg.getType() != Type.normal) {
+                    // Must run in a thread because IQ is a blocking call.
+                    mAckExecutor.post(new SendAck(packet));
+                  }
+                } catch (MessageHandlingException ex) {
+                  Log.i(TAG, "Unable to handle the message. NOT sending the ack.", ex);
+                }
               }
             });
           } else {
@@ -217,10 +224,16 @@ public class MessageManager {
           MMXSignalMsgHandler.MMXPacketExtension extension = packet.getExtension(
               Constants.MMX, Constants.MMX_NS_MSG_SIGNAL);
           MmxHeaders mmxMeta = extension.getMmxMeta();
-          ServerAck serverAck = ServerAck.parse(mmxMeta);
-          // TODO: how to do the callback for the server ack?
-          mCon.getMessageListener().onMessageAccepted(serverAck.getReceiver(),
-                serverAck.getMsgId());
+          SignalMsg sigMsg = SignalMsg.parse(mmxMeta);
+          if (sigMsg.getType() == SignalMsg.Type.ACK_ONCE) {
+            mCon.getMessageListener().onMessageAccepted(
+                sigMsg.getInvalidReceivers(), sigMsg.getMsgId());
+          } else if (sigMsg.getType() == SignalMsg.Type.ACK_BEGIN) {
+            mCon.getMessageListener().onMessageSubmitted(sigMsg.getMsgId());
+          } else if (sigMsg.getType() == SignalMsg.Type.ACK_END) {
+            mCon.getMessageListener().onMessageAccepted(
+                sigMsg.getInvalidReceivers(), sigMsg.getMsgId());
+          }
         }
       });
     }
@@ -355,10 +368,19 @@ public class MessageManager {
   }
 
   @Override
-  protected void finalize() {
+  public void close() throws IOException {
     if (mAckExecutor != null) {
       mAckExecutor.quit();
       mAckExecutor = null;
+    }
+  }
+
+  @Override
+  protected void finalize() {
+    try {
+      close();
+    } catch (IOException e) {
+      // Ignored.
     }
   }
 

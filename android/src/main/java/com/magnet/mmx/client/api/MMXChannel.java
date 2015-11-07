@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.magnet.max.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;
@@ -39,6 +40,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
+import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
@@ -55,10 +57,10 @@ import com.magnet.mmx.util.TimeUtil;
  * <ol>
  *  <li>locate a channel by
  *    <ul>
- *      <li>{@link #create(String, String, boolean, OnFinishedListener)}</li>
- *      <li>{@link #findPublicChannelsByName(String, int, int, OnFinishedListener)}</li>
- *      <li>{@link #findPrivateChannelsByName(String, int, int, OnFinishedListener)}</li>
- *      <li>{@link #findByTags(Set, int, int, OnFinishedListener)}</li>
+ *      <li>{@link #create(String, String, boolean, PublishPermission, OnFinishedListener)}</li>
+ *      <li>{@link #findPublicChannelsByName(String, Integer, Integer, OnFinishedListener)}</li>
+ *      <li>{@link #findPrivateChannelsByName(String, Integer, Integer, OnFinishedListener)}</li>
+ *      <li>{@link #findByTags(Set, Integer, Integer, OnFinishedListener)}</li>
  *      <li>{@link #getPublicChannel(String, OnFinishedListener)}</li>
  *      <li>{@link #getPrivateChannel(String, OnFinishedListener)}</li>
  *    </ul>
@@ -67,12 +69,51 @@ import com.magnet.mmx.util.TimeUtil;
  * </ol>
  * The channel owner may invite people to a channel via
  * <ul>
- * <li>{@link #inviteUser(MMXUser, String, OnFinishedListener)}</li>
+ * <li>{@link #inviteUser(User, String, OnFinishedListener)}</li>
  * <li>{@link #inviteUsers(Set, String, OnFinishedListener)}</li>
  * </ul>
  */
 public class MMXChannel {
   private static final String TAG = MMXChannel.class.getSimpleName();
+  private static final int DEFAULT_LIMIT = 5000;  //this is enforced by the server
+
+  /**
+   * Describes the publishing permissions for this channel.
+   *
+   * @see #create(String, String, boolean, PublishPermission, OnFinishedListener)
+   */
+  public enum PublishPermission {
+    /**
+     * Only the owner can publish
+     */
+    OWNER_ONLY(TopicAction.PublisherType.owner),
+    /**
+     * Only the owner and subscribers can publish
+     */
+    SUBSCRIBER(TopicAction.PublisherType.subscribers),
+    /**
+     * Anyone can publish
+     */
+    ANYONE(TopicAction.PublisherType.anyone);
+
+    private final TopicAction.PublisherType type;
+    PublishPermission(TopicAction.PublisherType type) {
+      this.type = type;
+    }
+
+    private static PublishPermission fromPublisherType(TopicAction.PublisherType type) {
+      switch (type) {
+        case anyone:
+          return ANYONE;
+        case owner:
+          return OWNER_ONLY;
+        case subscribers:
+          return SUBSCRIBER;
+      }
+      Log.w(TAG, "Role.fromPublisherType():  Unknown publisher type: " + type + ".  Returning ANYONE");
+      return ANYONE;
+    }
+  };
 
   /**
    * Failure codes for the MMXChannel class.
@@ -131,9 +172,8 @@ public class MMXChannel {
   /**
    * The builder for a MMXChannel object
    *
-   * @deprecated to get a channel object, use one of the existing static methods.
    */
-  public static final class Builder {
+  static final class Builder {
     private MMXChannel mChannel;
 
     public Builder() {
@@ -163,13 +203,13 @@ public class MMXChannel {
     }
 
     /**
-     * Set the owner's username for this channel
+     * Set the owner's user identifier for this channel
      *
-     * @param ownerUsername the owner username
+     * @param ownerId the owner userId
      * @return this Builder object
      */
-    Builder ownerUsername(String ownerUsername) {
-      mChannel.ownerUsername(ownerUsername);
+    Builder ownerId(String ownerId) {
+      mChannel.ownerId(ownerId);
       return this;
     }
 
@@ -217,6 +257,11 @@ public class MMXChannel {
       return this;
     }
 
+    Builder publishPermission(PublishPermission publishPermission) {
+      mChannel.setPublishPermission(publishPermission);
+      return this;
+    }
+
     /**
      * Set the creation date for this channel
      *
@@ -240,10 +285,11 @@ public class MMXChannel {
 
   private String mName;
   private String mSummary;
-  private String mOwnerUsername;
+  private String mOwnerId;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private boolean mPublic;
+  private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
 
@@ -297,11 +343,11 @@ public class MMXChannel {
   /**
    * Set the owner for this channel
    *
-   * @param ownerUsername the owner username
+   * @param ownerId the owner userId
    * @return this MMXChannel object
    */
-  MMXChannel ownerUsername(String ownerUsername) {
-    mOwnerUsername = ownerUsername;
+  MMXChannel ownerId(String ownerId) {
+    mOwnerId = ownerId;
     return this;
   }
 
@@ -310,8 +356,8 @@ public class MMXChannel {
    *
    * @return the owner, null if not yet retrieved
    */
-  public String getOwnerUsername() {
-    return mOwnerUsername;
+  public String getOwnerId() {
+    return mOwnerId;
   }
 
   /**
@@ -384,6 +430,7 @@ public class MMXChannel {
     MMXTask<HashSet<String>> task = new MMXTask<HashSet<String>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public HashSet<String> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicTags topicTags = psm.getAllTags(getMMXTopic());
         return topicTags.getTags() != null ?
@@ -391,13 +438,21 @@ public class MMXChannel {
       }
 
       @Override
-      public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+      public void onException(final Throwable exception) {
+        MMX.getCallbackHandler().post(new Runnable() {
+          public void run() {
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          }
+        });
       }
 
       @Override
-      public void onResult(HashSet<String> result) {
-        listener.onSuccess(result);
+      public void onResult(final HashSet<String> result) {
+        MMX.getCallbackHandler().post(new Runnable() {
+          public void run() {
+            listener.onSuccess(result);
+          }
+        });
       }
     };
     task.execute();
@@ -420,17 +475,29 @@ public class MMXChannel {
       }
 
       @Override
-      public void onException(Throwable exception) {
-        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+      public void onException(final Throwable exception) {
+        MMX.getCallbackHandler().post(new Runnable() {
+          public void run() {
+            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          }
+        });
       }
 
       @Override
       public void onResult(MMXStatus result) {
         if (result.getCode() == MMXStatus.SUCCESS) {
-          listener.onSuccess(null);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(null);
+            }
+          });
         } else {
           Log.e(TAG, "setTags(): received bad status from server: " + result);
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+            }
+          });
         }
       }
     };
@@ -448,25 +515,7 @@ public class MMXChannel {
   }
 
   MMXTopic getMMXTopic() {
-    return getMMXTopic(isPublic(), getName(), getOwnerUsername());
-  }
-
-  /**
-   * Retrieve all of the messages for this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
-   *
-   * @param startDate filter based on start date, or null for no filter
-   * @param endDate filter based on end date, or null for no filter
-   * @param limit the maximum number of messages to return
-   * @param ascending the chronological sort order of the results
-   * @param listener the listener for the results of this operation
-   * @deprecated {@link #getMessages(Date, Date, int, int, boolean, OnFinishedListener)}
-   */
-  @Deprecated
-  public void getItems(final Date startDate, final Date endDate, final int limit,
-      final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
-    getMessages(startDate, endDate, 0, limit, ascending, listener);
+    return getMMXTopic(isPublic(), getName(), getOwnerId());
   }
 
   /**
@@ -476,52 +525,58 @@ public class MMXChannel {
    *
    * @param startDate filter based on start date, or null for no filter
    * @param endDate filter based on end date, or null for no filter
-   * @param offset the offset of messages to return
    * @param limit the maximum number of messages to return
+   * @param offset the offset of messages to return
    * @param ascending the chronological sort order of the results
    * @param listener the listener for the results of this operation
    */
-  public void getMessages(final Date startDate, final Date endDate, final int offset, final int limit,
-                       final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
+  public void getMessages(final Date startDate, final Date endDate, final Integer limit, final Integer offset,
+                          final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> task =
             new MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        List<com.magnet.mmx.client.common.MMXMessage> messages =
+        MMXResult<List<com.magnet.mmx.client.common.MMXMessage>> messages =
                 psm.getItems(topic, new TopicAction.FetchOptions()
-                .setSince(startDate)
-                .setUntil(endDate)
-                .setOffset(offset)
-                .setMaxItems(limit).setAscending(ascending));
-        ArrayList<MMXTopic> topicList = new ArrayList<MMXTopic>();
-        topicList.add(getMMXTopic());
-        List<TopicSummary> summaries = psm.getTopicSummary(topicList, startDate, endDate);
-        TopicSummary summary = summaries.get(0);
-        return new ListResult<com.magnet.mmx.client.common.MMXMessage>(summary.getCount(), messages);
+                        .setSince(startDate)
+                        .setUntil(endDate)
+                        .setOffset(offset != null ? offset : 0)
+                        .setMaxItems(limit != null ? limit : DEFAULT_LIMIT).setAscending(ascending));
+        return new ListResult<com.magnet.mmx.client.common.MMXMessage>(
+            messages.getTotal(), messages.getResult());
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
-      public void onResult(ListResult<com.magnet.mmx.client.common.MMXMessage> result) {
+      public void onResult(final ListResult<com.magnet.mmx.client.common.MMXMessage> result) {
         if (listener == null) {
           return;
         }
-        ArrayList<MMXMessage> resultList = new ArrayList<MMXMessage>();
+        final ArrayList<MMXMessage> resultList = new ArrayList<MMXMessage>();
         if (result != null && result.items.size() > 0) {
           //convert MMXMessages
           for (com.magnet.mmx.client.common.MMXMessage message : result.items) {
             resultList.add(MMXMessage.fromMMXMessage(getMMXTopic(), message));
           }
         }
-        listener.onSuccess(new ListResult<MMXMessage>(result.totalCount, resultList));
+        MMX.getCallbackHandler().post(new Runnable() {
+          public void run() {
+            listener.onSuccess(new ListResult<MMXMessage>(result.totalCount, resultList));
+          }
+        });
       }
     };
     task.execute();
@@ -539,6 +594,7 @@ public class MMXChannel {
             new MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Map<String, com.magnet.mmx.client.common.MMXMessage> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         List<String> idList = Arrays.asList(ids.toArray(new String[ids.size()]));
         Map<String, com.magnet.mmx.client.common.MMXMessage> messages =
@@ -547,9 +603,13 @@ public class MMXChannel {
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
@@ -558,7 +618,7 @@ public class MMXChannel {
         if (listener == null) {
           return;
         }
-        Map<String, MMXMessage> resultMap = new HashMap<String, MMXMessage>();
+        final Map<String, MMXMessage> resultMap = new HashMap<>();
         if (result != null && result.size() > 0) {
           //convert MMXMessages
           for (Map.Entry<String, com.magnet.mmx.client.common.MMXMessage> entry : result.entrySet()) {
@@ -566,7 +626,11 @@ public class MMXChannel {
                     MMXMessage.fromMMXMessage(getMMXTopic(), entry.getValue()));
           }
         }
-        listener.onSuccess(resultMap);
+        MMX.getCallbackHandler().post(new Runnable() {
+          public void run() {
+            listener.onSuccess(resultMap);
+          }
+        });
       }
     };
     task.execute();
@@ -587,6 +651,7 @@ public class MMXChannel {
             new MMXTask<Map<String, Integer>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Map<String, Integer> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         List<String> idList = Arrays.asList(ids.toArray(new String[ids.size()]));
         Map<String, Integer> results = psm.deleteItemsByIds(topic, idList);
@@ -594,17 +659,25 @@ public class MMXChannel {
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(
-              FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(
+                      FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
-      public void onResult(Map<String, Integer> result) {
+      public void onResult(final Map<String, Integer> result) {
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
     };
@@ -632,6 +705,30 @@ public class MMXChannel {
   }
 
   /**
+   * Whether or not the current user can publish to this channel
+   *
+   * @return true if the current user is allowed to publish to this channel
+   */
+  public boolean canPublish() {
+    if (mPublishPermission == null) {
+      throw new IllegalStateException("MMXChannel.canPublish(): " +
+              "The publish permission cannot be null.  " +
+              "This channel was improperly constructed.");
+    }
+    switch (mPublishPermission) {
+      case OWNER_ONLY:
+        return getOwnerId().equalsIgnoreCase(MMX.getCurrentUser().getUserIdentifier());
+      case SUBSCRIBER:
+        return isSubscribed();
+      case ANYONE:
+        return true;
+      default:
+        throw new IllegalArgumentException("MMXChannel.canPublish(): " +
+                "Unknown publish permission type: " + mPublishPermission);
+    }
+  }
+
+  /**
    * Set the public flag for this channel
    *
    * @param isPublic the public flag
@@ -651,6 +748,21 @@ public class MMXChannel {
     return mPublic;
   }
 
+  MMXChannel setPublishPermission(PublishPermission publishPermission) {
+    mPublishPermission = publishPermission;
+    return this;
+  }
+
+  /**
+   * Who can publish to this channel
+   *
+   * @see com.magnet.mmx.client.api.MMXChannel.PublishPermission
+   * @return the PublishPermission for this channel
+   */
+  public PublishPermission getPublishPermission() {
+    return mPublishPermission;
+  }
+
   /**
    * Create a channel.  Upon successful completion, the current user
    * automatically subscribes to the channel.
@@ -660,25 +772,35 @@ public class MMXChannel {
    * @param name the name of the channel
    * @param summary the channel summary
    * @param isPublic whether or not this channel is public
+   * @param publishPermission who can publish to this topic
    * @param listener the listener for the newly created channel
    */
-  public static void create(final String name, final String summary, final boolean isPublic,
-                                   final OnFinishedListener<MMXChannel> listener) {
+  public static void create(final String name, final String summary,
+                            final boolean isPublic, final PublishPermission publishPermission,
+                            final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
+
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicOptions options = new MMXTopicOptions()
-                .setDescription(summary).setSubscribeOnCreate(true);
-        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUsername());
+                .setDescription(summary).setSubscribeOnCreate(true)
+                .setPublisherType(publishPermission == null ?
+                        TopicAction.PublisherType.anyone : publishPermission.type);
+        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserIdentifier());
         return psm.createTopic(topic, options);
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(
-                  FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(
+                      FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
@@ -689,37 +811,31 @@ public class MMXChannel {
             MMXTopicInfo topicInfo = MMX.getMMXClient().getPubSubManager().getTopic(createResult);
             ArrayList<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>();
             topicInfos.add(topicInfo);
-            List<MMXChannel> channels = fromTopicInfos(topicInfos, null);
+            final List<MMXChannel> channels = fromTopicInfos(topicInfos, null);
             if (channels.size() != 1) {
               throw new IllegalStateException("Invalid number of results.");
             }
-            listener.onSuccess(channels.get(0));
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(channels.get(0));
+              }
+            });
           } catch (Exception ex) {
             Log.w(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
                     "falling back to less-populated channel.", ex);
-            listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                    .ownerUsername(MMX.getCurrentUser().getUsername())
-                    .summary(summary));
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
+                        .ownerId(MMX.getCurrentUser().getUserIdentifier())
+                        .summary(summary));
+              }
+            });
           }
 
         }
       }
     };
     task.execute();
-  }
-
-  /**
-   * Create the channel.  The default behavior is to create a private channel.
-   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
-   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
-   *
-   * @deprecated use {@link #create(String, String, boolean, OnFinishedListener)} instead
-   * @param listener the listener for the newly created channel
-   * @see Builder#setPublic(boolean)
-   */
-  public void create(final OnFinishedListener<MMXChannel> listener) {
-    MMXChannel.create(getName(), getSummary(), isPublic(), listener);
-    ownerUsername(MMX.getCurrentUser().getUsername());
   }
 
   /**
@@ -733,6 +849,7 @@ public class MMXChannel {
     MMXTask<MMXStatus> task = new MMXTask<MMXStatus> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         return psm.deleteTopic(getMMXTopic());
       }
@@ -743,17 +860,29 @@ public class MMXChannel {
           return;
         }
         if (result.getCode() == MMXStatus.SUCCESS) {
-          listener.onSuccess(null);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(null);
+            }
+          });
         } else {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+            }
+          });
         }
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
-              exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
+                      exception);
+            }
+          });
         }
       }
     };
@@ -774,17 +903,25 @@ public class MMXChannel {
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
-      public void onResult(String result) {
+      public void onResult(final String result) {
         MMXChannel.this.subscribed(true);
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
     };
@@ -806,38 +943,29 @@ public class MMXChannel {
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
-      public void onResult(Boolean result) {
+      public void onResult(final Boolean result) {
         MMXChannel.this.subscribed(false);
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
     };
     task.execute();
-  }
-
-  /**
-   * Publishes a message to this channel.
-   *
-   * @param messageContent the message content to publish
-   * @param listener the listener for the message id
-   * @return the message id for this published message
-   * @deprecated Use {@link #publish(Map, OnFinishedListener)}
-   */
-  public String publish(Map<String, String> messageContent,
-                      final MMXMessage.OnFinishedListener<String> listener) {
-    MMXMessage message = new MMXMessage.Builder()
-            .channel(this)
-            .content(messageContent)
-            .build();
-    return message.send(listener);
   }
 
   /**
@@ -867,85 +995,97 @@ public class MMXChannel {
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
-  public void inviteUser(final MMXUser invitee, final String invitationText,
+  public void inviteUser(final User invitee, final String invitationText,
                          final OnFinishedListener<MMXInvite> listener) {
-    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
-    MMXInvite invite = new MMXInvite(inviteInfo, false);
-    invite.send(listener);
+    Set<User> invitees = new HashSet<User>(1);
+    invitees.add(invitee);
+    inviteUsers(invitees, invitationText, listener);
   }
 
   /**
-   * A convenient method to send an invitation to multiple users for this channel.
-   * The listener will be invoked one per invitee.  If the invitee is invalid,
+   * Sends an invitation to a set of users for this channel. The listener will
+   * be invoked one per invitee.  If an invitee is invalid,
    * the failure code will be {@link FailureCode#INVALID_INVITEE}.
    * @param invitees A set of invitees
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
-  public void inviteUsers(final Set<MMXUser> invitees, final String invitationText,
+  public void inviteUsers(final Set<User> invitees, final String invitationText,
                           final OnFinishedListener<MMXInvite> listener) {
-    for (MMXUser invitee : invitees) {
-      MMXInviteInfo inviteInfo = new MMXInviteInfo(invitee, MMX.getCurrentUser(), this, invitationText);
-      MMXInvite invite = new MMXInvite(inviteInfo, false);
-      invite.send(listener);
-    }
-  }
-
-  /**
-   * Retrieves all the subscribers for this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
-   * @param limit the maximum number of subscribers to return
-   * @param listener the listener for the subscribers
-   * @deprecated {@link #getAllSubscribers(int, int, OnFinishedListener)}
-   */
-  @Deprecated
-  public void getAllSubscribers(final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
-    getAllSubscribers(0, limit, listener);
+    MMXInviteInfo inviteInfo = new MMXInviteInfo(invitees, MMX.getCurrentUser(), this, invitationText);
+    MMXInvite invite = new MMXInvite(inviteInfo, false);
+    invite.send(listener);
   }
 
     /**
      * Retrieves all the subscribers for this channel.  Possible failure codes are:
      * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
      * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
-     * @param offset the offset of subscribers to return
      * @param limit the maximum number of subscribers to return
+     * @param offset the offset of subscribers to return
      * @param listener the listener for the subscribers
      */
-  public void getAllSubscribers(final int offset, final int limit, final OnFinishedListener<ListResult<MMXUser>> listener) {
+  public void getAllSubscribers(final Integer limit, final Integer offset, final OnFinishedListener<ListResult<User>> listener) {
     MMXTask<MMXResult<List<UserInfo>>> task =
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXResult<List<UserInfo>> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        return psm.getSubscribers(getMMXTopic(), offset, limit);
+        return psm.getSubscribers(getMMXTopic(), offset != null ? offset : 0, limit != null ? limit : DEFAULT_LIMIT);
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
 
       @Override
-      public void onResult(MMXResult<List<UserInfo>> result) {
+      public void onResult(final MMXResult<List<UserInfo>> result) {
         if (listener == null) {
           return;
         }
-        ArrayList<MMXUser> users = new ArrayList<MMXUser>();
+
+        HashSet<String> usersToRetrieve = new HashSet<String>();
         for (UserInfo userInfo : result.getResult()) {
-          users.add(MMXUser.fromUserInfo(userInfo));
+          usersToRetrieve.add(userInfo.getUserId());
         }
-        listener.onSuccess(new ListResult<MMXUser>(result.getTotal(), users));
+        //This shouldn't be the main thread so we can fillCache.
+        UserCache userCache = UserCache.getInstance();
+        userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+        final ArrayList<User> users = new ArrayList<User>();
+        for (String userId : usersToRetrieve) {
+          User user = userCache.getByUserId(userId);
+          if (user == null) {
+            Log.e(TAG, "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + userId);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+              }
+            });
+            return;
+          }
+          users.add(user);
+        }
+        MMX.getCallbackHandler().post(new Runnable() {
+          public void run() {
+            listener.onSuccess(new ListResult<User>(result.getTotal(), users));
+          }
+        });
       }
     };
     task.execute();
   }
 
   /**
-   * Get a public channel with an exact name.  The channel name is case
-   * insensitive.
+   * Get a public channel with an exact name.  The channels created by anyone
+   * can be retrieved.  The channel name is case insensitive.
    * @param name A public channel name.
    * @param listener the listener for getting the channel.
    */
@@ -955,8 +1095,8 @@ public class MMXChannel {
   }
   
   /**
-   * Get a private channel with an exact name.  The channel name is case
-   * insensitive.
+   * Get a private channel with an exact name.  Only the channels created by
+   * the current user can be retrieved.  The channel name is case insensitive.
    * @param name A private channel name.
    * @param listener the listener for getting the channel
    */
@@ -971,6 +1111,7 @@ public class MMXChannel {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         MMXTopicInfo info = psm.getTopic(publicOnly ? 
             new MMXGlobalTopic(name) : new MMXPersonalTopic(name));
@@ -979,16 +1120,24 @@ public class MMXChannel {
       }
 
       @Override
-      public void onResult(MMXChannel result) {
+      public void onResult(final MMXChannel result) {
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         } else {
           Log.e(TAG, "Get channel by name failed", exception);
         }
@@ -999,55 +1148,40 @@ public class MMXChannel {
   
   /**
    * Get all public channels with pagination.
-   * @param offset the offset of results to return
    * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
    * @param listener the listener for the query results
    */
-  public static void getAllPublicChannels(int offset, int limit,
-          final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findChannelsByName("%", offset, limit, ListType.global, listener);
+  public static void getAllPublicChannels(Integer limit, Integer offset,
+                                          final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName("%", limit, offset, ListType.global, listener);
   }
 
   /**
-   * Get all private channels with pagination.
-   * @param offset the offset of results to return
+   * Get all private channels with pagination.  Only the private channels
+   * created by the current user can be retrieved.
    * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
    * @param listener the listener for the query results
    */
-  public static void getAllPrivateChannels(int offset, int limit, 
+  public static void getAllPrivateChannels(Integer limit, Integer offset,
           final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findChannelsByName("%", offset, limit, ListType.personal, listener);
+    findChannelsByName("%", limit, offset, ListType.personal, listener);
   }
 
-  /**
-   * Find the channels that start with the specified text.  Currently only
-   * public channels can be discovered.  If there are no matching names,
-   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
-   *
-   * @param startsWith the search string
-   * @param limit the maximum number of results to return
-   * @param listener the listener for the query results
-   * @deprecated {@link #findPublicChannelsByName(String, int, int, OnFinishedListener)}
-   */
-  @Deprecated
-  public static void findByName(final String startsWith, final int limit,
-      final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findChannelsByName(startsWith, 0, limit, ListType.global, listener);
-  }
-  
   /**
    * Find the public channels that start with the specified text.  If there are
    * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
    * an empty list.
    *
    * @param startsWith the search string
-   * @param offset the offset of results to return
    * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
    * @param listener the listener for the query results
    */
-  public static void findPublicChannelsByName(final String startsWith, final int offset,
-      final int limit, final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findChannelsByName(startsWith, offset, limit, ListType.global, listener);
+  public static void findPublicChannelsByName(final String startsWith, final Integer limit,
+      final Integer offset, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName(startsWith, limit, offset, ListType.global, listener);
   }
 
   /**
@@ -1056,23 +1190,24 @@ public class MMXChannel {
    * an empty list.
    *
    * @param startsWith the search string
-   * @param offset the offset of results to return
    * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
    * @param listener the listener for the query results
    */
-  public static void findPrivateChannelsByName(final String startsWith, final int offset,
-      final int limit, final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findChannelsByName(startsWith, offset, limit, ListType.personal, listener);
+  public static void findPrivateChannelsByName(final String startsWith, final Integer limit,
+      final Integer offset, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    findChannelsByName(startsWith, limit, offset, ListType.personal, listener);
   }
 
   // Find public or private channels whose names start with the specified text.
   private static void findChannelsByName(final String startsWith,
-      final int offset, final int limit, final ListType listType,
+                                         final Integer limit, final Integer offset, final ListType listType,
       final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         if (startsWith == null || startsWith.isEmpty()) {
           throw new MMXException("Search string cannot be null or empty",
               FailureCode.BAD_REQUEST.getValue());
@@ -1081,23 +1216,31 @@ public class MMXChannel {
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTopicName(startsWith, SearchAction.Match.PREFIX);
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND,
-            search, offset, limit, listType);
+            search, offset != null ? offset : 0, limit != null ? limit : DEFAULT_LIMIT, listType);
         List<MMXChannel> channels = fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
 
       @Override
-      public void onResult(ListResult<MMXChannel> result) {
+      public void onResult(final ListResult<MMXChannel> result) {
         //build the query result
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         } else {
           Log.e(TAG, "Find channel by name failed", exception);
         }
@@ -1109,51 +1252,48 @@ public class MMXChannel {
   /**
    * Query for the specified tags (inclusive.)  If there are no matching tags,
    * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
-   * @param tags the tags to match
-   * @param listener the listener for the query results
-   */
-  @Deprecated
-  public static void findByTags(final Set<String> tags, final int limit,
-      final OnFinishedListener<ListResult<MMXChannel>> listener) {
-    findByTags(tags, 0, limit, listener);
-  }
-  
-  /**
-   * Query for the specified tags (inclusive.)  If there are no matching tags,
-   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
    *
    * @param tags the tags to match
-   * @param offset the offset of results to return
    * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
    * @param listener the listener for the query results
    */
-  public static void findByTags(final Set<String> tags, final int offset, final int limit,
+  public static void findByTags(final Set<String> tags, final Integer limit, final Integer offset,
                                 final OnFinishedListener<ListResult<MMXChannel>> listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public ListResult<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
                 .setTags(new ArrayList<String>(tags));
         MMXTopicSearchResult searchResult = psm.searchBy(SearchAction.Operator.AND, search,
-            offset, limit, ListType.global);
+            offset != null ? offset : 0, limit != null ? limit : DEFAULT_LIMIT, ListType.global);
         List<MMXChannel> channels =fromTopicInfos(searchResult.getResults(), null);
         return new ListResult<MMXChannel>(searchResult.getTotal(), channels);
       }
 
       @Override
-      public void onResult(ListResult<MMXChannel> result) {
+      public void onResult(final ListResult<MMXChannel> result) {
         //build the query result
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
+            }
+          });
         }
       }
     };
@@ -1169,21 +1309,30 @@ public class MMXChannel {
     MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
+        validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         return fromSubscriptions(psm.listAllSubscriptions());
       }
 
       @Override
-      public void onResult(List<MMXChannel> result) {
+      public void onResult(final List<MMXChannel> result) {
         if (listener != null) {
-          listener.onSuccess(result);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onSuccess(result);
+            }
+          });
         }
       }
 
       @Override
-      public void onException(Throwable exception) {
+      public void onException(final Throwable exception) {
         if (listener != null) {
-          listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR, exception), exception);
+          MMX.getCallbackHandler().post(new Runnable() {
+            public void run() {
+              listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR,exception),exception);
+            }
+          });
         }
       }
     };
@@ -1205,7 +1354,7 @@ public class MMXChannel {
     boolean isUserTopic = topic.isUserTopic();
     return new MMXChannel.Builder()
             .name(topic.getName())
-            .ownerUsername(isUserTopic ? topic.getUserId() : null)
+            .ownerId(isUserTopic ? topic.getUserId() : null)
             .setPublic(!isUserTopic)
             .build();
   }
@@ -1260,15 +1409,21 @@ public class MMXChannel {
                         summary.getLastPubTime() : info.getCreationDate())
                 .name(topic.getName())
                 .numberOfMessages(summary.getCount())
-                .ownerUsername(info.getCreator().getUserId())
+                .ownerId(info.getCreator().getUserId())
                 .subscribed(subMap.containsKey(topic))
                 .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
                 .setPublic(!topic.isUserTopic())
+                .publishPermission(PublishPermission.fromPublisherType(info.getPublisherType()))
                 .creationDate(info.getCreationDate())
                 .build());
       }
     }
     return channels;
+  }
+  
+  private static void validateClient(MMXClient mmxClient) throws MMXException {
+    if (!mmxClient.isConnected())
+      throw new MMXException("Current user is not logged in", StatusCode.UNAUTHORIZED);
   }
 
   // ***************************
@@ -1283,27 +1438,28 @@ public class MMXChannel {
     private static final String KEY_CHANNEL_NAME = "channelName";
     private static final String KEY_CHANNEL_SUMMARY = "channelSummary";
     private static final String KEY_CHANNEL_IS_PUBLIC = "channelIsPublic";
-    private static final String KEY_CHANNEL_CREATOR_USERNAME = "channelCreatorUsername";
+    private static final String KEY_CHANNEL_OWNER_ID = "channelOwnerId";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
+    private static final String KEY_CHANNEL_PUBLISH_PERMISSIONS = "channelPublishPermissions";
     private MMXChannel mChannel;
-    private MMXUser mInvitee;
-    private MMXUser mInviter;
+    private Set<User> mInvitees;
+    private User mInviter;
     private String mComment;
 
-    private MMXInviteInfo(MMXUser invitee, MMXUser inviter, MMXChannel channel, String comment) {
-      mInvitee = invitee;
+    private MMXInviteInfo(Set<User> invitees, User inviter, MMXChannel channel, String comment) {
+      mInvitees = invitees;
       mInviter = inviter;
       mChannel = channel;
       mComment = comment;
     }
-
+    
     /**
-     * The user who is being invited.
+     * The users who are being invited.
      *
-     * @return the user who is being invited
+     * @return the users who are being invited
      */
-    public MMXUser getInvitee() {
-      return mInvitee;
+    public Set<User> getInvitees() {
+      return mInvitees;
     }
 
     /**
@@ -1311,7 +1467,7 @@ public class MMXChannel {
      *
      * @return the user who is inviting someone else to subscribe
      */
-    public MMXUser getInviter() {
+    public User getInviter() {
       return mInviter;
     }
 
@@ -1343,10 +1499,11 @@ public class MMXChannel {
         content.put(KEY_CHANNEL_SUMMARY, mChannel.getSummary());
       }
       content.put(KEY_CHANNEL_IS_PUBLIC, String.valueOf(mChannel.isPublic()));
-      content.put(KEY_CHANNEL_CREATOR_USERNAME, mChannel.getOwnerUsername());
+      content.put(KEY_CHANNEL_OWNER_ID, mChannel.getOwnerId());
       if (mChannel.getCreationDate() != null) {
         content.put(KEY_CHANNEL_CREATION_DATE, TimeUtil.toString(mChannel.getCreationDate()));
       }
+      content.put(KEY_CHANNEL_PUBLISH_PERMISSIONS, mChannel.mPublishPermission.type.name());
       return content;
     }
 
@@ -1356,23 +1513,25 @@ public class MMXChannel {
       String channelName = content.get(KEY_CHANNEL_NAME);
       String channelSummary = content.get(KEY_CHANNEL_SUMMARY);
       String channelIsPublic = content.get(KEY_CHANNEL_IS_PUBLIC);
-      String channelOwnerUsername = content.get(KEY_CHANNEL_CREATOR_USERNAME);
+      String channelOwnerId = content.get(KEY_CHANNEL_OWNER_ID);
       String channelCreationDate = content.get(KEY_CHANNEL_CREATION_DATE);
+      String channelPublishPermissions = content.get(KEY_CHANNEL_PUBLISH_PERMISSIONS);
       MMXChannel channel = new MMXChannel.Builder()
               .name(channelName)
               .summary(channelSummary)
               .setPublic(Boolean.parseBoolean(channelIsPublic))
-              .ownerUsername(channelOwnerUsername)
+              .ownerId(channelOwnerId)
               .creationDate(channelCreationDate == null ? null : TimeUtil.toDate(channelCreationDate))
+              .publishPermission(PublishPermission.fromPublisherType(TopicAction.PublisherType.valueOf(channelPublishPermissions)))
               .build();
-      return new MMXInviteInfo(MMX.getCurrentUser(), message.getSender(), channel, text);
+      return new MMXInviteInfo(message.getRecipients(), message.getSender(), channel, text);
     }
   }
 
   /**
    * The MMXInvite class is used when sending invites for channels.
    *
-   * @see #inviteUser(MMXUser, String, OnFinishedListener)
+   * @see #inviteUser(User, String, OnFinishedListener)
    */
   public static class MMXInvite {
     static final String TYPE = "invitation";
@@ -1397,30 +1556,36 @@ public class MMXChannel {
       if (mIncoming) {
         //coding error
         throw new RuntimeException("Cannot call send on an incoming invitation.");
-      } else if (mInviteInfo.mChannel.getOwnerUsername() == null) {
+      } else if (mInviteInfo.mChannel.getOwnerId() == null) {
         //coding error
         throw new RuntimeException("Cannot invite for an invalid channel.  " +
                 "Likely cause is that this MMXChannel instance was created using " +
                 "the MMXChannel.Builder() object instead of being returned from " +
                 "a method call (i.e. findBy() or create()");
       }
-      HashSet<MMXUser> recipients = new HashSet<MMXUser>();
-      recipients.add(mInviteInfo.getInvitee());
       MMXMessage message = new MMXMessage.Builder()
-              .recipients(recipients)
+              .recipients(mInviteInfo.getInvitees())
               .content(mInviteInfo.buildMessageContent())
               .type(TYPE)
               .build();
       message.send(new MMXMessage.OnFinishedListener<String>() {
         public void onSuccess(String result) {
           if (listener != null) {
-            listener.onSuccess(MMXInvite.this);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(MMXInvite.this);
+              }
+            });
           }
         }
 
-        public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+        public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+              }
+            });
           }
         }
       });
@@ -1447,23 +1612,35 @@ public class MMXChannel {
             @Override
             public void onSuccess(String result) {
               if (listener != null) {
-                listener.onSuccess(MMXInvite.this);
+                MMX.getCallbackHandler().post(new Runnable() {
+                  public void run() {
+                    listener.onSuccess(MMXInvite.this);
+                  }
+                });
               }
             }
 
             @Override
-            public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+            public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
               if (listener != null) {
-                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+                MMX.getCallbackHandler().post(new Runnable() {
+                  public void run() {
+                    listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+                  }
+                });
               }
             }
           });
         }
 
         @Override
-        public void onFailure(FailureCode code, Throwable ex) {
+        public void onFailure(FailureCode code, final Throwable ex) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+              }
+            });
           }
         }
       });
@@ -1484,21 +1661,29 @@ public class MMXChannel {
         @Override
         public void onSuccess(String result) {
           if (listener != null) {
-            listener.onSuccess(MMXInvite.this);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(MMXInvite.this);
+              }
+            });
           }
         }
 
         @Override
-        public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+        public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
           if (listener != null) {
-            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+            MMX.getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+              }
+            });
           }
         }
       });
     }
 
     private MMXMessage buildResponse(boolean accepted, String responseText) {
-      HashSet<MMXUser> recipients = new HashSet<MMXUser>();
+      HashSet<User> recipients = new HashSet<User>();
       recipients.add(mInviteInfo.getInviter());
       HashMap<String, String> content = mInviteInfo.buildMessageContent();
       content.put(MMXInviteResponse.KEY_IS_ACCEPTED, String.valueOf(accepted));
@@ -1513,6 +1698,9 @@ public class MMXChannel {
     }
 
     static MMXInvite fromMMXMessage(MMXMessage message) {
+      if (message == null) {
+        return null;
+      }
       MMXInviteInfo info = MMXInviteInfo.fromMMXMessage(message);
       return new MMXInvite(info, true);
     }
@@ -1569,6 +1757,9 @@ public class MMXChannel {
     }
 
     static MMXInviteResponse fromMMXMessage(MMXMessage message) {
+      if (message == null) {
+        return null;
+      }
       MMXInviteInfo inviteInfo = MMXInviteInfo.fromMMXMessage(message);
       MMXInviteResponse response = new MMXInviteResponse(inviteInfo);
 

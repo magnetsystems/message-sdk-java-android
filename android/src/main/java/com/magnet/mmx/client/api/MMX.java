@@ -15,8 +15,10 @@
 package com.magnet.mmx.client.api;
 
 import java.net.URISyntaxException;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jivesoftware.smack.packet.XMPPError;
@@ -26,16 +28,24 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.MaxModule;
+import com.magnet.max.android.User;
 import com.magnet.mmx.BuildConfig;
 import com.magnet.mmx.client.AbstractMMXListener;
+import com.magnet.mmx.client.DeviceIdAccessor;
+import com.magnet.mmx.client.DeviceIdGenerator;
 import com.magnet.mmx.client.FileBasedClientConfig;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXClientConfig;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXErrorMessage;
-import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPayload;
+import com.magnet.mmx.client.common.MessageHandlingException;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.MMXError;
 import com.magnet.mmx.protocol.MMXTopic;
@@ -50,7 +60,7 @@ import com.magnet.mmx.protocol.MMXid;
  * <li>{@link #start()} to start MMX service</li>
  * </ol>
  * Optionally, the application may invoke<ul>
- * <li>{@link #registerWakeupBroadcast(Intent)} to register a GCM wake up listener</li>
+ * <li>{@link #registerWakeupBroadcast(Context, Intent)} to register a GCM wake up listener</li>
  * </ul>
  * Upon successful completion, the application may proceed with {@link MMXMessage} or
  * {@link MMXChannel}.
@@ -140,10 +150,6 @@ public final class MMX {
    */
   public enum LoginReason {
     /**
-     * @deprecated
-     */
-    DISCONNECTED,
-    /**
      * If current credentials are invalid.  Possible action: prompt user for
      * new credential, account may be disabled.
      */
@@ -180,7 +186,7 @@ public final class MMX {
      * @param messageId the message id that was acknowledged
      * @return true to consume this message, false for additional listeners to be called
      */
-    public boolean onMessageAcknowledgementReceived(MMXUser from, String messageId) {
+    public boolean onMessageAcknowledgementReceived(User from, String messageId) {
       //default implementation is a no-op
       return false;
     }
@@ -222,6 +228,20 @@ public final class MMX {
       //default implementation is a no-op
       return false;
     }
+    
+    /**
+     * Called when there is an error while the server processed the message
+     * send request.  The default implementation is to log the error.
+     * @param messageId the id of a message that caused the error
+     * @param code a failure code
+     * @param text an optional diagnostic text message
+     * @return true to consume this event, false for additional listeners to be called
+     */
+    public boolean onMessageSendError(String messageId, MMXMessage.FailureCode code, String text) {
+      //default implementation is to log it
+      Log.e(TAG, "onMessageSendError() message ID="+messageId+", code="+code+", text="+text);
+      return false;
+    }
   }
 
   /**
@@ -251,19 +271,21 @@ public final class MMX {
   private static final String SHARED_PREFS_NAME = MMX.class.getName();
   private static final String PREF_WAKEUP_INTENT_URI = "wakeupIntentUri";
   private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
-  private SharedPreferences mSharedPrefs = null;
   private Context mContext = null;
   private MMXClient mClient = null;
-  private MMXUser mCurrentUser = null;
+  private User mCurrentUser = null;
   private HandlerThread mHandlerThread = null;
   private Handler mHandler = null;
+  private static MMXModule sModule = null;
   private static MMX sInstance = null;
+  private static SharedPreferences sSharedPrefs = null;
+  private static Handler sCallbackHandler = new Handler(Looper.getMainLooper());
 
   /**
    * The listeners will be added in order (most recent at end)
    * They should be called in order from most recently registered (from the end)
    */
-  private final LinkedList<EventListener> mListeners = new LinkedList<EventListener>();
+  private static final LinkedList<EventListener> sListeners = new LinkedList<EventListener>();
 
   private AbstractMMXListener mGlobalListener = new AbstractMMXListener() {
     @Override
@@ -272,12 +294,23 @@ public final class MMX {
       String type = payload.getType();
       if (MMXChannel.MMXInvite.TYPE.equals(type)) {
         MMXChannel.MMXInvite invite = MMXChannel.MMXInvite.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
-        notifyInviteReceived(invite);
+        if (invite != null) {
+          notifyInviteReceived(invite);
+        }
       } else if (MMXChannel.MMXInviteResponse.TYPE.equals(type)) {
         MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
-        notifyInviteResponseReceived(inviteResponse);
+        if (inviteResponse != null) {
+          notifyInviteResponseReceived(inviteResponse);
+        }
       } else {
-        notifyMessageReceived(MMXMessage.fromMMXMessage(null, mmxMessage).receiptId(receiptId));
+
+        MMXMessage message = MMXMessage.fromMMXMessage(null, mmxMessage);
+        if (message != null) {
+          message.receiptId(receiptId);
+          notifyMessageReceived(message);
+        } else {
+          throw new MessageHandlingException("Unable to handle message.");
+        }
       }
     }
 
@@ -288,7 +321,10 @@ public final class MMX {
 
     @Override
     public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, com.magnet.mmx.client.common.MMXMessage mmxMessage) {
-      notifyMessageReceived(MMXMessage.fromMMXMessage(mmxTopic, mmxMessage));
+      MMXMessage message = MMXMessage.fromMMXMessage(mmxTopic, mmxMessage);
+      if (message != null) {
+        notifyMessageReceived(message);
+      }
     }
 
     @Override
@@ -297,9 +333,16 @@ public final class MMX {
       super.onMessageDelivered(mmxClient, recipient, messageId);
     }
 
-    public void onMessageAccepted(MMXClient mmxClient, MMXid recipient, String messageId) {
-      MMXMessage.handleServerAck(recipient, messageId);
-      super.onMessageAccepted(mmxClient, recipient, messageId);
+    @Override
+    public void onMessageSubmitted(MMXClient mmxClient, String messageId) {
+      MMXMessage.handleMessageSubmitted(messageId);
+      super.onMessageSubmitted(mmxClient, messageId);
+    }
+    
+    @Override
+    public void onMessageAccepted(MMXClient mmxClient, List<MMXid> invalidRecipients, String messageId) {
+      MMXMessage.handleMessageAccepted(invalidRecipients, messageId);
+      super.onMessageAccepted(mmxClient, invalidRecipients, messageId);
     }
 
     @Override
@@ -307,17 +350,14 @@ public final class MMX {
       switch (connectionEvent) {
         case AUTHENTICATION_FAILURE:
           if (!mLoggingIn.get()) {
+            MaxCore.userTokenInvalid(null, null);
             notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
           }
           break;
         case CONNECTED:
           if (!mLoggingIn.get()) {
-            try {
-              sInstance.mCurrentUser = MMXUser.fromMMXid(mmxClient.getClientId());
-              notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
-            } catch (MMXException e) {
-              // Ignored; it should not happen.
-            }
+            sInstance.mCurrentUser = User.getCurrentUser();
+            notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
           }
           break;
         case CONNECTION_FAILED:
@@ -330,29 +370,36 @@ public final class MMX {
       super.onConnectionEvent(mmxClient, connectionEvent);
     }
     
+    // There are two possible implementations how a send error can be handled.
+    // One way is to handle some errors in onFailure() and some errors in the
+    // onMessageSendError(), the other way is to handle all errors in the
+    // onMessageSendError().  The implementation is to be handled by
+    // onMesasgeSendError(); it will break the backward compatibility.  To use
+    // the hybrid mode, see git commit 422c8d147c386ccf939b064ddebe40dd99fe9cf6
     @Override
     public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
       XMPPError xmppErr;
       MMXError mmxErr;
+      MMXMessage.FailureCode fcode;
       if ((mmxErr = error.getMMXError()) != null) {
-        MMXMessage.FailureCode fcode;
+        String text;
         if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue()) {
           fcode = MMXMessage.FailureCode.INVALID_RECIPIENT;
-          String userId = (mmxErr.getParams() == null) ? null : (mmxErr.getParams())[0];
-          MMXMessage.handleMessageSendError(userId == null ? null : new MMXid(userId, null),
-              mmxErr.getMsgId(), fcode, null);
+          text = (mmxErr.getParams() == null) ? null : (mmxErr.getParams())[0];
+          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         } else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue()) {
           fcode = MMXMessage.FailureCode.CONTENT_TOO_LARGE;
-          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(), fcode, new MMXException(
-              mmxErr.getMessage(), fcode.getValue()));
+          text = mmxErr.getMessage();
+          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         } else {
-          Log.e(TAG, "onErrorReceived(): unexpected MMX error="+mmxErr);
-          MMXMessage.handleMessageSendError(null, mmxErr.getMsgId(),
-              MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null),
-              new MMXException(mmxErr.getMessage(), mmxErr.getCode()));
+          fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
+          text = mmxErr.getMessage();
+          notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         }
       } else if ((xmppErr = error.getXMPPError()) != null) {
         Log.e(TAG, "onErrorReceived(): unsupported XMPP error="+xmppErr);
+        fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
+        notifyMessageSendError(error.getId(), fcode, xmppErr.getCondition());
       } else {
         Log.w(TAG, "onErrorReceived(): unsupported custom error="+error.getCustomError());
       }
@@ -361,11 +408,10 @@ public final class MMX {
 
   private MMX(Context context, MMXClientConfig config) {
     mContext = context.getApplicationContext();
-    mClient = MMXClient.getInstance(context, config);
     mHandlerThread = new HandlerThread("MMX");
     mHandlerThread.start();
+    mClient = MMXClient.getInstance(context, config);
     mHandler = new Handler(mHandlerThread.getLooper());
-    mSharedPrefs = context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
   }
 
   @Override
@@ -403,7 +449,7 @@ public final class MMX {
    * @param context the Android context
    * @param config the MMXClientConfig
    */
-  static synchronized void init(Context context, MMXClientConfig config) {
+  public static synchronized void init(Context context, MMXClientConfig config) {
     if (sInstance == null) {
       Log.i(TAG, "App="+context.getPackageName()+", MMX SDK="+BuildConfig.VERSION_NAME+
             ", protocol="+Constants.MMX_VERSION_MAJOR+"."+Constants.MMX_VERSION_MINOR);
@@ -420,9 +466,8 @@ public final class MMX {
    * @param enable true to receving incoming message, false otherwise
    * @throws IllegalStateException if the user is not logged-in
    * @see #login(String, byte[], OnFinishedListener)
-   * @deprecated {@link #start()}
    */
-  public static void enableIncomingMessages(boolean enable) {
+  private static void enableIncomingMessages(boolean enable) {
     try {
       if (enable) {
         getMMXClient().resumeDelivery();
@@ -437,7 +482,7 @@ public final class MMX {
       }
     }
   }
-  
+
   /**
    * Start the MMX messaging service.  The client application must call this
    * method when it is ready; otherwise, the communication between this client and
@@ -470,7 +515,11 @@ public final class MMX {
                            final OnFinishedListener<Void> listener) {
     if (!sInstance.mLoggingIn.compareAndSet(false, true)) {
       Log.d(TAG, "login() already logging in, returning failure");
-      listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+      getCallbackHandler().post(new Runnable() {
+        public void run() {
+          listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+        }
+      });
       return;
     }
 
@@ -480,57 +529,57 @@ public final class MMX {
         boolean unregisterListener = false;
         switch (event) {
           case AUTHENTICATION_FAILURE:
-            listener.onFailure(MMX.FailureCode.SERVER_AUTH_FAILED, null);
+            getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(MMX.FailureCode.SERVER_AUTH_FAILED, null);
+              }
+            });
             unregisterListener = true;
             break;
           case CONNECTED:
-            try {
-              sInstance.mCurrentUser = MMXUser.fromMMXid(client.getClientId());
-              listener.onSuccess(null);
-              unregisterListener = true;
-            } catch (MMXException e) {
-              // Should not happen because it is a connected.
-              Log.e(TAG, "Unable to set current user profile", e);
-            }
+            sInstance.mCurrentUser = User.getCurrentUser();
+            getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onSuccess(null);
+              }
+            });
+            unregisterListener = true;
             break;
           case CONNECTION_FAILED:
             sInstance.mCurrentUser = null;
-            listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
+            getCallbackHandler().post(new Runnable() {
+              public void run() {
+                listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
+              }
+            });
             unregisterListener = true;
             break;
         }
         if (unregisterListener) {
           sInstance.mLoggingIn.set(false);
+          synchronized (sInstance.mLoggingIn) {
+            sInstance.mLoggingIn.notify();
+          }
           getGlobalListener().unregisterListener(this);
         }
       }
 
       public void onMessageReceived(MMXClient client,
                                     com.magnet.mmx.client.common.MMXMessage message,
-                                    String receiptId) {
+                                    String receiptId) { }
 
-      }
+      public void onSendFailed(MMXClient client, String messageId) { }
 
-      public void onSendFailed(MMXClient client, String messageId) {
+      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) { }
 
-      }
-
-      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
-
-      }
-
-      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
-
-      }
+      public void onMessageSubmitted(MMXClient client, String messageId) { }
+      
+      public void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId) { }
 
       public void onPubsubItemReceived(MMXClient client, MMXTopic topic,
-                                       com.magnet.mmx.client.common.MMXMessage message) {
+                                       com.magnet.mmx.client.common.MMXMessage message) { }
 
-      }
-
-      public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
-
-      }
+      public void onErrorReceived(MMXClient client, MMXErrorMessage error) { }
     });
     sInstance.mCurrentUser = null;
     getMMXClient().connectWithCredentials(username, password, MMX.getGlobalListener(),
@@ -549,7 +598,11 @@ public final class MMX {
         switch (event) {
           case DISCONNECTED:
             if (listener != null) {
-              listener.onSuccess(null);
+              getCallbackHandler().post(new Runnable() {
+                public void run() {
+                  listener.onSuccess(null);
+                }
+              });
             }
             unregisterListener = true;
             break;
@@ -561,31 +614,21 @@ public final class MMX {
 
       public void onMessageReceived(MMXClient client,
                                     com.magnet.mmx.client.common.MMXMessage message,
-                                    String receiptId) {
+                                    String receiptId) { }
 
-      }
+      public void onSendFailed(MMXClient client, String messageId) { }
 
-      public void onSendFailed(MMXClient client, String messageId) {
+      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) { }
 
-      }
-
-      public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
-
-      }
-
-      public void onMessageAccepted(MMXClient client, MMXid recipient, String messageId) {
-
-      }
+      public void onMessageSubmitted(MMXClient client, String messageId) { }
+      
+      public void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId) { }
 
       public void onPubsubItemReceived(MMXClient client,
                                        MMXTopic topic,
-                                       com.magnet.mmx.client.common.MMXMessage message) {
+                                       com.magnet.mmx.client.common.MMXMessage message) { }
 
-      }
-
-      public void onErrorReceived(MMXClient client, MMXErrorMessage error) {
-
-      }
+      public void onErrorReceived(MMXClient client, MMXErrorMessage error) { }
     });
     sInstance.mCurrentUser = null;
     getMMXClient().disconnect();
@@ -597,9 +640,8 @@ public final class MMX {
    *
    * @return the current user, null there is no logged-in user
    */
-  public static MMXUser getCurrentUser() {
-
-    return sInstance.mCurrentUser;
+  public static User getCurrentUser() {
+    return sInstance == null ? null : sInstance.mCurrentUser;
   }
 
   private synchronized static void checkState() {
@@ -619,13 +661,12 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean registerListener(EventListener listener) {
-    checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
     }
-    synchronized (sInstance.mListeners) {
-      boolean exists = sInstance.mListeners.remove(listener);
-      sInstance.mListeners.add(listener);
+    synchronized (sListeners) {
+      boolean exists = sListeners.remove(listener);
+      sListeners.add(listener);
       return !exists;
     }
   }
@@ -638,111 +679,151 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static boolean unregisterListener(EventListener listener) {
-    checkState();
     if (listener == null) {
       throw new IllegalArgumentException("Listener cannot be null.");
     }
-    synchronized (sInstance.mListeners) {
-      return sInstance.mListeners.remove(listener);
-    }
-  }
-  
-  private static void notifyMessageReceived(MMXMessage message) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
-        throw new IllegalStateException("Message dropped because there were no listeners registered.");
-      }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onMessageReceived(message)) {
-            //listener returning true means consume the message
-            break;
-          }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
-        }
-      }
+    synchronized (sListeners) {
+      return sListeners.remove(listener);
     }
   }
 
-  private static void notifyMessageAcknowledged(MMXid from, String originalMessageId) {
-    synchronized (sInstance.mListeners) {
-      if (sInstance.mListeners.isEmpty()) {
+  private static EventListener[] cloneListeners() {
+    checkState();
+    synchronized (sListeners) {
+      EventListener[] result = new EventListener[sListeners.size()];
+      return sListeners.toArray(result);
+    }
+  }
+
+  private static void notifyMessageSendError(final String msgId,
+                                             final MMXMessage.FailureCode code, final String text) {
+    final EventListener[] listeners = cloneListeners();
+    if (listeners.length == 0) {
+      throw new IllegalStateException("Error dropped because there were no listeners registered.");
+    }
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        for (int i=listeners.length; --i>=0;){
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onMessageSendError(msgId, code, text)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyErrorReceived(): Caught exception while calling listener: " + listener, ex);
+          }
+        }
+      }
+    });
+  }
+
+  private static void notifyMessageReceived(final MMXMessage message) {
+    final EventListener[] listeners = cloneListeners();
+    if (listeners.length == 0) {
+      throw new IllegalStateException("Message dropped because there were no listeners registered.");
+    }
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        for (int i=listeners.length; --i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onMessageReceived(message)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
+          }
+        }
+      }
+    });
+  }
+
+  private static void notifyMessageAcknowledged(final MMXid from, final String originalMessageId) {
+    final EventListener[] listeners = cloneListeners();
+    if (listeners.length == 0) {
         throw new IllegalStateException("Acknowledgement dropped because there were no listeners registered.");
-      }
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          MMXUser fromUser = MMXUser.fromMMXid(from);
-          if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
-            //listener returning true means consume the message
-            break;
+    }
+    HashSet<String> userToRetrieve = new HashSet<String>();
+    userToRetrieve.add(from.getUserId());
+
+    UserCache userCache = UserCache.getInstance();
+    userCache.fillCacheByUserId(userToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE);
+    final User fromUser = userCache.getByUserId(from.getUserId());
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        for (int i=listeners.length; --i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onMessageAcknowledgementReceived(fromUser, originalMessageId)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
           }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyMessageAcknowledged(): Caught exception while calling listener: " + listener, ex);
         }
       }
-    }
+    });
   }
 
-  private static void notifyLoginRequired(LoginReason reason) {
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onLoginRequired(reason)) {
-            //listener returning true means consume the message
-            break;
+  private static void notifyLoginRequired(final LoginReason reason) {
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        EventListener[] listeners = cloneListeners();
+        for (int i=listeners.length;--i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onLoginRequired(reason)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
           }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyLoginRequired(): Caught exception while calling listener: " + listener, ex);
         }
       }
-    }
+    });
   }
 
-  private static void notifyInviteReceived(MMXChannel.MMXInvite invite) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onInviteReceived(invite)) {
-            //listener returning true means consume the message
-            break;
+  private static void notifyInviteReceived(final MMXChannel.MMXInvite invite) {
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        EventListener[] listeners = cloneListeners();
+        for (int i=listeners.length;--i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onInviteReceived(invite)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
           }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyInviteReceived(): Caught exception while calling listener: " + listener, ex);
         }
       }
-    }
+    });
   }
 
-  private static void notifyInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
-    checkState();
-    synchronized (sInstance.mListeners) {
-      Iterator<EventListener> listeners = sInstance.mListeners.descendingIterator();
-      while (listeners.hasNext()) {
-        EventListener listener = listeners.next();
-        try {
-          if (listener.onInviteResponseReceived(inviteResponse)) {
-            //listener returning true means consume the message
-            break;
+  private static void notifyInviteResponseReceived(final MMXChannel.MMXInviteResponse inviteResponse) {
+    getCallbackHandler().post(new Runnable() {
+      public void run() {
+        final EventListener[] listeners = cloneListeners();
+        for (int i=listeners.length;--i>=0;) {
+          EventListener listener = listeners[i];
+          try {
+            if (listener.onInviteResponseReceived(inviteResponse)) {
+              //listener returning true means consume the message
+              break;
+            }
+          } catch (Exception ex) {
+            Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
           }
-        } catch (Exception ex) {
-          Log.d(TAG, "notifyInviteResponseReceived(): Caught exception while calling listener: " + listener, ex);
         }
       }
-    }
+    });
   }
-
-
 
   /**
    * Helper method to retrieve the Android context.
@@ -784,6 +865,14 @@ public final class MMX {
     return sInstance.mGlobalListener;
   }
 
+  private synchronized static SharedPreferences getSharedPrefs(Context context) {
+    if (sSharedPrefs == null) {
+      sSharedPrefs = context
+              .getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE);
+    }
+    return sSharedPrefs;
+  }
+
   /**
    * Registers the wakeup broadcast intent.  This is handled internally using
    * Intent.toUri().  This is part of the GCM wakeup functionality of MMX.  There are several
@@ -799,10 +888,9 @@ public final class MMX {
    * @param intent the intent to register
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
-  public synchronized static void registerWakeupBroadcast(Intent intent) {
-    checkState();
+  public synchronized static void registerWakeupBroadcast(Context context, Intent intent) {
     //FIXME:  check to see if the broadcast receiver was registered
-    sInstance.mSharedPrefs.edit().putString(PREF_WAKEUP_INTENT_URI,
+    getSharedPrefs(context).edit().putString(PREF_WAKEUP_INTENT_URI,
             intent.toUri(Intent.URI_INTENT_SCHEME)).apply();
   }
 
@@ -810,18 +898,15 @@ public final class MMX {
    * Unregisters the wakeup broadcast intent.
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
-  public synchronized static void unregisterWakeupBroadcast() {
-    checkState();
-    sInstance.mSharedPrefs.edit().remove(PREF_WAKEUP_INTENT_URI).apply();
+  public synchronized static void unregisterWakeupBroadcast(Context context) {
+    getSharedPrefs(context).edit().remove(PREF_WAKEUP_INTENT_URI).apply();
   }
 
   /**
    * Perform the wakeup
    */
-  private synchronized static void wakeup(Intent nestedIntent) {
-    checkState();
-    Context context = sInstance.mContext;
-    String intentUri = sInstance.mSharedPrefs.getString(PREF_WAKEUP_INTENT_URI, null);
+  private synchronized static void wakeup(Context context, Intent nestedIntent) {
+    String intentUri = getSharedPrefs(context).getString(PREF_WAKEUP_INTENT_URI, null);
     if (intentUri != null) {
       try {
         Intent intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME);
@@ -841,12 +926,12 @@ public final class MMX {
    * Default implementation for the internal wakeup listener.  This will ultimately cause the
    * intent registered in registerWakeupBroadcast() to be broadcast.
    *
-   * @see #registerWakeupBroadcast(Intent)
+   * @see #registerWakeupBroadcast(Context, Intent)
    */
   public static final class MMXWakeupListener implements MMXClient.MMXWakeupListener {
     public void onWakeupReceived(Context applicationContext, Intent intent) {
       Log.d(TAG, "onWakeupReceived() start");
-      wakeup(intent);
+      wakeup(applicationContext, intent);
     }
   }
 
@@ -897,5 +982,250 @@ public final class MMX {
       return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
     }
   }
+
+  /**
+   * Retreive the MaxModule for MMX
+   * @return the MMX MaxModule
+   */
+  public static synchronized final MaxModule getModule() {
+    if (sModule == null) {
+      sModule = new MMXModule();
+    }
+    return sModule;
+  }
+
+  /**
+   * The MaxModule implementation to be used with Max.initModule()
+   */
+  public static class MMXModule implements MaxModule {
+    private final String TAG = MMXModule.class.getSimpleName();
+    private Context mContext;
+    private ApiCallback<Boolean> mCallback;
+
+    private MMXModule() {
+    }
+
+    @Override
+    public String getName() {
+      return MMXModule.class.getSimpleName();
+    }
+
+    @Override
+    public void onInit(Context context, final Map<String, String> configs,
+                       ApiCallback<Boolean> callback) {
+      Log.d(TAG, "onInit(): start");
+      for (Map.Entry<String,String> entry:configs.entrySet()) {
+        Log.d(TAG, "onInit(): key=" + entry.getKey() + ", value=" + entry.getValue());
+      }
+      mContext = context.getApplicationContext();
+      mCallback = callback;
+
+      //map the configs into a clientConfig and init
+      MMXClientConfig config = new MaxClientConfig(configs);
+      MMX.init(context, config);
+    }
+
+    @Override
+    public void onAppTokenUpdate(String appToken, String appId, String deviceId) {
+      //not implemented for now
+      Log.d(TAG, "onAppTokenUpdate(): Not implemented for now.  appId=" + appId +
+              ", deviceId=" + deviceId + ", appToken=" + appToken);
+    }
+
+    @Override
+    public void onUserTokenUpdate(final String userToken, final String userId, final String deviceId) {
+      Log.d(TAG, "onUserTokenUpdate(): userId=" + userId +
+              ", deviceId=" + deviceId + ", userToken=" + userToken);
+      //set the deviceId
+      DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+        public String getId(Context context) {
+          return deviceId;
+        }
+
+        public boolean obfuscated() {
+          return false;
+        }
+      });
+      if (MMX.getCurrentUser() != null) {
+        Log.d(TAG, "onUserTokenUpdate(): already logged in, performing logout/login");
+        //if already logged in, need to logout/login again
+        MMX.logout(new MMX.OnFinishedListener<Void>() {
+          public void onSuccess(Void result) {
+            Log.d(TAG, "onUserTokenUpdate(): logout success");
+            loginHelper(userId, deviceId, userToken);
+          }
+
+          public void onFailure(MMX.FailureCode code, Throwable ex) {
+            Log.e(TAG, "onUserTokenUpdate(): logout failure: " + code, ex);
+            loginHelper(userId, deviceId, userToken);
+          }
+        });
+      } else {
+        loginHelper(userId, deviceId, userToken);
+      }
+    }
+
+    private void loginHelper(final String userId, final String deviceId,
+                             final String userToken) {
+      if (userId != null && deviceId != null && userToken != null) {
+        MMX.login(userId, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
+          @Override
+          public void onSuccess(Void result) {
+            Log.d(TAG, "loginHelper(): success");
+            if (mCallback != null) {
+              mCallback.success(true);
+            }
+          }
+
+          @Override
+          public void onFailure(MMX.FailureCode code, Throwable ex) {
+            Log.e(TAG, "loginHelper(): failure=" + code, ex);
+            if (mCallback != null) {
+              mCallback.failure(new ApiError("Unable to login: " +
+                      code, ApiError.API_ERROR_UNEXPECTED, ex));
+            }
+          }
+        });
+      }
+    }
+
+    @Override
+    public void onClose(boolean gracefully) {
+      Log.d(TAG, "onClose(): gracefully = " + gracefully);
+    }
+
+    @Override
+    public void onUserTokenInvalidate() {
+      logoutHelper();
+    }
+
+    @Override
+    public void deInitModule() {
+      logoutHelper();
+    }
+
+    private void logoutHelper() {
+      if (getCurrentUser() != null) {
+        MMX.logout(new OnFinishedListener<Void>() {
+                     @Override
+                     public void onSuccess(Void result) {
+                       Log.d(TAG, "logoutHelper(): logout successful");
+                     }
+
+                     @Override
+                     public void onFailure(FailureCode code, Throwable ex) {
+                       Log.w(TAG, "logoutHelper(): logout failed: " + code, ex);
+                     }
+                   }
+        );
+      } else {
+        Log.d(TAG, "logoutHelper(): not logged in");
+      }
+    }
+  }
+
+  private static class MaxClientConfig implements MMXClientConfig {
+    private final String TAG = MaxClientConfig.class.getSimpleName();
+
+    private Map<String,String> mConfigs = null;
+    private static final String APP_ID = "mmx-appId";
+    private static final String APP_API_KEY = "mmx-apiKey";
+    private static final String APP_GCM_SENDER_ID = "mmx-gcmSenderId";
+    private static final String SECURITY_POLICY = "security-policy";
+    private static final String DOMAIN = "mmx-domain";
+    private static final String PORT = "mmx-port";
+    private static final String HOST = "mmx-host";
+    private static final String REST_PORT = "mmx-rest-port";
+
+    private MaxClientConfig(Map<String,String> configs) {
+      mConfigs = configs;
+    }
+
+    @Override
+    public String getAppId() {
+      return mConfigs.get(APP_ID);
+    }
+
+    @Override
+    public String getApiKey() {
+      return mConfigs.get(APP_API_KEY);
+    }
+
+    @Override
+    public String getGcmSenderId() {
+      return mConfigs.get(APP_GCM_SENDER_ID);
+    }
+
+    @Override
+    public String getServerUser() {
+      Log.d(TAG, "getServerUser(): NOT IMPLEMENTED");
+      return null;
+    }
+
+    @Override
+    public String getAnonymousSecret() {
+      Log.d(TAG, "getAnonymousSecret(): NOT IMPLEMENTED");
+      return null;
+    }
+
+    @Override
+    public String getHost() {
+      return mConfigs.get(HOST);
+    }
+
+    @Override
+    public int getPort() {
+      return Integer.parseInt(mConfigs.get(PORT));
+    }
+
+    @Override
+    public int getRESTPort() {
+      return Integer.parseInt(mConfigs.get(REST_PORT));
+    }
+
+    @Override
+    public String getDomainName() {
+      return mConfigs.get(DOMAIN);
+    }
+
+    @Override
+    public MMXClient.SecurityLevel getSecurityLevel() {
+      return MMXClient.SecurityLevel.valueOf(mConfigs.get(SECURITY_POLICY));
+    }
+
+    @Override
+    public String getDeviceId() {
+      Log.d(TAG, "getDeviceId(): NOT IMPLEMENTED");
+      return null;
+    }
+
+    @Override
+    public boolean obfuscateDeviceId() {
+      return false;
+    }
+  }
+
+  /**
+   * FOR TESTING:  Sets the callback handler for MMX callbacks.
+   * By default, the MMX will make callbacks on the main thread.
+   *
+   * @param handler the handler to use for callbacks
+   */
+  public static void setCallbackHandler(Handler handler) {
+    if (handler == null) {
+      throw new IllegalArgumentException("Callback handler cannot be null.");
+    }
+    sCallbackHandler = handler;
+  }
+
+  /**
+   * Retrieve the callback handler for MMX.
+   *
+   * @return the callback handler
+   */
+  static Handler getCallbackHandler() {
+    return sCallbackHandler;
+  }
 }
+
 
