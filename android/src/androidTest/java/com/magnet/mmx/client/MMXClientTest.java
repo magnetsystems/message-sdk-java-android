@@ -15,6 +15,7 @@
 
 package com.magnet.mmx.client;
 
+import android.test.suitebuilder.annotation.Suppress;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,6 +49,8 @@ import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.protocol.UserTags;
 
+//FIXME : those test cases need rewriting for 2.0
+@Suppress
 public class MMXClientTest extends InstrumentationTestCase {
   private static final String TAG = MMXClientTest.class.getSimpleName();
   private MMXClient mmxClient;
@@ -975,6 +978,8 @@ public class MMXClientTest extends InstrumentationTestCase {
 
   }
 
+  //FIXME : user managment is using MMS API now
+  @Suppress
   public void testAddRemoveUserTags() {
     ClientTestListener listener = new ClientTestListener();
     assertFalse(mmxClient.isConnected());
@@ -1027,6 +1032,8 @@ public class MMXClientTest extends InstrumentationTestCase {
     assertFalse(mmxClient.isConnected());
   }
 
+  //FIXME : user managment is using MMS API now
+  @Suppress
   public void testSetAllUserTags() {
     ClientTestListener listener = new ClientTestListener();
     assertFalse(mmxClient.isConnected());
@@ -1088,6 +1095,8 @@ public class MMXClientTest extends InstrumentationTestCase {
     assertFalse(mmxClient.isConnected());
   }
 
+  //"Account is created from REST API now"
+  @Suppress()
   public void testAccountCreate() {
     assertFalse(mmxClient.isConnected());
     MMXAccountManager am = mmxClient.getAccountManager();
