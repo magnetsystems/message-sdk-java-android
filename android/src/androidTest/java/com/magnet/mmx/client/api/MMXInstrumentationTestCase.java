@@ -14,6 +14,7 @@ import com.magnet.max.android.auth.model.UserRegistrationInfo;
 import com.magnet.max.android.config.MaxAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
 
+import com.magnet.mmx.client.utils.MaxAndroidJsonConfig;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
@@ -39,7 +40,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     HandlerThread callbackThread = new HandlerThread("TestCaseCallbackThread");
     callbackThread.start();
     MMX.setCallbackHandler(new Handler(callbackThread.getLooper()));
-    MaxCore.init(mContext, new MaxAndroidPropertiesConfig(mContext, com.magnet.mmx.test.R.raw.test));
+    MaxCore.init(mContext, new MaxAndroidJsonConfig(mContext, com.magnet.mmx.test.R.raw.keys));
     postSetUp();
   }
 
