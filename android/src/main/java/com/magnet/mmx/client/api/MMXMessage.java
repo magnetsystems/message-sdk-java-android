@@ -14,6 +14,13 @@
  */
 package com.magnet.mmx.client.api;
 
+import com.magnet.max.android.MaxCore;
+import com.magnet.mmx.client.api.attachment.AttachmentService;
+import com.magnet.mmx.client.api.attachment.AttachmentTrasferLister;
+import com.magnet.mmx.client.api.attachment.MMXAttachment;
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.RequestBody;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +39,11 @@ import com.magnet.mmx.client.common.Options;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.StatusCode;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import retrofit.Callback;
+import retrofit.MagnetCall;
+import retrofit.Response;
 
 /**
  * This class holds the message payload, and operations for the message.  If
@@ -197,6 +209,36 @@ public class MMXMessage {
     }
 
     /**
+     * Adds an attachment to the message
+     * @param attachment
+     * @return
+     */
+    MMXMessage.Builder attachment(MMXAttachment attachment) {
+      if(null == mMessage.mAttachments) {
+        mMessage.mAttachments = new ArrayList<>();
+      }
+      mMessage.mAttachments.add(attachment);
+      return this;
+    }
+
+    /**
+     * Adds attachments to the message
+     * @param attachments
+     * @return
+     */
+    MMXMessage.Builder attachments(MMXAttachment... attachments) {
+      if(null != attachments && attachments.length > 0) {
+        if (null == mMessage.mAttachments) {
+          mMessage.mAttachments = new ArrayList<>();
+        }
+        for (MMXAttachment attachment : attachments) {
+          mMessage.mAttachments.add(attachment);
+        }
+      }
+      return this;
+    }
+
+    /**
      * Validate and builds the MMXMessage
      *
      * @return the MMXMessage
@@ -249,6 +291,7 @@ public class MMXMessage {
   private Set<User> mRecipients = new HashSet<User>();
   private Map<String, String> mContent = new HashMap<String, String>();
   private String mReceiptId;
+  private List<MMXAttachment> mAttachments;
 
   /**
    * Default constructor
@@ -398,6 +441,14 @@ public class MMXMessage {
    */
   public Map<String, String> getContent() {
     return mContent;
+  }
+
+  /**
+   * The attachments of this message
+   * @return attachments
+   */
+  public List<MMXAttachment> getAttachments() {
+    return mAttachments;
   }
 
   /**
@@ -830,6 +881,38 @@ public class MMXMessage {
       if (listenerPair == null)
         return null;
       return listenerPair.message;
+    }
+  }
+
+  private void uploadAttachments(final AttachmentTrasferLister lister) {
+    if(null != mAttachments) {
+      AttachmentService attachmentService = MaxCore.create(AttachmentService.class);
+      for(final MMXAttachment attachment : mAttachments) {
+        lister.onStart(attachment);
+        final CountDownLatch uploadSignal = new CountDownLatch(1);
+        attachmentService.uploadAttachment(RequestBody.create(MediaType.parse(attachment.getMimeType().)), new Callback<Void>() {
+          @Override public void onResponse(Response<Void> response) {
+            if(response.isSuccess()) {
+              lister.onComplete(attachment);
+            } else {
+              lister.onError(attachment, new Exception(response.message()));
+            }
+
+            uploadSignal.countDown();
+          }
+
+          @Override public void onFailure(Throwable throwable) {
+            lister.onError(attachment, throwable);
+            uploadSignal.countDown();
+          }
+        }).executeInBackground();
+
+        try {
+          uploadSignal.await(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
     }
   }
 }
