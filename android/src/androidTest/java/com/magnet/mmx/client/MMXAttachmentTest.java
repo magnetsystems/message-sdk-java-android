@@ -6,6 +6,6 @@ package com.magnet.mmx.client;
 public class MMXAttachmentTest {
 
   public void testCreate() {
-    MMXAttachment.c
+
   }
 }

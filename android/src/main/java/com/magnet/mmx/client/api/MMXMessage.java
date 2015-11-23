@@ -14,12 +14,11 @@
  */
 package com.magnet.mmx.client.api;
 
-import com.magnet.max.android.MaxCore;
-import com.magnet.mmx.client.api.attachment.AttachmentService;
-import com.magnet.mmx.client.api.attachment.AttachmentTrasferLister;
-import com.magnet.mmx.client.api.attachment.MMXAttachment;
-import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.RequestBody;
+import com.google.gson.reflect.TypeToken;
+import com.magnet.max.android.attachment.Attachment;
+import com.magnet.max.android.util.MagnetUtils;
+import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.util.GsonData;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,9 +40,6 @@ import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.StatusCode;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import retrofit.Callback;
-import retrofit.MagnetCall;
-import retrofit.Response;
 
 /**
  * This class holds the message payload, and operations for the message.  If
@@ -53,6 +49,8 @@ import retrofit.Response;
  */
 public class MMXMessage {
   private static final String TAG = MMXMessage.class.getSimpleName();
+
+  public static final String CONTENT_ATTACHMENTS = "_attachments";
 
   /**
    * Failure codes for the MMXMessage class.
@@ -213,10 +211,7 @@ public class MMXMessage {
      * @param attachment
      * @return
      */
-    MMXMessage.Builder attachment(MMXAttachment attachment) {
-      if(null == mMessage.mAttachments) {
-        mMessage.mAttachments = new ArrayList<>();
-      }
+    MMXMessage.Builder attachment(Attachment attachment) {
       mMessage.mAttachments.add(attachment);
       return this;
     }
@@ -226,12 +221,9 @@ public class MMXMessage {
      * @param attachments
      * @return
      */
-    MMXMessage.Builder attachments(MMXAttachment... attachments) {
+    MMXMessage.Builder attachments(Attachment... attachments) {
       if(null != attachments && attachments.length > 0) {
-        if (null == mMessage.mAttachments) {
-          mMessage.mAttachments = new ArrayList<>();
-        }
-        for (MMXAttachment attachment : attachments) {
+        for (Attachment attachment : attachments) {
           mMessage.mAttachments.add(attachment);
         }
       }
@@ -291,7 +283,7 @@ public class MMXMessage {
   private Set<User> mRecipients = new HashSet<User>();
   private Map<String, String> mContent = new HashMap<String, String>();
   private String mReceiptId;
-  private List<MMXAttachment> mAttachments;
+  private List<Attachment> mAttachments = new ArrayList<>();
 
   /**
    * Default constructor
@@ -447,7 +439,7 @@ public class MMXMessage {
    * The attachments of this message
    * @return attachments
    */
-  public List<MMXAttachment> getAttachments() {
+  public List<Attachment> getAttachments() {
     return mAttachments;
   }
 
@@ -495,6 +487,9 @@ public class MMXMessage {
     for (Map.Entry<String, String> entry : mContent.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
+
+    uploadAttachments(payload, generatedMessageId, null);
+
     MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(),
         MMX.getHandler()) {
       @Override
@@ -574,6 +569,9 @@ public class MMXMessage {
     for (Map.Entry<String, String> entry : mContent.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
+
+    uploadAttachments(payload, generatedMessageId, null);
+
     MMXTask<String> task;
     if (mChannel != null) {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
@@ -815,14 +813,22 @@ public class MMXMessage {
       content.put(entry.getKey(), entry.getValue());
     }
 
-    MMXMessage newMessage = new MMXMessage();
+    MMXMessage.Builder newMessage = new MMXMessage.Builder();
+
+    // Extract attachments
+    String attachmentsStr = MagnetUtils.trimQuotes(message.getPayload().getAllMetaData().get(CONTENT_ATTACHMENTS));
+    if(StringUtil.isNotEmpty(attachmentsStr)) {
+      List<Attachment> attachments = GsonData.getGson().fromJson(attachmentsStr, new TypeToken<List<Attachment>>() {}.getType());
+      if(null != attachments && attachments.size() > 0) {
+        newMessage.attachments(attachments.toArray(new Attachment[0]));
+      }
+    }
+
     return newMessage
-            .sender(sender)
-            .id(message.getId())
+            .sender(sender).id(message.getId())
             .channel(MMXChannel.fromMMXTopic(topic))
-            .timestamp(message.getPayload().getSentTime())
-            .recipients(recipients)
-            .content(content);
+            .timestamp(message.getPayload().getSentTime()).recipients(recipients).content(content)
+            .build();
   }
 
   //For handling the onSuccess of send() messages when server ack is received
@@ -884,35 +890,70 @@ public class MMXMessage {
     }
   }
 
-  private void uploadAttachments(final AttachmentTrasferLister lister) {
-    if(null != mAttachments) {
-      AttachmentService attachmentService = MaxCore.create(AttachmentService.class);
-      for(final MMXAttachment attachment : mAttachments) {
+  private void uploadAttachments(MMXPayload payload, final String messageId, final Attachment.AttachmentTrasferLister lister) {
+    for(final Attachment attachment : mAttachments) {
+      if(Attachment.Status.COMPLETE == attachment.getStatus()
+          && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
+        if(null != lister) {
+          lister.onComplete(attachment);
+        }
+        continue;
+      }
+
+      if(null != lister) {
         lister.onStart(attachment);
-        final CountDownLatch uploadSignal = new CountDownLatch(1);
-        attachmentService.uploadAttachment(RequestBody.create(MediaType.parse(attachment.getMimeType().)), new Callback<Void>() {
-          @Override public void onResponse(Response<Void> response) {
-            if(response.isSuccess()) {
-              lister.onComplete(attachment);
-            } else {
-              lister.onError(attachment, new Exception(response.message()));
-            }
+      }
 
-            uploadSignal.countDown();
+      final CountDownLatch uploadSignal = new CountDownLatch(1);
+      attachment.upload(new Attachment.AttachmentTrasferLister() {
+        @Override public void onStart(Attachment attachment) {
+          if(null != lister) {
+            lister.onStart(attachment);
           }
+        }
 
-          @Override public void onFailure(Throwable throwable) {
+        @Override public void onProgress(Attachment attachment, long l) {
+          if(null != lister) {
+            lister.onProgress(attachment, l);
+          }
+        }
+
+        @Override public void onComplete(Attachment attachment) {
+          if(null != lister) {
+            lister.onComplete(attachment);
+          }
+          uploadSignal.countDown();
+        }
+
+        @Override public void onError(Attachment attachment, Throwable throwable) {
+          if(null != lister) {
             lister.onError(attachment, throwable);
-            uploadSignal.countDown();
           }
-        }).executeInBackground();
+          uploadSignal.countDown();
+        }
+      });
 
-        try {
-          uploadSignal.await(60, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
+      try {
+        uploadSignal.await(60, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+
+      if(Attachment.Status.COMPLETE == attachment.getStatus()
+          && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
+        lister.onComplete(attachment);
+        Log.d(TAG, "Attachment " + attachment.getName() + " is uploaded successfully.");
+      } else {
+        String message = "Failed to upload attachment " + attachment.getName();
+        Log.d(TAG, message);
+        if(uploadSignal.getCount() > 0) {
+          if(null != lister) {
+            lister.onError(attachment, new Exception(message));
+          }
         }
       }
     }
+
+    payload.setMetaData(CONTENT_ATTACHMENTS, GsonData.getGson().toJson(mAttachments));
   }
 }
