@@ -207,16 +207,6 @@ public class MMXMessage {
     }
 
     /**
-     * Adds an attachment to the message
-     * @param attachment
-     * @return
-     */
-    MMXMessage.Builder attachment(Attachment attachment) {
-      mMessage.mAttachments.add(attachment);
-      return this;
-    }
-
-    /**
      * Adds attachments to the message
      * @param attachments
      * @return
