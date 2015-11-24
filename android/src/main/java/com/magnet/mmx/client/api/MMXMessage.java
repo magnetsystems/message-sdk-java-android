@@ -884,14 +884,11 @@ public class MMXMessage {
     for(final Attachment attachment : mAttachments) {
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
+        Log.d(TAG, "Attahcment " + attachment.getName() + " is already uploaded");
         if(null != listener) {
           listener.onComplete(attachment);
         }
         continue;
-      }
-
-      if(null != listener) {
-        listener.onStart(attachment);
       }
 
       final CountDownLatch uploadSignal = new CountDownLatch(1);
@@ -926,13 +923,17 @@ public class MMXMessage {
       try {
         uploadSignal.await(60, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
-        listener.onError(attachment, new Exception("Timeout when uploading attachment " + attachment.getName()));
+        if(null != listener) {
+          listener.onError(attachment, new Exception("Timeout when uploading attachment " + attachment.getName()));
+        }
         continue;
       }
 
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
-        listener.onComplete(attachment);
+        if(null != listener) {
+          listener.onComplete(attachment);
+        }
         Log.d(TAG, "Attachment " + attachment.getName() + " is uploaded successfully.");
       } else {
         String message = "Failed to upload attachment " + attachment.getName();
