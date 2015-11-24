@@ -211,7 +211,7 @@ public class MMXMessage {
      * @param attachments
      * @return
      */
-    MMXMessage.Builder attachments(Attachment... attachments) {
+    public MMXMessage.Builder attachments(Attachment... attachments) {
       if(null != attachments && attachments.length > 0) {
         for (Attachment attachment : attachments) {
           mMessage.mAttachments.add(attachment);
