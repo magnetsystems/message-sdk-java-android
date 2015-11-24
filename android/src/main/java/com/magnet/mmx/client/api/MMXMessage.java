@@ -488,12 +488,12 @@ public class MMXMessage {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
 
-    uploadAttachments(payload, generatedMessageId, null);
-
     MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(),
         MMX.getHandler()) {
       @Override
       public String doRun(MMXClient mmxClient) throws Throwable {
+        uploadAttachments(payload, generatedMessageId, null);
+
         String publishedId = mmxClient.getPubSubManager().publish(
             generatedMessageId, mChannel.getMMXTopic(), payload);
         if (!generatedMessageId.equals(publishedId)) {
@@ -570,13 +570,13 @@ public class MMXMessage {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
 
-    uploadAttachments(payload, generatedMessageId, null);
-
     MMXTask<String> task;
     if (mChannel != null) {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
+          uploadAttachments(payload, generatedMessageId, null);
+
           String publishedId = mmxClient.getPubSubManager().publish(
               generatedMessageId, mChannel.getMMXTopic(), payload);
           if (!generatedMessageId.equals(publishedId)) {
@@ -890,44 +890,44 @@ public class MMXMessage {
     }
   }
 
-  private void uploadAttachments(MMXPayload payload, final String messageId, final Attachment.AttachmentTrasferLister lister) {
+  private void uploadAttachments(MMXPayload payload, final String messageId, final Attachment.AttachmentTrasferLister listener) {
     for(final Attachment attachment : mAttachments) {
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
-        if(null != lister) {
-          lister.onComplete(attachment);
+        if(null != listener) {
+          listener.onComplete(attachment);
         }
         continue;
       }
 
-      if(null != lister) {
-        lister.onStart(attachment);
+      if(null != listener) {
+        listener.onStart(attachment);
       }
 
       final CountDownLatch uploadSignal = new CountDownLatch(1);
       attachment.upload(new Attachment.AttachmentTrasferLister() {
         @Override public void onStart(Attachment attachment) {
-          if(null != lister) {
-            lister.onStart(attachment);
+          if(null != listener) {
+            listener.onStart(attachment);
           }
         }
 
         @Override public void onProgress(Attachment attachment, long l) {
-          if(null != lister) {
-            lister.onProgress(attachment, l);
+          if(null != listener) {
+            listener.onProgress(attachment, l);
           }
         }
 
         @Override public void onComplete(Attachment attachment) {
-          if(null != lister) {
-            lister.onComplete(attachment);
+          if(null != listener) {
+            listener.onComplete(attachment);
           }
           uploadSignal.countDown();
         }
 
         @Override public void onError(Attachment attachment, Throwable throwable) {
-          if(null != lister) {
-            lister.onError(attachment, throwable);
+          if(null != listener) {
+            listener.onError(attachment, throwable);
           }
           uploadSignal.countDown();
         }
@@ -936,19 +936,20 @@ public class MMXMessage {
       try {
         uploadSignal.await(60, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
-        e.printStackTrace();
+        listener.onError(attachment, new Exception("Timeout when uploading attachment " + attachment.getName()));
+        continue;
       }
 
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
-        lister.onComplete(attachment);
+        listener.onComplete(attachment);
         Log.d(TAG, "Attachment " + attachment.getName() + " is uploaded successfully.");
       } else {
         String message = "Failed to upload attachment " + attachment.getName();
         Log.d(TAG, message);
         if(uploadSignal.getCount() > 0) {
-          if(null != lister) {
-            lister.onError(attachment, new Exception(message));
+          if(null != listener) {
+            listener.onError(attachment, new Exception(message));
           }
         }
       }
