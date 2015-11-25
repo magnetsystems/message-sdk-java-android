@@ -929,57 +929,57 @@ public final class MMX {
    * @see #registerWakeupBroadcast(Context, Intent)
    */
   public static final class MMXWakeupListener implements MMXClient.MMXWakeupListener {
-    public void onWakeupReceived(Context applicationContext, Intent intent) {
-      Log.d(TAG, "onWakeupReceived() start");
-      wakeup(applicationContext, intent);
-    }
-  }
-
-  /**
-   * This class represents a push message using the Intent interface.  A push
-   * message is usually sent from Console, transported by GCM, and received
-   * by the Wakeup Receiver.
-   */
-  public static final class MMXPushMessage {
-    private final static String TAG = MMXPushMessage.class.getSimpleName();
-    private Intent mIntent;
-
     /**
-     * Parse an intent for a push message.  If the intent is not a valid MMX
-     * intent, null will be returned.
-     * @param intent The intent from the Wakeup Receiver
-     * @return MMXPushMessage or null.
+     * This class represents a push message using the Intent interface.  A push
+     * message is usually sent from Console, transported by GCM, and received
+     * by the Wakeup Receiver.
      */
-    public static MMXPushMessage parse(Intent intent) {
-      String nestedIntent = null;
-      try {
-        nestedIntent = intent.getStringExtra(MMX.EXTRA_NESTED_INTENT);
-        if (nestedIntent == null) {
+    public static final class MMXPushMessage {
+      private final static String TAG = MMXPushMessage.class.getSimpleName();
+      private Intent mIntent;
+    
+      /**
+       * Parse an intent for a push message.  If the intent is not a valid MMX
+       * intent, null will be returned.
+       * @param intent The intent from the Wakeup Receiver
+       * @return MMXPushMessage or null.
+       */
+      public static MMXPushMessage parse(Intent intent) {
+        String nestedIntent = null;
+        try {
+          nestedIntent = intent.getStringExtra(MMX.EXTRA_NESTED_INTENT);
+          if (nestedIntent == null) {
+            return null;
+          }
+          MMXPushMessage mmxPushMsg = new MMXPushMessage();
+          mmxPushMsg.mIntent = Intent.parseUri(nestedIntent, Intent.URI_INTENT_SCHEME);
+          return mmxPushMsg;
+        } catch (URISyntaxException e) {
+          Log.w(TAG, "Ignored the malformed MMX intent: "+nestedIntent);
           return null;
         }
-        MMXPushMessage mmxPushMsg = new MMXPushMessage();
-        mmxPushMsg.mIntent = Intent.parseUri(nestedIntent, Intent.URI_INTENT_SCHEME);
-        return mmxPushMsg;
-      } catch (URISyntaxException e) {
-        Log.w(TAG, "Ignored the malformed MMX intent: "+nestedIntent);
-        return null;
+      }
+    
+      /**
+       * Get the intent that contains the push message.
+       * @return The intent.
+       */
+      public Intent getIntent() {
+        return mIntent;
+      }
+    
+      /**
+       * Get the text sent from the Console.
+       * @return A text.
+       */
+      public String getText() {
+        return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
       }
     }
 
-    /**
-     * Get the intent that contains the push message.
-     * @return The intent.
-     */
-    public Intent getIntent() {
-      return mIntent;
-    }
-
-    /**
-     * Get the text sent from the Console.
-     * @return A text.
-     */
-    public String getText() {
-      return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
+    public void onWakeupReceived(Context applicationContext, Intent intent) {
+      Log.d(TAG, "onWakeupReceived() start");
+      wakeup(applicationContext, intent);
     }
   }
 

@@ -30,7 +30,6 @@ import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.disco.packet.DiscoverItems;
-//import org.jivesoftware.smackx.pubsub.ChildrenAssociationPolicy;
 import org.jivesoftware.smackx.pubsub.ConfigureForm;
 import org.jivesoftware.smackx.pubsub.FormType;
 import org.jivesoftware.smackx.pubsub.LeafNode;
@@ -48,7 +47,6 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicId;
 import com.magnet.mmx.protocol.MMXTopicOptions;
-//import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.SendLastPublishedItems;
 import com.magnet.mmx.protocol.StatusCode;
@@ -1019,8 +1017,8 @@ public class PubSubManager {
 
   /**
    * Request to send last published items for all topics with max items per
-   * topic since the last delivery time.  The published items will be delivered
-   * through {@link MMXMessageListener#onItemReceived(MMXMessage, MMXTopic).
+   * topic since a given time.  The published items will be delivered through
+   * {@link MMXMessageListener#onItemReceived(MMXMessage, MMXTopic).
    * @param maxItems Maximum of items to be returned.
    * @param since The last published date/time.
    * @return The request result.
@@ -1028,8 +1026,24 @@ public class PubSubManager {
    */
   public MMXStatus requestLastPublishedItems(int maxItems, Date since)
                                     throws MMXException {
+    return requestLastPublishedItems(null, maxItems, since);
+  }
+
+  /**
+   * Request to send last published items for a topic with max items since a
+   * given time.  The published items will be delivered through
+   * {@link MMXMessageListener#onItemReceived(MMXMessage, MMXTopic).
+   * @param topic The topic.
+   * @param maxItems Maximum of items to be returned.
+   * @param since The last published date/time.
+   * @return The request result.
+   * @throws MMXException
+   */
+  public MMXStatus requestLastPublishedItems(MMXTopic topic, int maxItems,
+                                              Date since) throws MMXException {
     try {
-      SendLastPublishedItems rqt = new SendLastPublishedItems(maxItems, since);
+      SendLastPublishedItems rqt = new SendLastPublishedItems((topic == null) ?
+          null : new MMXTopicId(topic), maxItems, since);
       PubSubIQHandler<SendLastPublishedItems, MMXStatus> iqHandler =
           new PubSubIQHandler<SendLastPublishedItems, MMXStatus>();
       iqHandler.sendGetIQ(mCon, Constants.PubSubCommand.getlatest.toString(),
@@ -1174,6 +1188,9 @@ public class PubSubManager {
     return true;
   }
 
+  /**
+   * Get the last published item delivery time.
+   */
   Date getLastDelivery() {
     if (mBuffer == null) {
       // Delay initializing mBuffer until mCon is connected.
@@ -1210,6 +1227,7 @@ public class PubSubManager {
       }
     }
   }
+
   /**
    * Get the summary information of a list of topics with an optional
    * published date range.

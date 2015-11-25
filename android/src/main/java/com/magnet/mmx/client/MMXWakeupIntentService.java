@@ -57,6 +57,10 @@ public final class MMXWakeupIntentService extends IntentService {
       Constants.MMX_ACTION_CODE_PUSH + ":" +
       PingPongCommand.notify.name();
 
+  public static final String HEADER_PUBSUB = 
+      Constants.MMX + ":" +
+      Constants.MMX_ACTION_CODE_WAKEUP + ":" +
+      PingPongCommand.pubsub.name();
 
   public MMXWakeupIntentService() {
     super("MMXGcmIntentService");
@@ -94,6 +98,7 @@ public final class MMXWakeupIntentService extends IntentService {
             try {
               PushMessage pushMessage = PushMessage.decode(msg, MMXTypeMapper.getInstance());
               isMmxHandle = handleMMXInternalPush(pushMessage);
+              Log.d(TAG, "isMmxHandle="+isMmxHandle+", pushMsg="+pushMessage);
             } catch (UnknownTypeException ex) {
               //This is not an internal MMX message type
               Log.i(TAG, "onHandleIntent() forwarding intent to application");
@@ -185,35 +190,47 @@ public final class MMXWakeupIntentService extends IntentService {
     if (Log.isLoggable(TAG, Log.DEBUG)) {
       Log.d(TAG, "handleMMXInternalPush(): received command: " + pushType);
     }
+    Object payload = pushMessage.getPayload();
+    if (!(payload instanceof GCMPayload)) {
+      return false;
+    }
     GCMPayload gcmPayload = (GCMPayload) pushMessage.getPayload();
     if (gcmPayload == null) {
       return false;
     }
-    String typeName = (String) gcmPayload.getMmx().get(Constants.PAYLOAD_TYPE_KEY);
-    if (TextUtils.isEmpty(typeName)) {
-      return false;
-    }
+    String typeName = pushMessage.getType();
     String urlString = (String) gcmPayload.getMmx().get(Constants.PAYLOAD_CALLBACK_URL_KEY);
-    if (PushMessage.Action.WAKEUP.compareTo(pushType) == 0) {
-      if (HEADER_WAKEUP.equalsIgnoreCase(typeName)) { // mmx:w:retrieve
+    if (PushMessage.Action.WAKEUP == pushType) { // "mmx:w:*"
+      if (Constants.PingPongCommand.retrieve.name().equalsIgnoreCase(typeName)) { // "mmx:w:retrieve"
         MMXClient.handleWakeup(this, new Intent(MMXClient.ACTION_RETRIEVE_MESSAGES));
         return true;
-      } else if (!TextUtils.isEmpty(urlString)) {  // mmx:w:ping
-        invokeCallback(urlString);
-        return true;
+      } else if (Constants.PingPongCommand.ping.name().equalsIgnoreCase(typeName)) { // "mmx:w:ping"
+        if (!TextUtils.isEmpty(urlString)) {
+          invokeCallback(urlString);
+          return true;
+        }
       }
-    } else if (PushMessage.Action.PUSH.compareTo(pushType) == 0) {  // mmx:p:*
-      String text = gcmPayload.getBody();
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "handleMMXInternalPush(): Received notification with body: " + text);
-      }
-      invokeWakeupHandlerForPush(gcmPayload);
-      if (!TextUtils.isEmpty(urlString)) {
-        invokeCallback(urlString);
-      }
-      return true;
+    } else if (PushMessage.Action.PUSH == pushType) {  // mmx:p:*
+      // TODO: console should use "mmx:p:notify" instead of "mmx:p".
+      // TODO: the following code causes MMXPushEvent unable to parse the intent.
+      // TODO: not clear how to handle push notification in Android.
+//      if (TextUtils.isEmpty(typeName)) { // "mmx:p"
+//        String text = gcmPayload.getBody();
+//        if (Log.isLoggable(TAG, Log.DEBUG)) {
+//          Log.d(TAG, "handleMMXInternalPush(): Received notification with body: " + text);
+//        }
+//        invokeWakeupHandlerForPush(gcmPayload);
+//        if (!TextUtils.isEmpty(urlString)) {
+//          invokeCallback(urlString);
+//        }
+//        return true;
+//      }
+    }
+
+    // Do the callback if it is specified.
+    if (!TextUtils.isEmpty(urlString)) {
+      invokeCallback(urlString);
     }
     return false;
-
   }
 }

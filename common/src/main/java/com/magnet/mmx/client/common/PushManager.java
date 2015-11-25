@@ -26,6 +26,7 @@ import com.magnet.mmx.protocol.MsgId;
 import com.magnet.mmx.protocol.MsgTags;
 import com.magnet.mmx.protocol.Notification;
 import com.magnet.mmx.protocol.PingPong;
+import com.magnet.mmx.protocol.PushResult;
 import com.magnet.mmx.util.XIDUtil;
 
 /**
@@ -100,16 +101,16 @@ public class PushManager {
    * @param deviceId The device ID of a target user.
    * @param type PingPong or Pong type.
    * @param payload A PingPong JSONifiable object.
-   * @return A status.
+   * @return The push result.
    * @throws MMXException
    */
-  public MMXStatus wakeup(String userId, String deviceId, PingPongCommand type,
+  public PushResult wakeup(String userId, String deviceId, PingPongCommand type,
                           PingPong payload) throws MMXException {
     String xid = XIDUtil.makeXID(userId, mCon.getAppId(), mCon.getDomain(),
                           deviceId);
-    WakeupMMXIQHandler<PingPong, MMXStatus> iqHandler =
-        new WakeupMMXIQHandler<PingPong, MMXStatus>();
-    iqHandler.sendGetIQ(mCon, xid, type.toString(), payload, MMXStatus.class,
+    WakeupMMXIQHandler<PingPong, PushResult> iqHandler =
+        new WakeupMMXIQHandler<PingPong, PushResult>();
+    iqHandler.sendGetIQ(mCon, xid, type.toString(), payload, PushResult.class,
         iqHandler);
     return iqHandler.getResult();
   }
@@ -120,17 +121,17 @@ public class PushManager {
    * @param deviceId The device ID of a target user.
    * @param type A payload type.
    * @param payload A JSONifiable object.
-   * @return A status.
+   * @return The push result.
    * @throws MMXException
    * @see {@link DeviceManager#getDevices(String)}
    */
-  public MMXStatus push(String userId, String deviceId, String type,
+  public PushResult push(String userId, String deviceId, String type,
                         Object payload) throws MMXException {
     String xid = XIDUtil.makeXID(userId, mCon.getAppId(), mCon.getDomain(),
                           deviceId);
-    PushMMXIQHandler<Object, MMXStatus> iqHandler =
-        new PushMMXIQHandler<Object, MMXStatus>();
-    iqHandler.sendGetIQ(mCon, xid, type, payload, MMXStatus.class,
+    PushMMXIQHandler<Object, PushResult> iqHandler =
+        new PushMMXIQHandler<Object, PushResult>();
+    iqHandler.sendGetIQ(mCon, xid, type, payload, PushResult.class,
         iqHandler);
     return iqHandler.getResult();
   }
@@ -145,14 +146,14 @@ public class PushManager {
    * @throws MMXException
    * @see {@link DeviceManager#getDevices(String)}
    */
-  public MMXStatus notify(String userId, String deviceId, Notification payload)
+  public PushResult notify(String userId, String deviceId, Notification payload)
       throws MMXException {
     String xid = XIDUtil.makeXID(userId, mCon.getAppId(), mCon.getDomain(),
                           deviceId);
-    WakeupMMXIQHandler<Notification, MMXStatus> iqHandler =
-        new WakeupMMXIQHandler<Notification, MMXStatus>();
+    WakeupMMXIQHandler<Notification, PushResult> iqHandler =
+        new WakeupMMXIQHandler<Notification, PushResult>();
     iqHandler.sendGetIQ(mCon, xid, PingPongCommand.notify.toString(), payload,
-        MMXStatus.class, iqHandler);
+        PushResult.class, iqHandler);
     return iqHandler.getResult();
   }
 
