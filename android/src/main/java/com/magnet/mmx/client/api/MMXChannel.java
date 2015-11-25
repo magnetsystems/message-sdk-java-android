@@ -127,6 +127,7 @@ public class MMXChannel {
     public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(404, "SUBSCRIPTION_NOT_FOUND");
     public static final FailureCode SUBSCRIPTION_INVALID_ID = new FailureCode(406, "SUBSCRIPTION_INVALID_ID");
     public static final FailureCode INVALID_INVITEE = new FailureCode(403, "INVALID_INVITEE");
+    public static final FailureCode ATTACHMENT_FAILURE = new FailureCode(414, "ATTACHMENT_FAILURE");
 
     FailureCode(int value, String description) {
       super(value, description);

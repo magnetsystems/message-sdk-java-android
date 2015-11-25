@@ -325,6 +325,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.d(TAG, "failed to getAllPrivateChannels : " + code, ex);
         channelsRes.failed(code);
       }
     });

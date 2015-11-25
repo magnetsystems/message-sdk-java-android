@@ -15,7 +15,7 @@
 package com.magnet.mmx.client.api;
 
 import com.google.gson.reflect.TypeToken;
-import com.magnet.max.android.attachment.Attachment;
+import com.magnet.max.android.Attachment;
 import com.magnet.max.android.util.MagnetUtils;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.util.GsonData;
@@ -40,6 +40,7 @@ import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.StatusCode;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * This class holds the message payload, and operations for the message.  If
@@ -482,7 +483,10 @@ public class MMXMessage {
         MMX.getHandler()) {
       @Override
       public String doRun(MMXClient mmxClient) throws Throwable {
-        uploadAttachments(payload, generatedMessageId, null);
+        Throwable uploadError = uploadAttachments(payload, generatedMessageId, null);
+        if(null != uploadError) {
+          throw new IllegalStateException("Failed to upload attachment for message " + generatedMessageId);
+        }
 
         String publishedId = mmxClient.getPubSubManager().publish(
             generatedMessageId, mChannel.getMMXTopic(), payload);
@@ -565,7 +569,10 @@ public class MMXMessage {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
-          uploadAttachments(payload, generatedMessageId, null);
+          Throwable uploadError = uploadAttachments(payload, generatedMessageId, null);
+          if(null != uploadError) {
+            throw new IllegalStateException("Failed to upload attachment for message " + generatedMessageId);
+          }
 
           String publishedId = mmxClient.getPubSubManager().publish(
               generatedMessageId, mChannel.getMMXTopic(), payload);
@@ -603,6 +610,11 @@ public class MMXMessage {
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
+          Throwable uploadError = uploadAttachments(payload, generatedMessageId, null);
+          if(null != uploadError) {
+            throw new IllegalStateException("Failed to upload attachment for message " + generatedMessageId);
+          }
+
           MMXid[] recipientsArray = new MMXid[mRecipients.size()];
           int index = 0;
           for (User recipient : mRecipients) {
@@ -765,6 +777,7 @@ public class MMXMessage {
     if (otherRecipients != null) {
       //this is normal message.  getReplyAll() returns null for pubsub messages
       for (MMXid mmxId : otherRecipients) {
+        Log.d(TAG, "------otherRecipients : " + mmxId.getUserId());
         usersToRetrieve.add(mmxId.getUserId());
       }
     }
@@ -775,13 +788,14 @@ public class MMXMessage {
     HashSet<User> recipients = new HashSet<User>();
     //populate the values
     User receiver;
-    if (toUserId != null) {
+    if (null == topic && toUserId != null) {
       receiver = userCache.getByUserId(message.getTo().getUserId());
       if (receiver == null) {
         Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve receiver from cache:  " +
                 "receiver=" + receiver + ".  Message will be dropped.");
         return null;
       }
+      Log.d(TAG, "------receiver : " + receiver.getUserIdentifier());
       recipients.add(receiver);
     }
     User sender = userCache.getByUserId(message.getFrom().getUserId());
@@ -800,7 +814,9 @@ public class MMXMessage {
     //populate the message content
     HashMap<String, String> content = new HashMap<String, String>();
     for (Map.Entry<String,String> entry : message.getPayload().getAllMetaData().entrySet()) {
-      content.put(entry.getKey(), entry.getValue());
+      if(!CONTENT_ATTACHMENTS.equals(entry.getKey())) {
+        content.put(entry.getKey(), entry.getValue());
+      }
     }
 
     MMXMessage.Builder newMessage = new MMXMessage.Builder();
@@ -813,11 +829,19 @@ public class MMXMessage {
         newMessage.attachments(attachments.toArray(new Attachment[0]));
       }
     }
-
+    Log.d(TAG, "-----------message convertion, topic : " + topic + ", message : " + message);
+    if(null != topic) {
+      Log.d(TAG, "It's a channel message");
+      newMessage.channel(MMXChannel.fromMMXTopic(topic));
+    } else if(recipients.size() > 0){
+      Log.d(TAG, "It's a in-app message");
+      newMessage.recipients(recipients);
+    } else {
+      throw new IllegalArgumentException("Neither recipients nor channel is set in message.");
+    }
     return newMessage
             .sender(sender).id(message.getId())
-            .channel(MMXChannel.fromMMXTopic(topic))
-            .timestamp(message.getPayload().getSentTime()).recipients(recipients).content(content)
+            .timestamp(message.getPayload().getSentTime()).content(content)
             .build();
   }
 
@@ -880,42 +904,41 @@ public class MMXMessage {
     }
   }
 
-  private void uploadAttachments(MMXPayload payload, final String messageId, final Attachment.AttachmentTrasferLister listener) {
+  private Throwable uploadAttachments(MMXPayload payload, final String messageId,
+      final Attachment.AttachmentTrasferLister progressListener) {
     for(final Attachment attachment : mAttachments) {
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
         Log.d(TAG, "Attahcment " + attachment.getName() + " is already uploaded");
-        if(null != listener) {
-          listener.onComplete(attachment);
+        if(null != progressListener) {
+          progressListener.onComplete(attachment);
         }
         continue;
       }
 
       final CountDownLatch uploadSignal = new CountDownLatch(1);
+      final AtomicReference<Throwable> uploadError = new AtomicReference<>();
       attachment.upload(new Attachment.AttachmentTrasferLister() {
         @Override public void onStart(Attachment attachment) {
-          if(null != listener) {
-            listener.onStart(attachment);
-          }
-        }
-
-        @Override public void onProgress(Attachment attachment, long l) {
-          if(null != listener) {
-            listener.onProgress(attachment, l);
+          if(null != progressListener) {
+            progressListener.onStart(attachment);
           }
         }
 
         @Override public void onComplete(Attachment attachment) {
-          if(null != listener) {
-            listener.onComplete(attachment);
+          if(null != progressListener) {
+            progressListener.onComplete(attachment);
           }
           uploadSignal.countDown();
         }
 
         @Override public void onError(Attachment attachment, Throwable throwable) {
-          if(null != listener) {
-            listener.onError(attachment, throwable);
+          uploadError.set(throwable);
+
+          if(null != progressListener) {
+            progressListener.onError(attachment, throwable);
           }
+
           uploadSignal.countDown();
         }
       });
@@ -923,29 +946,36 @@ public class MMXMessage {
       try {
         uploadSignal.await(60, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
-        if(null != listener) {
-          listener.onError(attachment, new Exception("Timeout when uploading attachment " + attachment.getName()));
+        uploadError.set(e);
+
+        if(null != progressListener) {
+          progressListener.onError(attachment, new Exception("Timeout when uploading attachment " + attachment.getName()));
         }
-        continue;
+      }
+
+      if(null != uploadError.get()) {
+        return uploadError.get();
       }
 
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
-        if(null != listener) {
-          listener.onComplete(attachment);
+        if(null != progressListener) {
+          progressListener.onComplete(attachment);
         }
         Log.d(TAG, "Attachment " + attachment.getName() + " is uploaded successfully.");
       } else {
         String message = "Failed to upload attachment " + attachment.getName();
         Log.d(TAG, message);
         if(uploadSignal.getCount() > 0) {
-          if(null != listener) {
-            listener.onError(attachment, new Exception(message));
+          if(null != progressListener) {
+            progressListener.onError(attachment, new Exception(message));
           }
         }
       }
     }
 
     payload.setMetaData(CONTENT_ATTACHMENTS, GsonData.getGson().toJson(mAttachments));
+
+    return null;
   }
 }
