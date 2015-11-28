@@ -23,7 +23,12 @@ import com.magnet.mmx.protocol.PushMessage;
 import com.magnet.mmx.util.UnknownTypeException;
 
 import android.app.IntentService;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 
@@ -40,7 +45,7 @@ import java.util.Map;
  */
 public final class MMXWakeupIntentService extends IntentService {
   private static final String TAG = MMXWakeupIntentService.class.getSimpleName();
-
+  private static int sNoteId = 10;
 
   public static final String HEADER_WAKEUP =
       Constants.MMX + ":" +
@@ -57,7 +62,7 @@ public final class MMXWakeupIntentService extends IntentService {
       Constants.MMX_ACTION_CODE_PUSH + ":" +
       PingPongCommand.notify.name();
 
-  public static final String HEADER_PUBSUB = 
+  public static final String HEADER_PUBSUB =
       Constants.MMX + ":" +
       Constants.MMX_ACTION_CODE_WAKEUP + ":" +
       PingPongCommand.pubsub.name();
@@ -123,11 +128,35 @@ public final class MMXWakeupIntentService extends IntentService {
     }
   }
 
+  private void invokeNotificationForPush(GCMPayload payload) {
+    int iconResId = 0;
+    if (payload.getIcon() != null) {
+      iconResId = this.getResources().getIdentifier(payload.getIcon(),
+          "drawable", this.getPackageName());
+    } else {
+      iconResId = this.getApplicationInfo().icon;
+    }
+    Uri soundUri = null;
+    if (payload.getSound() != null) {
+      // TODO: cannot handle custom sound yet; use default sound.
+      soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+    }
+    Notification.Builder noteBuilder = new Notification.Builder(this)
+            .setAutoCancel(true)
+            .setWhen(System.currentTimeMillis())
+            .setSmallIcon(iconResId)
+            .setSound(soundUri)
+            .setContentTitle(payload.getTitle())
+            .setContentText(payload.getBody());
+    NotificationManager noteMgr = (NotificationManager)
+        this.getSystemService(Context.NOTIFICATION_SERVICE);
+    noteMgr.notify(sNoteId++, noteBuilder.build());
+  }
+
   private void invokeWakeupHandlerForPush(GCMPayload payload) {
     if (Log.isLoggable(TAG, Log.DEBUG)) {
       Log.d(TAG, "onHandleIntent(): Firing push intent");
     }
-
     Intent pushIntent = buildPushIntent(payload);
     MMXClient.handleWakeup(this, pushIntent);
   }
@@ -163,6 +192,7 @@ public final class MMXWakeupIntentService extends IntentService {
     }
     return pushIntent;
   }
+
   private void invokeCallback(String urlString) {
     //POST to the callback url
     HttpURLConnection conn = null;
@@ -198,22 +228,37 @@ public final class MMXWakeupIntentService extends IntentService {
     if (gcmPayload == null) {
       return false;
     }
+    boolean handled = false;
     String typeName = pushMessage.getType();
     String urlString = (String) gcmPayload.getMmx().get(Constants.PAYLOAD_CALLBACK_URL_KEY);
     if (PushMessage.Action.WAKEUP == pushType) { // "mmx:w:*"
       if (Constants.PingPongCommand.retrieve.name().equalsIgnoreCase(typeName)) { // "mmx:w:retrieve"
         MMXClient.handleWakeup(this, new Intent(MMXClient.ACTION_RETRIEVE_MESSAGES));
+        // TODO: should it do the URL callback if specified?  Currently not.
         return true;
       } else if (Constants.PingPongCommand.ping.name().equalsIgnoreCase(typeName)) { // "mmx:w:ping"
-        if (!TextUtils.isEmpty(urlString)) {
-          invokeCallback(urlString);
-          return true;
-        }
+        handled = true;
       }
-    } else if (PushMessage.Action.PUSH == pushType) {  // mmx:p:*
+    } else if (PushMessage.Action.PUSH == pushType) {  // "mmx:p:*"
       // TODO: console should use "mmx:p:notify" instead of "mmx:p".
       // TODO: the following code causes MMXPushEvent unable to parse the intent.
-      // TODO: not clear how to handle push notification in Android.
+
+      // Only the payload does not have custom content and it has at least one
+      // of the notification properties, the notification will be shown.
+      // Otherwise, an Intent will be sent.
+      boolean doNotify =
+          !gcmPayload.getMmx().containsKey(GCMPayload.KEY_CUSTOM_CONTENT) &&
+          (gcmPayload.getTitle() != null ||
+           gcmPayload.getBody() != null ||
+           gcmPayload.getIcon() != null ||
+           gcmPayload.getSound() != null);
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "handleMMXInternalPush(): doNotify="+doNotify);
+      }
+      if (doNotify) {
+        invokeNotificationForPush(gcmPayload);
+        handled = true;
+      }
 //      if (TextUtils.isEmpty(typeName)) { // "mmx:p"
 //        String text = gcmPayload.getBody();
 //        if (Log.isLoggable(TAG, Log.DEBUG)) {
@@ -227,10 +272,10 @@ public final class MMXWakeupIntentService extends IntentService {
 //      }
     }
 
-    // Do the callback if it is specified.
+    // Do the URL callback if it is specified.
     if (!TextUtils.isEmpty(urlString)) {
       invokeCallback(urlString);
     }
-    return false;
+    return handled;
   }
 }
