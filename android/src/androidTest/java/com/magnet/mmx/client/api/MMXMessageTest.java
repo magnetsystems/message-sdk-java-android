@@ -216,10 +216,11 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     final String messageId = message.send(new MMXMessage.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         Log.e(TAG, "testSendMessage(): onSuccess() msgId=" + result);
-        sendResult.invoked(result);
 
         assertTrue(attachment1.getLength() > 0);
         attachmentSize.set(attachment1.getLength());
+
+        sendResult.invoked(result);
       }
 
       public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
@@ -250,44 +251,26 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     // Download attachment
     assertNotNull(attachmentRef.get());
     Log.d(TAG, "-----------attachment received");
-    final CountDownLatch downLatch = new CountDownLatch(2);
-    final AtomicBoolean downloadResult = new AtomicBoolean();
+    final CountDownLatch downLatch = new CountDownLatch(1);
     Attachment attachmentReceived = attachmentRef.get();
     attachmentReceived.download(new Attachment.DownloadToBytesListener() {
 
       @Override public void onComplete(byte[] bytes) {
         assertNotNull(bytes);
         assertTrue(bytes.length > 0);
+        downLatch.countDown();
       }
 
       @Override public void onError(Throwable throwable) {
         fail(throwable.getMessage());
       }
     });
-    //    .DownloadToBytesListener() {
-    //  @Override public void onStart() {
-    //    Log.d(TAG, "-----------start downloading attachment");
-    //    downLatch.countDown();
-    //  }
-    //
-    //  @Override public void onComplete(byte[] content) {
-    //    Log.d(TAG, "-----------complete downloading attachment");
-    //    downloadResult.set(true);
-    //    downLatch.countDown();
-    //  }
-    //
-    //  @Override public void onError(Throwable throwable) {
-    //    Log.d(TAG, "-----------error when downloading attachment");
-    //    downLatch.countDown();
-    //  }
-    //});
     try {
-      downLatch.await(TIMEOUT, TimeUnit.SECONDS);
+      downLatch.await(TIMEOUT, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       fail(e.getMessage());
     }
     assertEquals(0, downLatch.getCount());
-    assertTrue(downloadResult.get());
     assertEquals(Attachment.Status.COMPLETE, attachmentReceived.getStatus());
     assertNotNull(attachmentReceived.getAsBytes());
     assertEquals(attachmentReceived.getLength(), attachmentReceived.getAsBytes().length);
