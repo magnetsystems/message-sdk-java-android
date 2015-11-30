@@ -905,7 +905,7 @@ public class MMXMessage {
   }
 
   private Throwable uploadAttachments(MMXPayload payload, final String messageId,
-      final Attachment.AttachmentTrasferLister progressListener) {
+      final Attachment.UploadListener progressListener) {
     for(final Attachment attachment : mAttachments) {
       if(Attachment.Status.COMPLETE == attachment.getStatus()
           && StringUtil.isNotEmpty(attachment.getAttachmentId())) {
@@ -918,7 +918,7 @@ public class MMXMessage {
 
       final CountDownLatch uploadSignal = new CountDownLatch(1);
       final AtomicReference<Throwable> uploadError = new AtomicReference<>();
-      attachment.upload(new Attachment.AttachmentTrasferLister() {
+      attachment.upload(new Attachment.UploadListener() {
         @Override public void onStart(Attachment attachment) {
           if(null != progressListener) {
             progressListener.onStart(attachment);
