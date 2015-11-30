@@ -302,6 +302,10 @@ public final class MMXClient {
    */
   public static final String EXTRA_PUSH_ICON = "com.magnet.mmx.MMXClient.EXTRA_PUSH_ICON";
   /**
+   * Extra Integer field that contains the badge name from push(@link #ACTION_PUSH_RECEIVED}
+   */
+  public static final String EXTRA_PUSH_BADGE = "com.magnet.mmx.MMXClient.EXTRA_PUSH_BADGE";
+  /**
    * Extra String field that contains the custom json block from push{@link #ACTION_PUSH_RECEIVED}
    */
   public static final String EXTRA_PUSH_CUSTOM_JSON = "com.magnet.mmx.MMXClient.EXTRA_PUSH_CUSTOM";

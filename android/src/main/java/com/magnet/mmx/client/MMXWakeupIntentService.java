@@ -25,6 +25,7 @@ import com.magnet.mmx.util.UnknownTypeException;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.media.RingtoneManager;
@@ -129,25 +130,33 @@ public final class MMXWakeupIntentService extends IntentService {
   }
 
   private void invokeNotificationForPush(GCMPayload payload) {
-    int iconResId = 0;
-    if (payload.getIcon() != null) {
-      iconResId = this.getResources().getIdentifier(payload.getIcon(),
-          "drawable", this.getPackageName());
-    } else {
-      iconResId = this.getApplicationInfo().icon;
-    }
-    Uri soundUri = null;
-    if (payload.getSound() != null) {
-      // TODO: cannot handle custom sound yet; use default sound.
-      soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-    }
+    // Launch the activity with action=MAIN, category=DEFAULT.  Make sure that
+    // it has DEFAULT category declared in AndroidManifest.xml intent-filter.
+    PendingIntent intent = PendingIntent.getActivity(this.getApplicationContext(),
+        0, new Intent(Intent.ACTION_MAIN).setPackage(this.getPackageName())
+          .addCategory(Intent.CATEGORY_DEFAULT)   // it is redundant
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          .addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
+        PendingIntent.FLAG_UPDATE_CURRENT);
     Notification.Builder noteBuilder = new Notification.Builder(this)
+            .setContentIntent(intent)
             .setAutoCancel(true)
             .setWhen(System.currentTimeMillis())
-            .setSmallIcon(iconResId)
-            .setSound(soundUri)
             .setContentTitle(payload.getTitle())
             .setContentText(payload.getBody());
+    if (payload.getSound() != null) {
+      // TODO: cannot handle custom sound yet; use notification ring tone.
+      noteBuilder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+    }
+    if (payload.getIcon() != null) {
+      noteBuilder.setSmallIcon(this.getResources().getIdentifier(
+          payload.getIcon(), "drawable", this.getPackageName()));
+    } else {
+      noteBuilder.setSmallIcon(this.getApplicationInfo().icon);
+    }
+    if (payload.getBadge() != null) {
+      noteBuilder.setNumber(payload.getBadge());
+    }
     NotificationManager noteMgr = (NotificationManager)
         this.getSystemService(Context.NOTIFICATION_SERVICE);
     noteMgr.notify(sNoteId++, noteBuilder.build());
@@ -175,6 +184,10 @@ public final class MMXWakeupIntentService extends IntentService {
     }
     if (!TextUtils.isEmpty(payload.getIcon())) {
       pushIntent.putExtra(MMXClient.EXTRA_PUSH_ICON, payload.getIcon());
+    }
+    if (payload.getBadge() != null) {
+      pushIntent.putExtra(MMXClient.EXTRA_PUSH_BADGE, payload.getBadge());
+
     }
     // extract notification ID from _mmx
     Map<String, ? super Object> mmx = payload.getMmx();
@@ -218,16 +231,13 @@ public final class MMXWakeupIntentService extends IntentService {
   private boolean handleMMXInternalPush(PushMessage pushMessage) {
     PushMessage.Action pushType = pushMessage.getAction();
     if (Log.isLoggable(TAG, Log.DEBUG)) {
-      Log.d(TAG, "handleMMXInternalPush(): received command: " + pushType);
+      Log.d(TAG, "handleMMXInternalPush(): received action: " + pushType);
     }
     Object payload = pushMessage.getPayload();
-    if (!(payload instanceof GCMPayload)) {
+    if (payload == null || !(payload instanceof GCMPayload)) {
       return false;
     }
-    GCMPayload gcmPayload = (GCMPayload) pushMessage.getPayload();
-    if (gcmPayload == null) {
-      return false;
-    }
+    GCMPayload gcmPayload = (GCMPayload) payload;
     boolean handled = false;
     String typeName = pushMessage.getType();
     String urlString = (String) gcmPayload.getMmx().get(Constants.PAYLOAD_CALLBACK_URL_KEY);
@@ -248,9 +258,8 @@ public final class MMXWakeupIntentService extends IntentService {
       // Otherwise, an Intent will be sent.
       boolean doNotify =
           !gcmPayload.getMmx().containsKey(GCMPayload.KEY_CUSTOM_CONTENT) &&
-          (gcmPayload.getTitle() != null ||
-           gcmPayload.getBody() != null ||
-           gcmPayload.getIcon() != null ||
+          (gcmPayload.getTitle() != null || gcmPayload.getBody() != null ||
+           gcmPayload.getIcon() != null || gcmPayload.getBadge() != null ||
            gcmPayload.getSound() != null);
       if (Log.isLoggable(TAG, Log.DEBUG)) {
         Log.d(TAG, "handleMMXInternalPush(): doNotify="+doNotify);
