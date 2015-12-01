@@ -60,26 +60,27 @@ public class MMXPushManager extends MMXManager {
    * @param recipient The user or the end-point.
    * @param type An optional type of this push message (e.g. "Greetings".)
    * @param payload A dictionary of key-value pairs.
-   * @return
+   * @return A PushResult.
    * @throws MMXException
    */
-  public PushResult sendPushMessage(MMXid recipient, String type,
-                                     Map<String, Object> payload) throws MMXException {
+  public PushResult sendPayload(MMXid recipient, String type,
+                                 Map<String, Object> payload) throws MMXException {
     return mPushManager.push(recipient.getUserId(), recipient.getDeviceId(),
                               type, payload);
   }
   
   /**
    * Deliver a push notification to a recipient using its native push mechanism.
-   * The <code>type</code> can be from {@link Notification#getType()} or a
-   * custom value.  The <code>payload</code> can be a subclass of Notification.
+   * The <code>type</code> can be from {@link Notification#getType()}, or null
+   * (to be compatible with Console's push notification), or a custom value.
+   * The <code>payload</code> can be a subclass of Notification.
    * @param recipient The user or the end-point.
    * @param type An optional type of this push notification.
    * @param payload A push notification payload.
-   * @return
+   * @return A PushResult.
    * @throws MMXException
    */
-  public PushResult sendPushMessage(MMXid recipient, String type,
+  public PushResult sendNotification(MMXid recipient, String type,
                                     Notification payload) throws MMXException {
     return mPushManager.push(recipient.getUserId(), recipient.getDeviceId(),
         type, payload);
