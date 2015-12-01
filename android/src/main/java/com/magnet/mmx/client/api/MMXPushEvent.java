@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.Map;
 
@@ -40,7 +41,8 @@ import com.magnet.mmx.util.InvalidMessageException;
  * 
  * @see MMX
  */
-public class MMXPushEvent {
+public class MMXPushEvent implements Serializable {
+  private static final long serialVersionUID = 2789163511461919579L;
   private final static String TAG = MMXPushEvent.class.getSimpleName();
   private PushMessage mPushMessage;
   
@@ -61,7 +63,9 @@ public class MMXPushEvent {
       if (msg == null) {
         return null;
       }
-      Log.d(TAG, "GCM msg="+msg);
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "GCM msg="+msg);
+      }
       return new MMXPushEvent(msg);
     } catch (InvalidMessageException e) {
       // Not an MMX push GCM.
