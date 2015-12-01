@@ -14,6 +14,8 @@
  */
 package com.magnet.mmx.client.api;
 
+import com.magnet.max.android.MaxCore;
+import java.nio.channels.Channel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -46,6 +48,8 @@ import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.TimeUtil;
+import retrofit.Callback;
+import retrofit.Response;
 
 /**
  * The MMXChannel class uses the underneath pub/sub technology to provide
@@ -293,6 +297,8 @@ public class MMXChannel {
   private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
+  // Channel REST Service
+  private static ChannelService channelService;
 
   /**
    * Default constructor
@@ -842,6 +848,51 @@ public class MMXChannel {
       }
     };
     task.execute();
+  }
+
+  /**
+   * Create a channel with predefined subscribers.  Upon successful completion, the current user
+   * automatically subscribes to the channel.
+   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+   *
+   * @param name the name of the channel
+   * @param summary the channel summary
+   * @param isPublic whether or not this channel is public
+   * @param publishPermission who can publish to this topic
+   * @param subscribers the user id of subscribers
+   * @param listener the listener for the newly created channel
+   */
+  public static void create(final String name, final String summary,
+      final boolean isPublic, final PublishPermission publishPermission,
+      final List<String> subscribers,
+      final OnFinishedListener<MMXChannel> listener) {
+    getChannelService().createChannel(
+        new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.name(), subscribers),
+        new Callback<Void>() {
+          @Override public void onResponse(Response<Void> response) {
+            if(response.isSuccess()) {
+              MMXChannel channel = new MMXChannel.Builder()
+                  .name(name)
+                  .ownerId(User.getCurrentUserId())
+                  .setPublic(!isPublic)
+                  .publishPermission(publishPermission)
+                  .build();
+              listener.onSuccess(channel);
+            } else {
+              handleError(response.code(), new Exception(response.message()));
+            }
+          }
+
+          @Override public void onFailure(Throwable throwable) {
+            handleError(null, throwable);
+          }
+
+          private void handleError(Integer errorCode, Throwable throwable) {
+            Log.e(TAG, "Failed to create channel ", throwable);
+            listener.onFailure(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+          }
+        }).executeInBackground();
   }
 
   /**
@@ -1430,6 +1481,14 @@ public class MMXChannel {
   private static void validateClient(MMXClient mmxClient) throws MMXException {
     if (!mmxClient.isConnected())
       throw new MMXException("Current user is not logged in", StatusCode.UNAUTHORIZED);
+  }
+
+  private static ChannelService getChannelService() {
+    if(null == channelService) {
+      channelService = MaxCore.create(ChannelService.class);
+    }
+
+    return channelService;
   }
 
   // ***************************
