@@ -1647,6 +1647,20 @@ public final class MMXClient {
   }
 
   /**
+   * Retrieve the MMXPushManager instance for this client.
+   *
+   * @return the MMXPushManager instance associated with this client
+   */
+  public synchronized MMXPushManager getPushManager() {
+    MMXManager manager = mManagers.get(MMXPushManager.class);
+    if (manager == null) {
+      manager = new MMXPushManager(this, mMessagingHandler);
+      mManagers.put(MMXPushManager.class, manager);
+    }
+    return (MMXPushManager)manager;
+  }
+
+  /**
    * Retrieve the MMXAccountManager instance for this client.
    *
    * @return the MMXAccountManager instance associated with this client

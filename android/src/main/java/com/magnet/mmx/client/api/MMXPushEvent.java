@@ -95,11 +95,19 @@ public class MMXPushEvent {
   }
 
   /**
+   * Get the push message delivered via GCM.
+   * @return
+   */
+  public GCMPayload getPushMessage() {
+    return mPushMessage == null ? null : (GCMPayload) mPushMessage.getPayload();
+  }
+
+  /**
    * Get the key-value pairs payload from this event.
    * @return A Map of key-value pairs.
    */
-  public Map<String, ? super Object> getPayload() {
-    GCMPayload payload = (GCMPayload) mPushMessage.getPayload();
+  protected Map<String, ? super Object> getPayload() {
+    GCMPayload payload = getPushMessage();
     if (payload == null)
       return null;
     return payload.getMmx();
@@ -107,7 +115,10 @@ public class MMXPushEvent {
   
   /**
    * Get the custom payload as a Map object from the event payload.
+   * Alternatively, use {@link #getCustomObject(Class)} if there is a class
+   * associated with the custom payload,
    * @return A Map object for the payload.
+   * @see #getCustomMap()
    */
   public Map<String, Object> getCustomMap() {
     Map<String, ? super Object> mmx = getPayload();
@@ -119,9 +130,13 @@ public class MMXPushEvent {
   
   /**
    * Get the custom payload as Object of class <code>clz</code> from the event
-   * payload.
+   * payload.  Typically developer uses {@link #getType()} to identify the
+   * payload, then specifies a proper class for the payload.  Alternatively,
+   * develop can use {@link #getCustomMap()} to get the key-value pairs.
    * @param clz The class of the custom object.
    * @return A custom object for the payload.
+   * @see #getCustomMap()
+   * @see #getType()
    */
   public <T> T getCustomObject(Class<T> clz) {
     Map<String, Object> custom = getCustomMap();

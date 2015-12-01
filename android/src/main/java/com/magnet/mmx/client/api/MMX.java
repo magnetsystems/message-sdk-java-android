@@ -933,6 +933,7 @@ public final class MMX {
      * This class represents a push message using the Intent interface.  A push
      * message is usually sent from Console, transported by GCM, and received
      * by the Wakeup Receiver.
+     * @deprecated com.magnet.mmx.client.api.MMXPushEvent
      */
     public static final class MMXPushMessage {
       private final static String TAG = MMXPushMessage.class.getSimpleName();

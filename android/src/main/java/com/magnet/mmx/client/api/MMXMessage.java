@@ -484,7 +484,7 @@ public class MMXMessage {
     task.execute();
     return generatedMessageId;
   }
-  
+
   /**
    * Send the current message to server.  If the message is addressed to
    * recipients, the {@link OnFinishedListener#onSuccess(Object)} will be called
