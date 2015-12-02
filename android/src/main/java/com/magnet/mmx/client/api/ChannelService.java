@@ -3,14 +3,14 @@
  */
 package com.magnet.mmx.client.api;
 
-import java.util.List;
+import java.util.Set;
 import retrofit.Callback;
 import retrofit.MagnetCall;
 import retrofit.http.Body;
 import retrofit.http.POST;
 
 public interface ChannelService {
-  @POST("/com.magnet.server/channel/create'")
+  @POST("/api/com.magnet.server/channel/create")
   MagnetCall<Void> createChannel(@Body ChannelInfo channelInfo, Callback<Void> callback);
 
   class ChannelInfo {
@@ -28,10 +28,10 @@ public interface ChannelService {
     //subscribers
     private String publishPermission;
 
-    private List<String> subscribers;
+    private Set<String> subscribers;
 
     public ChannelInfo(String channelName, String description, boolean privateChannel,
-        String publishPermission, List<String> subscribers) {
+        String publishPermission, Set<String> subscribers) {
       this.channelName = channelName;
       this.privateChannel = privateChannel;
       this.description = description;
@@ -55,7 +55,7 @@ public interface ChannelService {
       return publishPermission;
     }
 
-    public List<String> getSubscribers() {
+    public Set<String> getSubscribers() {
       return subscribers;
     }
   }

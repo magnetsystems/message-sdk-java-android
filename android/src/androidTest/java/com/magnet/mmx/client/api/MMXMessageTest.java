@@ -253,7 +253,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     Log.d(TAG, "-----------attachment received");
     final CountDownLatch downLatch = new CountDownLatch(1);
     Attachment attachmentReceived = attachmentRef.get();
-    attachmentReceived.download(new Attachment.DownloadToBytesListener() {
+    attachmentReceived.download(new Attachment.DownloadAsBytesListener() {
 
       @Override public void onComplete(byte[] bytes) {
         assertNotNull(bytes);

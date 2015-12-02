@@ -14,9 +14,11 @@
  */
 package com.magnet.mmx.client.api;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,8 +32,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXChannelTest.class.getSimpleName();
 
   public void postSetUp() {
-    String suffix = String.valueOf(System.currentTimeMillis());
-    helpLogin(USERNAME_PREFIX, DISPLAY_NAME_PREFIX, suffix, true);
+    helpLogin(MMX_TEST_USER_1);
   }
 
   public void tearDown() {
@@ -89,23 +90,17 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   public void testSomeonePrivateChannel() {
     helpLogout();
 
-    String suffix = String.valueOf(System.currentTimeMillis());
-    String userName1 = "user1";
-    String displayName1 = "User1";
-    String userName2 = "user2";
-    String displayName2 = "User2";
-
-    helpLogin(userName1, displayName1, suffix, true);
+    helpLogin(MMX_TEST_USER_2);
     String channelName = "private-channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
     MMXChannel channel = helpCreate(channelName, channelSummary, false);
     helpLogout();
 
-    helpLogin(userName2, displayName2, suffix, true);
+    helpLogin(MMX_TEST_USER_3);
     helpFind(channelName, 0);   // expect 0 because someone private channel cannot be searched
     helpLogout();
 
-    helpLogin(userName1, displayName1, suffix, false);
+    helpLogin(MMX_TEST_USER_2);
     helpDelete(channel);
   }
 
@@ -115,6 +110,21 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
   public void testPublicChannelInvite() {
     helpTestChannelInvite(true);
+  }
+
+  public void testCreateChannelWithSubscribers() {
+    helpLogin(MMX_TEST_USER_2);
+    helpLogin(MMX_TEST_USER_3);
+    helpLogin(MMX_TEST_USER_4);
+    String channelName = "Chat_channel_" + System.currentTimeMillis();
+    String channelSummary = channelName + " Summary";
+    MMXChannel channel = helpCreate(channelName, channelSummary, false, new HashSet<String>(
+        Arrays.asList(MMX_TEST_USER_2, MMX_TEST_USER_3, MMX_TEST_USER_4)));
+
+    helpLogout();
+
+    helpLogin(MMX_TEST_USER_2);
+
   }
 
   public void helpTestChannelInvite(boolean isPublic) {
@@ -247,24 +257,21 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
   
   public void testGetSubscribedPrivateChannel() {
-    final String USERNAME_1 = "user1";
-    final String DISPLAY_NAME_1 = "User 1";
-    final String USERNAME_2 = "user2";
-    final String DISPLAY_NAME_2 = "User 2";
     final String CHANNEL_NAME = "channel1";
-    
+
     helpLogout();
     
     // Register and login as user1, create and auto-subscribe a private channel.
     String suffix = String.valueOf(System.currentTimeMillis());
-    helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, true);
+    helpLogin(MMX_TEST_USER_2);
     User user1 = MMX.getCurrentUser();
     MMXChannel channel = helpCreate(CHANNEL_NAME + suffix, "Private Channel 1", false);
     helpLogout();
     
     // Register and login as user2, subscribe to the private channel.  It
     // should have 2 subscribers: user1 and user2.
-    helpLogin(USERNAME_2, DISPLAY_NAME_2, suffix, true);
+    final String newUser = "newSubUser1";
+    helpLogin(newUser, newUser, newUser, suffix, true);
     helpSubscribe(channel, 2);
     // Get the subscribed channel information.
     final ExecMonitor<List<MMXChannel>, FailureCode> channels = new ExecMonitor<List<MMXChannel>, FailureCode>();
@@ -292,7 +299,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpLogout();
     
     // Login as user1 again and delete the channel.
-    helpLogin(USERNAME_1, DISPLAY_NAME_1, suffix, false);
+    helpLogin(MMX_TEST_USER_2);
     helpDelete(channel);
     helpLogout();
   }
@@ -396,20 +403,52 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   //**************
   //HELPER METHODS
   //**************
+
   private MMXChannel helpCreate(String name, String summary, boolean isPublic) {
     final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
     MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE,
-            new MMXChannel.OnFinishedListener<MMXChannel>() {
-      public void onSuccess(MMXChannel result) {
-        Log.e(TAG, "helpCreate.onSuccess ");
-        createResult.invoked(result);
-      }
+        new MMXChannel.OnFinishedListener<MMXChannel>() {
+          public void onSuccess(MMXChannel result) {
+            Log.e(TAG, "helpCreate.onSuccess ");
+            createResult.invoked(result);
+          }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        createResult.invoked(null);
-      }
-    });
+          public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+            Log.e(TAG, "Exception caught: " + code, ex);
+            createResult.invoked(null);
+          }
+        });
+    MMXChannel result = null;
+    if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED) {
+      result = createResult.getReturnValue();
+      assertNotNull(result);
+      assertNotNull(result.getOwnerId());
+      assertEquals(MMX.getCurrentUser().getUserIdentifier(), result.getOwnerId());
+      assertEquals(summary, result.getSummary());
+      assertEquals(name, result.getName());
+      assertEquals(isPublic, result.isPublic());
+      assertNotNull(result.getCreationDate());
+    } else {
+      fail("Channel creation timed out");
+    }
+    return result;
+  }
+
+
+  private MMXChannel helpCreate(String name, String summary, boolean isPublic, Set<String> subscribers) {
+    final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
+    MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE, subscribers,
+        new MMXChannel.OnFinishedListener<MMXChannel>() {
+          public void onSuccess(MMXChannel result) {
+            Log.e(TAG, "helpCreate.onSuccess ");
+            createResult.invoked(result);
+          }
+
+          public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+            Log.e(TAG, "Exception caught: " + code, ex);
+            createResult.invoked(null);
+          }
+        });
     MMXChannel result = null;
     if (createResult.waitFor(10000) == ExecMonitor.Status.INVOKED) {
       result = createResult.getReturnValue();
@@ -838,18 +877,26 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     assertTrue(pubChannel.isPublic());
     assertTrue(pubChannel.isSubscribed());
   }
-  
-  private void helpLogin(String userNamePrefix, String displayNamePrefix,
+
+  private void helpLogin(String userName) {
+    helpLogin(userName, userName, userName, null, true);
+  }
+  private void helpLogin(String userName, String displayName, String password,
         String suffix, boolean regUser) {
     ApiCallback<Boolean> loginListener = getLoginListener();
-    String username = userNamePrefix + suffix;
-    String displayName = displayNamePrefix + suffix;
+    if(null != suffix) {
+      userName = userName + suffix;
+      displayName = displayName + suffix;
+    }
+    if(null == password) {
+      password = userName;
+    }
     if (regUser) {
-      registerUser(username, displayName, PASSWORD);
+      helpRegisterUser(userName, displayName, password.getBytes(), null, null, true);
     }
 
     //login with credentials
-    User.login(username, new String(PASSWORD), false, loginListener);
+    User.login(userName, new String(password), false, loginListener);
     synchronized (loginListener) {
       try {
         loginListener.wait(10000);

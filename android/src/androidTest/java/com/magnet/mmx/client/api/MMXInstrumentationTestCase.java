@@ -15,6 +15,8 @@ import com.magnet.max.android.config.MaxAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
 
 import com.magnet.mmx.client.utils.MaxAndroidJsonConfig;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
@@ -27,6 +29,13 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected static final String WRONG_USERNAME_PREFIX = "wronguser";
   protected static final String INVALID_USER_JSON =
           "{\"clientId\":\"USERNAME-client-id\",\"firstName\":\"USERNAME-first-name\",\"roles\":[\"USER\"],\"userAccountData\":{},\"userIdentifier\":\"USERNAME-user-id\",\"userName\":\"USERNAME\",\"userStatus\":\"ACTIVE\"}";
+
+  protected static Map<String, User> REGISTERED_USERS = new HashMap<>();
+  protected static String MMX_TEST_USER_1 = "MMX_TEST_USER_1";
+  protected static String MMX_TEST_USER_2 = "MMX_TEST_USER_2";
+  protected static String MMX_TEST_USER_3 = "MMX_TEST_USER_3";
+  protected static String MMX_TEST_USER_4 = "MMX_TEST_USER_4";
+  protected static String MMX_TEST_USER_5 = "MMX_TEST_USER_5";
 
   protected User getInvalidUser(String username) {
     Gson gson = new Gson();
@@ -140,9 +149,20 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected void registerUser(String username, String displayName, byte[] password) {
     helpRegisterUser(username, displayName, password, ExecMonitor.Status.INVOKED, null);
   }
-  
+
   protected void helpRegisterUser(String username, String displayName,
-                                  byte[] password, ExecMonitor.Status status, ApiError apiError) {
+      byte[] password, ExecMonitor.Status status, ApiError apiError) {
+    helpRegisterUser(username, displayName, password, status, apiError, false);
+  }
+  
+  protected void helpRegisterUser(final String username, String displayName,
+                                  byte[] password, ExecMonitor.Status status, ApiError apiError,
+                                  final boolean reuseExistingUser) {
+    if(reuseExistingUser && REGISTERED_USERS.containsKey(username)) {
+      Log.d(TAG, "User " + username + " already registered, reuse it");
+      return;
+    }
+
     UserRegistrationInfo userInfo = new UserRegistrationInfo.Builder()
             .firstName(displayName)
             .userName(username)
@@ -154,22 +174,31 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     ApiCallback<User> listener = new ApiCallback<User>() {
       public void success(User user) {
         Log.d(TAG, "onSuccess: result=" + user.getUserName());
+        REGISTERED_USERS.put(username, user);
         userReg.invoked(user);
       }
 
       @Override
       public void failure(ApiError apiError) {
         Log.e(TAG, "onFailure(): code=" + apiError, apiError.getCause());
-        userReg.failed(apiError);
+        if(reuseExistingUser && apiError.getKind() == 409) {
+          userReg.invoked(null);
+        } else {
+          userReg.failed(apiError);
+        }
       }
     };
 
     //Register the user.  This may fail
     User.register(userInfo, listener);
     ExecMonitor.Status actual = userReg.waitFor(10000);
-    assertEquals(status, actual);
+    if(null != status) {
+      assertEquals(status, actual);
+    }
     if (actual == ExecMonitor.Status.INVOKED) {
-      assertEquals(username.toLowerCase(), userReg.getReturnValue().getUserName());
+      if(!reuseExistingUser) {
+        assertEquals(username.toLowerCase(), userReg.getReturnValue().getUserName());
+      }
     } else if (actual == ExecMonitor.Status.FAILED) {
       assertEquals(apiError.getKind(), userReg.getFailedValue().getKind());
       fail("NEED TO IMPLEMENT THIS: apiError cause=" + userReg.getFailedValue().getCause().getClass().getName());
