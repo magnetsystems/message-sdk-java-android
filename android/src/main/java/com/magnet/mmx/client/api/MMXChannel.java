@@ -867,18 +867,22 @@ public class MMXChannel {
       final boolean isPublic, final PublishPermission publishPermission,
       final Set<String> subscribers,
       final OnFinishedListener<MMXChannel> listener) {
+    final String ownerId = User.getCurrentUserId();
     getChannelService().createChannel(
         new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {
+              Date currentDate = new Date();
               MMXChannel channel = new MMXChannel.Builder()
                   .name(name)
                   .summary(summary)
-                  .ownerId(User.getCurrentUserId())
+                  .ownerId(ownerId)
                   .setPublic(isPublic)
                   .publishPermission(publishPermission)
-                  .creationDate(new Date())
+                  .creationDate(currentDate)
+                  .subscribed(true)
+                  .lastTimeActive(currentDate)
                   .build();
               listener.onSuccess(channel);
             } else {

@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class MMXMessageTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXMessageTest.class.getSimpleName();
-  public static final int TIMEOUT = 10 * 1000;
 
   public void testFailureCodes() {
     assertEquals(MMXMessage.FailureCode.BAD_REQUEST, MMX.FailureCode.BAD_REQUEST);
