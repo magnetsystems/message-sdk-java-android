@@ -732,7 +732,7 @@ public final class MMX {
               //listener returning true means consume the message
               break;
             }
-          } catch (Exception ex) {
+          } catch (Throwable ex) {
             Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
           }
         }

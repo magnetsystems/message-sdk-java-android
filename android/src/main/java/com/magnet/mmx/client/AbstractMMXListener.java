@@ -203,7 +203,7 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * @param mmxMessage the published message
    */
   public void onPubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, MMXMessage mmxMessage) {
-    Log.d(TAG, "onPubsubItemReceived(): topic=" + mmxTopic);
+    Log.d(TAG, "onPubsubItemReceived(): topic=" + mmxTopic + "\n, MMXMessage : " + mmxMessage);
     try {
       handlePubsubItemReceived(mmxClient, mmxTopic, mmxMessage);
     } catch (Throwable throwable) {
