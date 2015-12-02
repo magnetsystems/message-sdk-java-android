@@ -175,8 +175,8 @@ public class MMXClientTest extends InstrumentationTestCase {
   }
   
   public void testMMXid() {
-    MMXid user1 = new MMXid("user1", null);
-    MMXid uuser1 = new MMXid("USER1", null);
+    MMXid user1 = new MMXid("user1", null, null);
+    MMXid uuser1 = new MMXid("USER1", null,, null);
     MMXid user1dev1 = new MMXid("user1", "dev1", null);
     MMXid uuser1dev1 = new MMXid("USER1", "dev1", null);
     MMXid user1dev2 = new MMXid("user1", "dev2", null);
@@ -357,7 +357,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       .setMetaData("meta1", "value1");
 
     //do the send
-    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2, null), payload,
+    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2, null, null), payload,
             new Options().enableReceipt(true));
 
     //wait for the message
@@ -475,7 +475,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     disconnect(false, listener);
     assertFalse(mmxClient.isConnected());
 
-    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1, null),
+    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1, null, null),
             "Test message", null);
     assertNotNull(messageId);
 
@@ -505,7 +505,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     disconnect(false, listener);
     assertFalse(mmxClient.isConnected());
 
-    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1, null),
+    String messageId = mmxClient.getMessageManager().sendText(new MMXid(USER1, null, null),
             "Test message", null);
     assertNotNull(messageId);
 
@@ -822,7 +822,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     //send message
 
     //do the send
-    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2, null),
+    String messageId = client1.getMessageManager().sendPayload(new MMXid(USER2, null, null),
         new MMXPayload("foobar")
             .setMetaData("meta1", "value1"), null);
 

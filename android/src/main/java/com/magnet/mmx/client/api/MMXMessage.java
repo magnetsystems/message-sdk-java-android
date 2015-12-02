@@ -567,7 +567,7 @@ public class MMXMessage {
           MMXid[] recipientsArray = new MMXid[mRecipients.size()];
           int index = 0;
           for (User recipient : mRecipients) {
-            recipientsArray[index++] = new MMXid(recipient.getUserIdentifier(), recipient.getUserName());
+            recipientsArray[index++] = new MMXid(recipient.getUserIdentifier(), null, recipient.getUserName());
           }
           if (listener != null) {
             synchronized (sMessageSendListeners) {

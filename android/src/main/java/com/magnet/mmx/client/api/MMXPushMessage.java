@@ -273,7 +273,7 @@ public class MMXPushMessage {
         MMX.getHandler()) {
       @Override
       public PushResult doRun(MMXClient mmxClient) throws Throwable {
-        MMXid target = new MMXid(mRecipient.getUserIdentifier(),
+        MMXid target = new MMXid(mRecipient.getUserIdentifier(), null,
                                  mRecipient.getUserName());
         PushResult result = mmxClient.getPushManager().sendPayload(target,
             mType, mContent);
