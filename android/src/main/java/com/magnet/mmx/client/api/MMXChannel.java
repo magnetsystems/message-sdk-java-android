@@ -1047,6 +1047,22 @@ public class MMXChannel {
   }
 
   /**
+   * Publishes a message to this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   *
+   * @param message the message to publish
+   * @param listener the listener for the message id
+   * @return the message id for this published message
+   */
+  public String publish(MMXMessage message,
+      final OnFinishedListener<String> listener) {
+    message.channel(this);
+    return message.publish(listener);
+  }
+
+  /**
    * Sends an invitation to the specified user for this channel.  Possible
    * failure code is: {@link FailureCode#INVALID_INVITEE}
    *
