@@ -157,6 +157,7 @@ task androidJavadocs(type: Javadoc) {
     include '**/max/android/config/MaxAndroidPropertiesConfig.java'
     include '**/max/android/config/MaxAndroidConfig.java'
     include '**/max/android/User.java'
+    include '**/max/android/Attachment.java'
     include '**/max/android/auth/model/UserRegistrationInfo.java'
     include '**/max/android/auth/model/UserRealm.java'
     include '**/max/android/auth/model/UpdateProfileRequest.java'
