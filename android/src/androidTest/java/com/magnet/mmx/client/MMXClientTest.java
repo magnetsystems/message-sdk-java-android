@@ -176,7 +176,7 @@ public class MMXClientTest extends InstrumentationTestCase {
   
   public void testMMXid() {
     MMXid user1 = new MMXid("user1", null, null);
-    MMXid uuser1 = new MMXid("USER1", null,, null);
+    MMXid uuser1 = new MMXid("USER1", null, null);
     MMXid user1dev1 = new MMXid("user1", "dev1", null);
     MMXid uuser1dev1 = new MMXid("USER1", "dev1", null);
     MMXid user1dev2 = new MMXid("user1", "dev2", null);
