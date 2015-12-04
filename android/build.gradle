@@ -150,6 +150,9 @@ task androidJavadocs(type: Javadoc) {
 
 // ADD PUBLIC APIS for JavaDoc here
     include '**/client/api/*'
+    include '**/mmx/protocol/PubSubNotificaiton'
+    include '**/mmx/protocol/GCMPayload'
+    include '**/mmx/protocol/PushMessage'
     include '**/max/android/Max.java'
     include '**/max/android/MaxModule.java'
     include '**/max/android/ApiCallback.java'

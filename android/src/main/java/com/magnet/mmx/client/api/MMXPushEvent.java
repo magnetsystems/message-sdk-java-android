@@ -21,6 +21,8 @@ import java.util.Map;
 import android.content.Intent;
 import android.util.Log;
 
+import com.magnet.mmx.client.MMXClient;
+import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.GCMPayload;
 import com.magnet.mmx.protocol.PushMessage;
 import com.magnet.mmx.protocol.PushMessage.Action;
@@ -28,16 +30,21 @@ import com.magnet.mmx.util.GsonData;
 import com.magnet.mmx.util.InvalidMessageException;
 
 /**
- * This class represents a push event sent by MMX server via GCM.  This event
- * can be a Channel wake-up notification or a Push Message originated from
- * another client.
- * <p>
- * A Channel wake-up notification as com.magnet.mmx.protocol.PubSubNotification
- * is sent by the server via GCM or APNS when a message is published to a
- * channel while the subscriber is not connected to the server. The wake-up
- * notification will be delivered to all active devices of the subscriber as
- * a push event with PubSubNotification as a custom payload.  The client must
- * provide a custom receiver and convert its Intent into MMXPushEvent.
+ * This class represents a push event sent by MMX server via GCM.  There are
+ * different situations that a client will receive this event.
+ * <ul>
+ * <li>a channel wake-up notification: a special payload 
+ * com.magnet.mmx.protocol.PubSubNotification is sent by the server via GCM or
+ * APNS when a message is published to a channel while the subscriber is not
+ * connected to the server.</li>
+ * <li>a retrieval event for ad-hoc messages: a wake-up event without any
+ * payload is sent when a message is available while the recipient is not
+ * connected to the server.<li>
+ * <li>a push message sent from another client.
+ * </ul>
+ * The client must provide a custom receiver and convert its Intent into
+ * MMXPushEvent via {@link #fromIntent(Intent)}.  By examining the type using
+ * {@link #getType()}, the caller will handle each payload accordingly.
  * 
  * @see MMX
  */
@@ -59,6 +66,11 @@ public class MMXPushEvent implements Serializable {
     }
     try {
       intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME);
+      // A special case for "retrieve" wakeup message.
+      if (intent.getAction().equals(MMXClient.ACTION_RETRIEVE_MESSAGES)) {
+        return new MMXPushEvent(Action.WAKEUP,
+                                  Constants.PingPongCommand.retrieve.name());
+      }
       String msg = intent.getStringExtra("msg");
       if (msg == null) {
         return null;
@@ -75,6 +87,10 @@ public class MMXPushEvent implements Serializable {
       Log.e(TAG, "parse nested intent failed", e);
       return null;
     }
+  }
+
+  private MMXPushEvent(Action action, String type) {
+    mPushMessage = new PushMessage(action, type, null);
   }
   
   private MMXPushEvent(String msg) {
@@ -100,7 +116,7 @@ public class MMXPushEvent implements Serializable {
 
   /**
    * Get the push message delivered via GCM.
-   * @return
+   * @return The GCM push message.
    */
   public GCMPayload getPushMessage() {
     return mPushMessage == null ? null : (GCMPayload) mPushMessage.getPayload();
