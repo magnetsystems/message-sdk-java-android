@@ -251,12 +251,13 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertNotNull(attachmentRef.get());
     Log.d(TAG, "-----------attachment received");
     final CountDownLatch downLatch = new CountDownLatch(1);
-    Attachment attachmentReceived = attachmentRef.get();
+    final Attachment attachmentReceived = attachmentRef.get();
     attachmentReceived.download(new Attachment.DownloadAsBytesListener() {
 
       @Override public void onComplete(byte[] bytes) {
         assertNotNull(bytes);
         assertTrue(bytes.length > 0);
+        assertEquals(attachmentReceived.getLength(), bytes.length);
         downLatch.countDown();
       }
 
@@ -271,8 +272,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     }
     assertEquals(0, downLatch.getCount());
     assertEquals(Attachment.Status.COMPLETE, attachmentReceived.getStatus());
-    assertNotNull(attachmentReceived.getAsBytes());
-    assertEquals(attachmentReceived.getLength(), attachmentReceived.getAsBytes().length);
 
     MMX.unregisterListener(messageListener);
     logoutMMX();

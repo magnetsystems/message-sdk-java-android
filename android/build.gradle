@@ -71,7 +71,7 @@ dependencies {
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    compile ('com.magnet.max.android:magnet-max-android-core:2.1.0-SNAPSHOT') {
+    compile ('com.magnet.max.android:magnet-max-android-core:2.1.0-SNAPSHOT@aar') {
         transitive=true
     }
 }
@@ -160,6 +160,7 @@ task androidJavadocs(type: Javadoc) {
     include '**/max/android/config/MaxAndroidPropertiesConfig.java'
     include '**/max/android/config/MaxAndroidConfig.java'
     include '**/max/android/User.java'
+    include '**/max/android/Attachment.java'
     include '**/max/android/auth/model/UserRegistrationInfo.java'
     include '**/max/android/auth/model/UserRealm.java'
     include '**/max/android/auth/model/UpdateProfileRequest.java'
