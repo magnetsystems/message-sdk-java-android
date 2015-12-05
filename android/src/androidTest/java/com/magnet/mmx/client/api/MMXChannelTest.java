@@ -69,7 +69,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpCreateError(channel, MMXChannel.FailureCode.CHANNEL_EXISTS);
     helpFind(channelName, 1);
     helpSubscribe(channel, 1);
+
     helpPublish(channel);
+    helpFetch(channel, 1);
+
     helpChannelSummary(channelName, 1, 1);
     helpGetPublicChannel(channelName, 1);
     helpUnsubscribe(channel);
@@ -97,6 +100,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     String channelName = "private-channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
     MMXChannel channel = helpCreate(channelName, channelSummary, false);
+
+    helpPublish(channel);
+    helpFetch(channel, 1);
+
     helpLogout();
 
     helpLogin(MMX_TEST_USER_3);
@@ -160,6 +167,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       isSuccess.set(false);
       errorMesage.set("Failed to get subscriber : timeout");
     }
+
+    helpPublish(channel);
+    helpFetch(channel, 1);
 
     if(!isSuccess.get()) {
       helpDelete(channel);
