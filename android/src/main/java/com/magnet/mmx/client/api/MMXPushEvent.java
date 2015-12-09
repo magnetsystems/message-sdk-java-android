@@ -115,7 +115,8 @@ public class MMXPushEvent implements Serializable {
   }
 
   /**
-   * Get the push message delivered via GCM.
+   * Get the push message delivered via GCM.  The push message provides access
+   * to all notification properties: title, body, badge, sound, and icon.
    * @return The GCM push message.
    */
   public GCMPayload getPushMessage() {
