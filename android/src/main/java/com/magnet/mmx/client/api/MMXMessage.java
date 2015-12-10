@@ -229,8 +229,11 @@ public class MMXMessage {
      */
     public MMXMessage build() {
       //validate message
-      if (mMessage.mChannel == null && mMessage.mRecipients.size() == 0) {
-        throw new IllegalArgumentException("No channel and no recipients are specified");
+      //if (mMessage.mChannel == null && mMessage.mRecipients.size() == 0) {
+      //  throw new IllegalArgumentException("No channel and no recipients are specified");
+      //}
+      if (mMessage.mChannel != null && mMessage.mRecipients.size() > 0) {
+        throw new IllegalArgumentException("Only either channel or recipients should be specified");
       }
       return mMessage;
     }
@@ -607,6 +610,10 @@ public class MMXMessage {
         }
       };
     } else {
+      if(mRecipients.size() == 0) {
+        throw new IllegalArgumentException("Recipients is not specified");
+      }
+
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
