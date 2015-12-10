@@ -981,7 +981,6 @@ public final class MMX {
     public String getText() {
       return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
     }
-  }
 
     public void onWakeupReceived(Context applicationContext, Intent intent) {
       Log.d(TAG, "onWakeupReceived() start");
