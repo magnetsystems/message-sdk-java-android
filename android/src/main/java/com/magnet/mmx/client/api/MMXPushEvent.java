@@ -52,7 +52,7 @@ public class MMXPushEvent implements Serializable {
   private static final long serialVersionUID = 2789163511461919579L;
   private final static String TAG = MMXPushEvent.class.getSimpleName();
   private PushMessage mPushMessage;
-  
+
   /**
    * Convert the intent from the custom receiver into MMXPushEvent.  If the
    * intent does not conform to MMX server GCM format, it will return null.
@@ -92,11 +92,11 @@ public class MMXPushEvent implements Serializable {
   private MMXPushEvent(Action action, String type) {
     mPushMessage = new PushMessage(action, type, null);
   }
-  
+
   private MMXPushEvent(String msg) {
     mPushMessage = PushMessage.decode(msg, null);
   }
-  
+
   /**
    * Get the action type (wake-up/silent notification) or (push/non-silent
    * notification) of the notification.
@@ -107,8 +107,9 @@ public class MMXPushEvent implements Serializable {
   }
   
   /**
-   * Get the notification type.
-   * @return
+   * Get the push message type (if any.)  It can be an ad-hoc message wake-up
+   * ("retrieve"), a channel wake-up ("pubsub"), or a custom type.
+   * @return A push message type or null.
    */
   public String getType() {
     return mPushMessage == null ? null : mPushMessage.getType();
@@ -133,7 +134,7 @@ public class MMXPushEvent implements Serializable {
       return null;
     return payload.getMmx();
   }
-  
+
   /**
    * Get the custom payload as a Map object from the event payload.
    * Alternatively, use {@link #getCustomObject(Class)} if there is a class
@@ -148,7 +149,7 @@ public class MMXPushEvent implements Serializable {
     }
     return (Map<String, Object>) mmx.get(GCMPayload.KEY_CUSTOM_CONTENT);
   }
-  
+
   /**
    * Get the custom payload as Object of class <code>clz</code> from the event
    * payload.  Typically developer uses {@link #getType()} to identify the
@@ -166,7 +167,7 @@ public class MMXPushEvent implements Serializable {
     }
     return GsonData.fromMap(custom, clz);
   }
-  
+
   @Override
   public String toString() {
     return (mPushMessage == null) ? null : mPushMessage.toString();
