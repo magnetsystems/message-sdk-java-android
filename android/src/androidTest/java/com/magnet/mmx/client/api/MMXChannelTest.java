@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client.api;
 
+import com.magnet.max.android.Attachment;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -672,6 +673,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   private void helpPublish(MMXChannel channel) {
+    helpPublish(channel, null);
+  }
+
+  private void helpPublish(MMXChannel channel, Attachment attachment) {
     //setup message listener to receive published message
     final StringBuffer barBuffer = new StringBuffer();
     final StringBuffer senderBuffer = new StringBuffer();
