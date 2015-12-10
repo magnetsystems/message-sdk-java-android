@@ -228,12 +228,12 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     });
     // Check if the send is success
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(20 * 1000);
     assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals(messageId, sendResult.getReturnValue());
 
     // Check if the receive is success
-    status = receivedResult.waitFor(TIMEOUT);
+    status = receivedResult.waitFor(30 * 1000);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSendMessage() receive msg timed out");
     }
@@ -249,9 +249,9 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
 
     // Download attachment
     assertNotNull(attachmentRef.get());
-    Log.d(TAG, "-----------attachment received");
     final CountDownLatch downLatch = new CountDownLatch(1);
     final Attachment attachmentReceived = attachmentRef.get();
+    Log.d(TAG, "-----------attachment received : " + attachmentReceived.getDownloadUrl());
     attachmentReceived.download(new Attachment.DownloadAsBytesListener() {
 
       @Override public void onComplete(byte[] bytes) {

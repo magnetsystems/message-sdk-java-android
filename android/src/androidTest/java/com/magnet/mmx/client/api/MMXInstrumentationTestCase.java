@@ -109,6 +109,8 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
 
             @Override
             public void failure(ApiError apiError) {
+              Log.e(TAG, "Failed to initModule MMX due to : " + apiError.getMessage(), apiError.getCause());
+              fail("Failed to initModule MMX  due to: " + apiError.getMessage());
               synchronized (this) {
                 this.notify();
               }
@@ -123,6 +125,8 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
 
       @Override
       public void failure(ApiError apiError) {
+        Log.e(TAG, "Failed to login due to : " + apiError.getMessage(), apiError.getCause());
+        fail("Failed to login due to : " + apiError.getMessage());
         synchronized (this) {
           this.notify();
         }
