@@ -303,6 +303,10 @@ public final class MMXClient {
    */
   public static final String EXTRA_PUSH_ICON = "com.magnet.mmx.MMXClient.EXTRA_PUSH_ICON";
   /**
+   * Extra Integer field that contains the badge name from push(@link #ACTION_PUSH_RECEIVED}
+   */
+  public static final String EXTRA_PUSH_BADGE = "com.magnet.mmx.MMXClient.EXTRA_PUSH_BADGE";
+  /**
    * Extra String field that contains the custom json block from push{@link #ACTION_PUSH_RECEIVED}
    */
   public static final String EXTRA_PUSH_CUSTOM_JSON = "com.magnet.mmx.MMXClient.EXTRA_PUSH_CUSTOM";
@@ -1149,11 +1153,11 @@ public final class MMXClient {
             Log.d(TAG, "registerDeviceWithServer() start");
           }
           ConnectionInfo connectionInfo = getConnectionInfo();
-          GooglePlayServicesWrapper googlePlayServicesWrapper = GooglePlayServicesWrapper.getInstance(mContext);
-          int result = googlePlayServicesWrapper.isPlayServicesAvailable();
-          if (result == GooglePlayServicesWrapper.PLAY_SERVICES_SERVICE_VERSION_UPDATE_REQUIRED) {
-            googlePlayServicesWrapper.showErrorNotification(result);
-          }
+          GooglePlayServicesWrapper googlePlayServices = GooglePlayServicesWrapper.getInstance(mContext);
+
+          int gcmresult = googlePlayServices.isGcmAvailable();
+          int result = googlePlayServices.isPlayServicesAvailable();
+
           String gcmSenderId = connectionInfo.clientConfig.getGcmSenderId();
           boolean isGcmWakeupEnabled = connectionInfo.isGcmWakeupEnabled &&
               result == GooglePlayServicesWrapper.PLAY_SERVICES_AVAILABLE &&
@@ -1172,7 +1176,7 @@ public final class MMXClient {
               }
               synchronized (MMXClient.this) {
                 try {
-                  gcmRegId = googlePlayServicesWrapper.registerGcmNew(gcmSenderId);
+                  gcmRegId = googlePlayServices.registerGcmNew(gcmSenderId);
                   SharedPreferences.Editor prefEditor = mSharedPreferences.edit();
                   prefEditor.putString(SHARED_PREF_KEY_GCM_REGID, gcmRegId);
                   prefEditor.putInt(SHARED_PREF_KEY_GCM_REGID_APPVERSION, appVersion);
@@ -1190,17 +1194,35 @@ public final class MMXClient {
           } else {
             // Provide better diagnostic why MMX Wakeup is not working.
             int i = 0;
-            StringBuilder sb = new StringBuilder("MMX Wakeup is disabled:");
+            StringBuilder sb = new StringBuilder("MMX Wakeup is disabled due to");
             if (!connectionInfo.isGcmWakeupEnabled) {
-              sb.append(i==0?" ":", ").append("GCM Wakeup is explicitly disabled in the config");
+              sb.append(i==0?" ":"\n")
+                .append("GCM Wakeup is explicitly disabled in the config");
+              ++i;
+            }
+            if (gcmresult != GooglePlayServicesWrapper.PLAY_SERVICES_AVAILABLE) {
+              sb.append(i==0?" ":"\n").append("GCM status: ").append(gcmresult)
+                .append("-")
+                .append(googlePlayServices.getErrorString(gcmresult));
               ++i;
             }
             if (result != GooglePlayServicesWrapper.PLAY_SERVICES_AVAILABLE) {
-              sb.append(i==0?" ":", ").append(googlePlayServicesWrapper.getErrorString(result));
+              sb.append(i==0?" ":"\n").append("Google Play Services status: ")
+                .append(result).append("-")
+                .append(googlePlayServices.getErrorString(result));
               ++i;
+              if (result == GooglePlayServicesWrapper.PLAY_SERVICES_UNAVAILABLE) {
+                sb.append("; maybe this app is not compiled with "+
+                    "'com.google.android.gms:play-services-base:7.8.0' and "+
+                    "'com.google.android.gms:play-services-gcm:7.8.0', or not having "+
+                    "<meta-data android:name=\"com.google.android.gms.version\" "+
+                    "android:value=\"@integer/google_play_services_version\"/> "+
+                    "in AndroidManifest.xml?");
+              }
             }
             if (gcmSenderId == null || gcmSenderId.isEmpty()) {
-              sb.append(i==0?" ":", ").append("GCM Sender ID is not specified");
+              sb.append(i==0?" ":"\n")
+                .append("GCM Sender ID is not specified in magnetmax.properties");
               ++i;
             }
             Log.w(TAG, sb.toString());
@@ -1623,6 +1645,20 @@ public final class MMXClient {
       mManagers.put(MMXPubSubManager.class, manager);
     }
     return (MMXPubSubManager)manager;
+  }
+
+  /**
+   * Retrieve the MMXPushManager instance for this client.
+   *
+   * @return the MMXPushManager instance associated with this client
+   */
+  public synchronized MMXPushManager getPushManager() {
+    MMXManager manager = mManagers.get(MMXPushManager.class);
+    if (manager == null) {
+      manager = new MMXPushManager(this, mMessagingHandler);
+      mManagers.put(MMXPushManager.class, manager);
+    }
+    return (MMXPushManager)manager;
   }
 
   /**

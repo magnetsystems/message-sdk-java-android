@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client.api;
 
+import com.magnet.max.android.Attachment;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -23,6 +24,11 @@ import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXMessage.InvalidRecipientException;
 import com.magnet.mmx.client.common.Log;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MMXMessageTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXMessageTest.class.getSimpleName();
@@ -44,7 +50,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(10000);
+        loginListener.wait(TIMEOUT);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -97,12 +103,12 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     });
     // Check if the send is success
-    ExecMonitor.Status status = sendResult.waitFor(10000);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
     assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals(messageId, sendResult.getReturnValue());
     
     // Check if the receive is success
-    status = receivedResult.waitFor(10000);
+    status = receivedResult.waitFor(TIMEOUT);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSendMessage() receive msg timed out");
     }
@@ -111,7 +117,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
 
     //check acknowledgement
 
-    status = acknowledgeResult.waitFor(10000);
+    status = acknowledgeResult.waitFor(TIMEOUT);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSenddMessage() receive acknowledgement timed out");
     }
@@ -123,12 +129,162 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(10000);
+        logoutListener.wait(TIMEOUT);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     }
 //    assertFalse(MMX.getMMXClient().isConnected());
+  }
+
+  public void testSendMessageWithAttachments() {
+    ApiCallback<Boolean> loginListener = getLoginListener();
+    String suffix = String.valueOf(System.currentTimeMillis());
+    String username = USERNAME_PREFIX + suffix;
+    String displayName = DISPLAY_NAME_PREFIX + suffix;
+    registerUser(username, displayName, PASSWORD);
+
+    //login with credentials
+    User.login(username, new String(PASSWORD), false, loginListener);
+    synchronized (loginListener) {
+      try {
+        loginListener.wait(TIMEOUT);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    assertTrue(MMX.getMMXClient().isConnected());
+    MMX.start();
+
+    final AtomicLong attachmentSize = new AtomicLong();
+    final AtomicReference<Attachment> attachmentRef = new AtomicReference<>();
+
+    final ExecMonitor<HashMap<String, Object>, Void> receivedResult = new ExecMonitor<HashMap<String, Object>, Void>();
+    final StringBuffer senderBuffer = new StringBuffer();
+    final ExecMonitor<String, Void> acknowledgeResult = new ExecMonitor<String, Void>();
+    MMX.EventListener messageListener = new MMX.EventListener() {
+      public boolean onMessageReceived(MMXMessage message) {
+        Log.d(TAG, "onMessageReceived(): " + message.getId());
+        senderBuffer.append(message.getSender().getFirstName());
+        HashMap<String, Object> receivedContent = new HashMap<String, Object>();
+        for (Map.Entry<String, String> entry : message.getContent().entrySet()) {
+          receivedContent.put(entry.getKey(), entry.getValue());
+        }
+
+        //Attachments
+        assertNotNull(message.getAttachments());
+        assertEquals(1, message.getAttachments().size());
+        Attachment attachmentReceived = message.getAttachments().get(0);
+        assertEquals("image/jpeg", attachmentReceived.getMimeType());
+        assertEquals(Attachment.Status.INIT, attachmentReceived.getStatus());
+        //assertEquals(attachmentSize.get(), attachmentReceived.getLength());
+        assertNotNull(attachmentReceived.getDownloadUrl());
+
+        attachmentRef.set(attachmentReceived);
+
+        receivedResult.invoked(receivedContent);
+
+        //do the acknowledgement
+        message.acknowledge(null);
+
+        return false;
+      }
+
+      public boolean onMessageAcknowledgementReceived(User from, String messageId) {
+        acknowledgeResult.invoked(messageId);
+        return false;
+      }
+    };
+    MMX.registerListener(messageListener);
+
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(MMX.getCurrentUser());
+
+    HashMap<String, String> content = new HashMap<String, String>();
+    content.put("foo", "bar");
+    final Attachment attachment1 = new Attachment(getContext().getResources().openRawResource(
+        com.magnet.mmx.test.R.raw.test_image), "image/jpeg");
+    //final Attachment attachment1 = new TextAttachment(Attachment.TEXT_PLAIN, "hello world");
+    //assertEquals(-1, attachment1.getLength());
+    MMXMessage message = new MMXMessage.Builder()
+        .recipients(recipients)
+        .content(content)
+        .attachments(attachment1)
+        .build();
+    final ExecMonitor<String, Boolean> sendResult = new ExecMonitor<String, Boolean>();
+    final String messageId = message.send(new MMXMessage.OnFinishedListener<String>() {
+      public void onSuccess(String result) {
+        Log.e(TAG, "testSendMessage(): onSuccess() msgId=" + result);
+
+        assertTrue(attachment1.getLength() > 0);
+        attachmentSize.set(attachment1.getLength());
+
+        sendResult.invoked(result);
+      }
+
+      public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
+        Log.e(TAG, "testSendMessage(): failureCode=" + code, ex);
+        sendResult.failed(Boolean.TRUE);
+      }
+    });
+    // Check if the send is success
+    ExecMonitor.Status status = sendResult.waitFor(20 * 1000);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
+    assertEquals(messageId, sendResult.getReturnValue());
+
+    // Check if the receive is success
+    status = receivedResult.waitFor(30 * 1000);
+    if (status == ExecMonitor.Status.WAITING) {
+      fail("testSendMessage() receive msg timed out");
+    }
+    assertEquals("bar", receivedResult.getReturnValue().get("foo"));
+    assertEquals(MMX.getCurrentUser().getFirstName(), senderBuffer.toString());
+
+    //check acknowledgement
+    status = acknowledgeResult.waitFor(TIMEOUT);
+    if (status == ExecMonitor.Status.WAITING) {
+      fail("testSenddMessage() receive acknowledgement timed out");
+    }
+    assertEquals(messageId, acknowledgeResult.getReturnValue());
+
+    // Download attachment
+    assertNotNull(attachmentRef.get());
+    final CountDownLatch downLatch = new CountDownLatch(1);
+    final Attachment attachmentReceived = attachmentRef.get();
+    Log.d(TAG, "-----------attachment received : " + attachmentReceived.getDownloadUrl());
+    attachmentReceived.download(new Attachment.DownloadAsBytesListener() {
+
+      @Override public void onComplete(byte[] bytes) {
+        assertNotNull(bytes);
+        assertTrue(bytes.length > 0);
+        assertEquals(attachmentReceived.getLength(), bytes.length);
+        downLatch.countDown();
+      }
+
+      @Override public void onError(Throwable throwable) {
+        fail(throwable.getMessage());
+      }
+    });
+    try {
+      downLatch.await(TIMEOUT, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      fail(e.getMessage());
+    }
+    assertEquals(0, downLatch.getCount());
+    assertEquals(Attachment.Status.COMPLETE, attachmentReceived.getStatus());
+
+    MMX.unregisterListener(messageListener);
+    logoutMMX();
+    ApiCallback<Boolean> logoutListener = getLogoutListener();
+    User.logout(logoutListener);
+    synchronized (logoutListener) {
+      try {
+        logoutListener.wait(TIMEOUT);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+    //    assertFalse(MMX.getMMXClient().isConnected());
   }
   
   public void testSendBeforeLogin() {
@@ -153,7 +309,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         failureMonitor.failed(code);
       }
     });
-    ExecMonitor.Status status = failureMonitor.waitFor(10000);
+    ExecMonitor.Status status = failureMonitor.waitFor(TIMEOUT);
     if (status == ExecMonitor.Status.INVOKED) {
       fail("should have called onFailure()");
     } else if (status == ExecMonitor.Status.FAILED) {
@@ -206,7 +362,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(10000);
+        loginListener.wait(TIMEOUT);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -266,7 +422,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     
     // Send failed because of an invalid recipient
-    ExecMonitor.Status status = sendResult.waitFor(10000);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(1, invalidUsers.size());
@@ -282,7 +438,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(10000);
+        logoutListener.wait(TIMEOUT);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -305,7 +461,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(10000);
+        loginListener.wait(TIMEOUT);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -369,7 +525,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     
     // Send partial failure despite invalid recipients
-    ExecMonitor.Status status = sendResult.waitFor(10000);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(2, invalidUsers.size());
@@ -393,7 +549,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(10000);
+        logoutListener.wait(TIMEOUT);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }

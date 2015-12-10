@@ -23,7 +23,13 @@ import com.magnet.mmx.protocol.PushMessage;
 import com.magnet.mmx.util.UnknownTypeException;
 
 import android.app.IntentService;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 
@@ -40,7 +46,7 @@ import java.util.Map;
  */
 public final class MMXWakeupIntentService extends IntentService {
   private static final String TAG = MMXWakeupIntentService.class.getSimpleName();
-
+  private static int sNoteId = 10;
 
   public static final String HEADER_WAKEUP =
       Constants.MMX + ":" +
@@ -57,6 +63,10 @@ public final class MMXWakeupIntentService extends IntentService {
       Constants.MMX_ACTION_CODE_PUSH + ":" +
       PingPongCommand.notify.name();
 
+  public static final String HEADER_PUBSUB =
+      Constants.MMX + ":" +
+      Constants.MMX_ACTION_CODE_WAKEUP + ":" +
+      PingPongCommand.pubsub.name();
 
   public MMXWakeupIntentService() {
     super("MMXGcmIntentService");
@@ -94,6 +104,7 @@ public final class MMXWakeupIntentService extends IntentService {
             try {
               PushMessage pushMessage = PushMessage.decode(msg, MMXTypeMapper.getInstance());
               isMmxHandle = handleMMXInternalPush(pushMessage);
+              Log.d(TAG, "isMmxHandle="+isMmxHandle+", pushMsg="+pushMessage);
             } catch (UnknownTypeException ex) {
               //This is not an internal MMX message type
               Log.i(TAG, "onHandleIntent() forwarding intent to application");
@@ -118,11 +129,43 @@ public final class MMXWakeupIntentService extends IntentService {
     }
   }
 
+  private void invokeNotificationForPush(GCMPayload payload) {
+    // Launch the activity with action=MAIN, category=DEFAULT.  Make sure that
+    // it has DEFAULT category declared in AndroidManifest.xml intent-filter.
+    PendingIntent intent = PendingIntent.getActivity(this.getApplicationContext(),
+        0, new Intent(Intent.ACTION_MAIN).setPackage(this.getPackageName())
+          .addCategory(Intent.CATEGORY_DEFAULT)   // it is redundant
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          .addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
+        PendingIntent.FLAG_UPDATE_CURRENT);
+    Notification.Builder noteBuilder = new Notification.Builder(this)
+            .setContentIntent(intent)
+            .setAutoCancel(true)
+            .setWhen(System.currentTimeMillis())
+            .setContentTitle(payload.getTitle())
+            .setContentText(payload.getBody());
+    if (payload.getSound() != null) {
+      // TODO: cannot handle custom sound yet; use notification ring tone.
+      noteBuilder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+    }
+    if (payload.getIcon() != null) {
+      noteBuilder.setSmallIcon(this.getResources().getIdentifier(
+          payload.getIcon(), "drawable", this.getPackageName()));
+    } else {
+      noteBuilder.setSmallIcon(this.getApplicationInfo().icon);
+    }
+    if (payload.getBadge() != null) {
+      noteBuilder.setNumber(payload.getBadge());
+    }
+    NotificationManager noteMgr = (NotificationManager)
+        this.getSystemService(Context.NOTIFICATION_SERVICE);
+    noteMgr.notify(sNoteId++, noteBuilder.build());
+  }
+
   private void invokeWakeupHandlerForPush(GCMPayload payload) {
     if (Log.isLoggable(TAG, Log.DEBUG)) {
       Log.d(TAG, "onHandleIntent(): Firing push intent");
     }
-
     Intent pushIntent = buildPushIntent(payload);
     MMXClient.handleWakeup(this, pushIntent);
   }
@@ -142,6 +185,10 @@ public final class MMXWakeupIntentService extends IntentService {
     if (!TextUtils.isEmpty(payload.getIcon())) {
       pushIntent.putExtra(MMXClient.EXTRA_PUSH_ICON, payload.getIcon());
     }
+    if (payload.getBadge() != null) {
+      pushIntent.putExtra(MMXClient.EXTRA_PUSH_BADGE, payload.getBadge());
+
+    }
     // extract notification ID from _mmx
     Map<String, ? super Object> mmx = payload.getMmx();
 
@@ -158,6 +205,7 @@ public final class MMXWakeupIntentService extends IntentService {
     }
     return pushIntent;
   }
+
   private void invokeCallback(String urlString) {
     //POST to the callback url
     HttpURLConnection conn = null;
@@ -183,37 +231,60 @@ public final class MMXWakeupIntentService extends IntentService {
   private boolean handleMMXInternalPush(PushMessage pushMessage) {
     PushMessage.Action pushType = pushMessage.getAction();
     if (Log.isLoggable(TAG, Log.DEBUG)) {
-      Log.d(TAG, "handleMMXInternalPush(): received command: " + pushType);
+      Log.d(TAG, "handleMMXInternalPush(): received action: " + pushType);
     }
-    GCMPayload gcmPayload = (GCMPayload) pushMessage.getPayload();
-    if (gcmPayload == null) {
+    Object payload = pushMessage.getPayload();
+    if (payload == null || !(payload instanceof GCMPayload)) {
       return false;
     }
-    String typeName = (String) gcmPayload.getMmx().get(Constants.PAYLOAD_TYPE_KEY);
-    if (TextUtils.isEmpty(typeName)) {
-      return false;
-    }
+    GCMPayload gcmPayload = (GCMPayload) payload;
+    boolean handled = false;
+    String typeName = pushMessage.getType();
     String urlString = (String) gcmPayload.getMmx().get(Constants.PAYLOAD_CALLBACK_URL_KEY);
-    if (PushMessage.Action.WAKEUP.compareTo(pushType) == 0) {
-      if (HEADER_WAKEUP.equalsIgnoreCase(typeName)) { // mmx:w:retrieve
+    if (PushMessage.Action.WAKEUP == pushType) { // "mmx:w:*"
+      if (Constants.PingPongCommand.retrieve.name().equalsIgnoreCase(typeName)) { // "mmx:w:retrieve"
         MMXClient.handleWakeup(this, new Intent(MMXClient.ACTION_RETRIEVE_MESSAGES));
+        // TODO: should it do the URL callback if specified?  Currently not.
         return true;
-      } else if (!TextUtils.isEmpty(urlString)) {  // mmx:w:ping
-        invokeCallback(urlString);
-        return true;
+      } else if (Constants.PingPongCommand.ping.name().equalsIgnoreCase(typeName)) { // "mmx:w:ping"
+        handled = true;
       }
-    } else if (PushMessage.Action.PUSH.compareTo(pushType) == 0) {  // mmx:p:*
-      String text = gcmPayload.getBody();
-      if (Log.isLoggable(TAG, Log.DEBUG)) {
-        Log.d(TAG, "handleMMXInternalPush(): Received notification with body: " + text);
-      }
-      invokeWakeupHandlerForPush(gcmPayload);
-      if (!TextUtils.isEmpty(urlString)) {
-        invokeCallback(urlString);
-      }
-      return true;
-    }
-    return false;
+    } else if (PushMessage.Action.PUSH == pushType) {  // "mmx:p:*"
+      // TODO: console should use "mmx:p:notify" instead of "mmx:p".
+      // TODO: the following code causes MMXPushEvent unable to parse the intent.
 
+      // Only the payload does not have custom content and it has at least one
+      // of the notification properties, the notification will be shown.
+      // Otherwise, an Intent will be sent.
+      boolean doNotify =
+          !gcmPayload.getMmx().containsKey(GCMPayload.KEY_CUSTOM_CONTENT) &&
+          (gcmPayload.getTitle() != null || gcmPayload.getBody() != null ||
+           gcmPayload.getIcon() != null || gcmPayload.getBadge() != null ||
+           gcmPayload.getSound() != null);
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "handleMMXInternalPush(): doNotify="+doNotify);
+      }
+      if (doNotify) {
+        invokeNotificationForPush(gcmPayload);
+        handled = true;
+      }
+//      if (TextUtils.isEmpty(typeName)) { // "mmx:p"
+//        String text = gcmPayload.getBody();
+//        if (Log.isLoggable(TAG, Log.DEBUG)) {
+//          Log.d(TAG, "handleMMXInternalPush(): Received notification with body: " + text);
+//        }
+//        invokeWakeupHandlerForPush(gcmPayload);
+//        if (!TextUtils.isEmpty(urlString)) {
+//          invokeCallback(urlString);
+//        }
+//        return true;
+//      }
+    }
+
+    // Do the URL callback if it is specified.
+    if (!TextUtils.isEmpty(urlString)) {
+      invokeCallback(urlString);
+    }
+    return handled;
   }
 }

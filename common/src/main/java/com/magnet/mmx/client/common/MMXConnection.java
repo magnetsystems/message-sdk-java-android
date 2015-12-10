@@ -664,7 +664,7 @@ public class MMXConnection implements ConnectionListener {
       // Not authorized: invalid password or account does not exist.
       if ((flags & AUTH_AUTO_CREATE) == 0) {
         if (mConListener != null) {
-          mConListener.onAuthFailed(new MMXid(userId, null));
+          mConListener.onAuthFailed(new MMXid(userId, null, null));
         }
         return;
       }
@@ -684,7 +684,7 @@ public class MMXConnection implements ConnectionListener {
 
       // Callback if the auto account creation is success.
       if (mConListener != null) {
-        mConListener.onAccountCreated(new MMXid(userId, null));
+        mConListener.onAccountCreated(new MMXid(userId, null, null));
       }
 
       // Account is created, now try to log in again.
@@ -735,7 +735,7 @@ public class MMXConnection implements ConnectionListener {
       // userId is taken
       if ((e.getCode() == StatusCode.INTERNAL_ERROR) || (e.getCode() == StatusCode.CONFLICT)) {
         if (mConListener != null) {
-          mConListener.onAuthFailed(new MMXid(userId, null));
+          mConListener.onAuthFailed(new MMXid(userId, null, null));
         }
         return false;
       }

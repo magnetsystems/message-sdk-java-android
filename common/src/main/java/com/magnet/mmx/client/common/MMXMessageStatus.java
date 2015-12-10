@@ -17,8 +17,8 @@ package com.magnet.mmx.client.common;
 
 import java.io.Serializable;
 
-import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.Constants.MessageState;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.MsgsState.MessageStatus;
 import com.magnet.mmx.util.XIDUtil;
 
@@ -33,7 +33,7 @@ public class MMXMessageStatus implements Serializable {
   MMXMessageStatus(MessageStatus status) {
     mState = status.getState();
     if (status.getRecipient() != null) {
-      mRecipient = new MMXid(XIDUtil.getUserId(status.getRecipient()), null);
+      mRecipient = new MMXid(XIDUtil.getUserId(status.getRecipient()), null, null);
     }
   }
 

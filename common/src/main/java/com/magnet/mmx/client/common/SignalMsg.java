@@ -129,7 +129,7 @@ public class SignalMsg implements Serializable {
 
     sigMsg.mMsgId = (String) map.get(ACK_MSG_ID);
     if (sender != null) {
-      sigMsg.mSender = new MMXid(sender.get(USER_ID), null, sender.get(DEV_ID));
+      sigMsg.mSender = new MMXid(sender.get(USER_ID), sender.get(DEV_ID), null);
     }
     if (receiver != null) {
       sigMsg.mReceiver = new MMXid(receiver.get(USER_ID), null, null);
@@ -137,7 +137,7 @@ public class SignalMsg implements Serializable {
     if (badReceivers != null) {
       sigMsg.mInvalidReceivers = new ArrayList<MMXid>(badReceivers.size());
       for (Map<String, String> entry : badReceivers) {
-        sigMsg.mInvalidReceivers.add(new MMXid(entry.get(USER_ID), null, entry.get(DEV_ID)));
+        sigMsg.mInvalidReceivers.add(new MMXid(entry.get(USER_ID), entry.get(DEV_ID), null));
       }
     }
 

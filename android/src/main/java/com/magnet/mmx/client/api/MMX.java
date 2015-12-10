@@ -732,7 +732,7 @@ public final class MMX {
               //listener returning true means consume the message
               break;
             }
-          } catch (Exception ex) {
+          } catch (Throwable ex) {
             Log.d(TAG, "notifyMessageReceived(): Caught exception while calling listener: " + listener, ex);
           }
         }
@@ -980,6 +980,12 @@ public final class MMX {
      */
     public String getText() {
       return mIntent.getStringExtra(MMXClient.EXTRA_PUSH_BODY);
+    }
+  }
+
+    public void onWakeupReceived(Context applicationContext, Intent intent) {
+      Log.d(TAG, "onWakeupReceived() start");
+      wakeup(applicationContext, intent);
     }
   }
 
