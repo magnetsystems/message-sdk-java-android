@@ -229,8 +229,11 @@ public class MMXMessage {
      */
     public MMXMessage build() {
       //validate message
-      if (mMessage.mChannel == null && mMessage.mRecipients.size() == 0) {
-        throw new IllegalArgumentException("No channel and no recipients are specified");
+      //if (mMessage.mChannel == null && mMessage.mRecipients.size() == 0) {
+      //  throw new IllegalArgumentException("No channel and no recipients are specified");
+      //}
+      if (mMessage.mChannel != null && mMessage.mRecipients.size() > 0) {
+        throw new IllegalArgumentException("Only either channel or recipients should be specified");
       }
       return mMessage;
     }
@@ -607,6 +610,10 @@ public class MMXMessage {
         }
       };
     } else {
+      if(mRecipients.size() == 0) {
+        throw new IllegalArgumentException("Recipients is not specified");
+      }
+
       task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
         public String doRun(MMXClient mmxClient) throws Throwable {
@@ -914,6 +921,23 @@ public class MMXMessage {
           progressListener.onComplete(attachment);
         }
         continue;
+      }
+
+      //Set meta data
+      attachment.addMetaData("metadata_message_id", messageId);
+      if(null != mChannel) {
+        attachment.addMetaData("metadata_channel_name", mChannel.getName());
+        attachment.addMetaData("metadata_channel_is_public", String.valueOf(mChannel.isPublic()));
+      } else {
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for(User u : mRecipients) {
+          sb.append(u.getUserIdentifier());
+          if(count++ != mRecipients.size() - 1) {
+            sb.append(",");
+          }
+        }
+        attachment.addMetaData("metadata_recipients", sb.toString());
       }
 
       final CountDownLatch uploadSignal = new CountDownLatch(1);
