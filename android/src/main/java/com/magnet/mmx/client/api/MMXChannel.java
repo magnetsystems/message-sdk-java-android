@@ -1237,6 +1237,18 @@ public class MMXChannel {
   }
 
   /**
+   * Get all public channels with pagination.
+   * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
+   * @param listener the listener for the query results
+   */
+  public static void getAllPublicChannels(Integer limit, Integer offset,
+      ChannelSummaryOptions options,
+      final OnFinishedListener<ListResult<ChannelSummary>> listener) {
+    //findChannelsByName("%", limit, offset, ListType.global, listener);
+  }
+
+  /**
    * Get all private channels with pagination.  Only the private channels
    * created by the current user can be retrieved.
    * @param limit the maximum number of results to return
@@ -1416,6 +1428,40 @@ public class MMXChannel {
       }
     };
     task.execute();
+  }
+
+  /**
+   *
+   * @param channels
+   * @param options
+   * @param listener
+   */
+  public static void getSummary(List<MMXChannel> channels, ChannelSummaryOptions options, final OnFinishedListener<List<ChannelSummary>> listener) {
+    List<String> channelIds = new ArrayList<>(channels.size());
+    for(MMXChannel c : channels) {
+      channelIds.add(c.getName());
+    }
+    getChannelService().getChannelSummary(channelIds, options, new Callback<List<ChannelSummary>>() {
+      @Override public void onResponse(Response<List<ChannelSummary>> response) {
+        listener.onSuccess(response.body());
+      }
+
+      @Override public void onFailure(Throwable throwable) {
+
+      }
+    }).executeInBackground();
+  }
+
+  public static void getSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
+    getChannelService().getChannelSummary(Arrays.asList(channelId), options, new Callback<List<ChannelSummary>>() {
+      @Override public void onResponse(Response<List<ChannelSummary>> response) {
+        listener.onSuccess(response.body().get(0));
+      }
+
+      @Override public void onFailure(Throwable throwable) {
+
+      }
+    }).executeInBackground();
   }
 
   /**
