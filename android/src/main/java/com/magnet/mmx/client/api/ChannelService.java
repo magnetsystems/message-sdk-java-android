@@ -3,16 +3,21 @@
  */
 package com.magnet.mmx.client.api;
 
-import java.nio.channels.Channel;
+import com.magnet.max.android.User;
+import java.util.List;
 import java.util.Set;
 import retrofit.Callback;
 import retrofit.MagnetCall;
 import retrofit.http.Body;
+import retrofit.http.GET;
 import retrofit.http.POST;
 
 public interface ChannelService {
   @POST("/api/com.magnet.server/channel/create")
   MagnetCall<Void> createChannel(@Body ChannelInfo channelInfo, Callback<Void> callback);
+
+  @GET("/api/com.magnet.server/channel/summary")
+  MagnetCall<List<ChannelSummary>> getChannelSummary(@Body List<String> channelIds, ChannelSummaryOptions options, Callback<List<ChannelSummary>> callback);
 
   /**
    *

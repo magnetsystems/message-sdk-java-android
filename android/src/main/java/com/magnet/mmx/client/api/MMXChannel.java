@@ -15,6 +15,7 @@
 package com.magnet.mmx.client.api;
 
 import com.magnet.max.android.MaxCore;
+import java.nio.channels.Channel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -1508,6 +1509,40 @@ public class MMXChannel {
   public static void findChannelsBySubscribers(final Set<User> subscribers, ChannelMatchType matchType,
       final Integer limit, final Integer offset, final OnFinishedListener<ListResult<MMXChannel>> listener) {
 
+  }
+
+  /**
+   *
+   * @param channels
+   * @param options
+   * @param listener
+   */
+  public static void getSummary(List<MMXChannel> channels, ChannelSummaryOptions options, final OnFinishedListener<List<ChannelSummary>> listener) {
+    List<String> channelIds = new ArrayList<>(channels.size());
+    for(MMXChannel c : channels) {
+      channelIds.add(c.getName());
+    }
+    getChannelService().getChannelSummary(channelIds, options, new Callback<List<ChannelSummary>>() {
+      @Override public void onResponse(Response<List<ChannelSummary>> response) {
+        listener.onSuccess(response.body());
+      }
+
+      @Override public void onFailure(Throwable throwable) {
+
+      }
+    }).executeInBackground();
+  }
+
+  public static void getSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
+    getChannelService().getChannelSummary(Arrays.asList(channelId), options, new Callback<List<ChannelSummary>>() {
+      @Override public void onResponse(Response<List<ChannelSummary>> response) {
+        listener.onSuccess(response.body().get(0));
+      }
+
+      @Override public void onFailure(Throwable throwable) {
+
+      }
+    }).executeInBackground();
   }
 
   /**
