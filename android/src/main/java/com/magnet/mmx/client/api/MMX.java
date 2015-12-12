@@ -513,6 +513,7 @@ public final class MMX {
    */
   public static void login(String username, byte[] password,
                            final OnFinishedListener<Void> listener) {
+    Log.d(TAG, "--------login MMX for user " + username + ", token : " + new String(password));
     if (!sInstance.mLoggingIn.compareAndSet(false, true)) {
       Log.d(TAG, "login() already logging in, returning failure");
       getCallbackHandler().post(new Runnable() {
@@ -591,6 +592,7 @@ public final class MMX {
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
   public static void logout(final OnFinishedListener<Void> listener) {
+    Log.d(TAG, "--------logout MMX for user " + (sInstance.mCurrentUser != null ? sInstance.mCurrentUser.getUserName() : ""));
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         Log.d(TAG, "logout() received connection event: " + event);

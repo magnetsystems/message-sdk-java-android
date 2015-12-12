@@ -106,12 +106,13 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpFetch(channel, 1);
 
     helpLogout();
-
     helpLogin(MMX_TEST_USER_3);
-    helpFind(channelName, 0);   // expect 0 because someone private channel cannot be searched
-    helpLogout();
 
+    helpFind(channelName, 0);   // expect 0 because someone private channel cannot be searched
+
+    helpLogout();
     helpLogin(MMX_TEST_USER_2);
+
     helpDelete(channel);
   }
 
@@ -124,7 +125,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   public void testCreateChannelWithSubscribers() throws InterruptedException {
-    helpLogout();
+    //helpLogout();
 
     String suffix = String.valueOf(System.currentTimeMillis());
 
@@ -132,7 +133,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     User user3 = helpRegisterUser(MMX_TEST_USER_3 + suffix, MMX_TEST_USER_3, MMX_TEST_USER_3.getBytes(), null, null, false);
     User user4 = helpRegisterUser(MMX_TEST_USER_4 + suffix, MMX_TEST_USER_4, MMX_TEST_USER_4.getBytes(), null, null, false);
 
-    helpLogin(MMX_TEST_USER_1);
+    //helpLogin(MMX_TEST_USER_1);
 
     String channelName = "Chat_channel_" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
@@ -307,8 +308,6 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
     helpDelete(publicChannel);
     helpDelete(privateChannel);
-
-    helpLogout();
   }
 
   public void testErrorHandling() {
@@ -375,7 +374,6 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     // Login as user1 again and delete the channel.
     helpLogin(MMX_TEST_USER_2);
     helpDelete(channel);
-    helpLogout();
   }
   
   /**
@@ -432,8 +430,6 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     for (int i = 0; i < 3; i++) {
       helpDelete(channels[i]);
     }
-
-    helpLogout();
   }
 
   public void testFindError() {
@@ -980,6 +976,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
 
     //login with credentials
+    Log.d(TAG, "--------Logging user " + userName);
     User.login(userName, new String(password), false, loginListener);
     synchronized (loginListener) {
       try {
@@ -993,6 +990,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   private void helpLogout() {
+    Log.d(TAG, "--------Logout user " + User.getCurrentUser().getUserName());
     logoutMMX();
     ApiCallback<Boolean> logoutListener = getLogoutListener();
     User.logout(logoutListener);
