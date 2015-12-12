@@ -137,6 +137,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected ApiCallback<Boolean> getLogoutListener() { return new ApiCallback<Boolean>() {
     @Override
     public void success(Boolean aBoolean) {
+      MaxCore.deInitModule(MMX.getModule(), null);
       synchronized (this) {
         this.notify();
       }
@@ -191,23 +192,23 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
       public void failure(ApiError apiError) {
         Log.e(TAG, "onFailure(): code=" + apiError, apiError.getCause());
         if(reuseExistingUser && apiError.getKind() == 409) {
-          final ExecMonitor<User, ApiError> findUserMonitor = new ExecMonitor<User, ApiError>();
-          User.getUsersByUserNames(Arrays.asList(username), new ApiCallback<List<User>>() {
-            @Override public void success(List<User> users) {
-              if(null != users && users.size() == 1) {
-                User foundUser = users.get(0);
-                findUserMonitor.invoked(foundUser);
-                userReg.invoked(foundUser);
-                REGISTERED_USERS.put(username, foundUser);
-              }
-            }
-
-            @Override public void failure(ApiError apiError) {
-              userReg.failed(apiError);
-            }
-          });
-
-          findUserMonitor.waitFor(10*1000);
+          //final ExecMonitor<User, ApiError> findUserMonitor = new ExecMonitor<User, ApiError>();
+          //User.getUsersByUserNames(Arrays.asList(username), new ApiCallback<List<User>>() {
+          //  @Override public void success(List<User> users) {
+          //    if(null != users && users.size() == 1) {
+          //      User foundUser = users.get(0);
+          //      findUserMonitor.invoked(foundUser);
+          //      userReg.invoked(foundUser);
+          //      REGISTERED_USERS.put(username, foundUser);
+          //    }
+          //  }
+          //
+          //  @Override public void failure(ApiError apiError) {
+          //    userReg.failed(apiError);
+          //  }
+          //});
+          //
+          //findUserMonitor.waitFor(10*1000);
         } else {
           userReg.failed(apiError);
         }
