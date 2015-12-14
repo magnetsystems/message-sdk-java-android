@@ -15,7 +15,6 @@
 package com.magnet.mmx.client.api;
 
 import com.magnet.max.android.MaxCore;
-import java.nio.channels.Channel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -901,6 +900,63 @@ public class MMXChannel {
         }).executeInBackground();
   }
 
+  ///**
+  // * Create a channel with predefined subscribers.  Upon successful completion, the current user
+  // * automatically subscribes to the channel.
+  // * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+  // * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+  // *
+  // * @param name the name of the channel
+  // * @param summary the channel summary
+  // * @param isPublic whether or not this channel is public
+  // * @param publishPermission who can publish to this topic
+  // * @param subscribers the user id of subscribers
+  // * @param listener the listener for the newly created channel
+  // */
+  //public static void create(final String name, final String summary,
+  //    final boolean isPublic, final PublishPermission publishPermission,
+  //    final Set<User> subscribers,
+  //    final OnFinishedListener<MMXChannel> listener) {
+  //  Set<String> userIds = new HashSet<>();
+  //  if(null == subscribers || subscribers.isEmpty()) {
+  //    for(User u : subscribers) {
+  //      userIds.add(u.getUserIdentifier());
+  //    }
+  //  }
+  //  final String ownerId = User.getCurrentUserId();
+  //  getChannelService().createChannel(
+  //      new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), userIds),
+  //      new Callback<Void>() {
+  //        @Override public void onResponse(Response<Void> response) {
+  //          if(response.isSuccess()) {
+  //            Date currentDate = new Date();
+  //            MMXChannel channel = new MMXChannel.Builder()
+  //                .name(name)
+  //                .summary(summary)
+  //                .ownerId(ownerId)
+  //                .setPublic(isPublic)
+  //                .publishPermission(publishPermission)
+  //                .creationDate(currentDate)
+  //                .subscribed(true)
+  //                .lastTimeActive(currentDate)
+  //                .build();
+  //            listener.onSuccess(channel);
+  //          } else {
+  //            handleError(response.code(), new Exception(response.message()));
+  //          }
+  //        }
+  //
+  //        @Override public void onFailure(Throwable throwable) {
+  //          handleError(null, throwable);
+  //        }
+  //
+  //        private void handleError(Integer errorCode, Throwable throwable) {
+  //          Log.e(TAG, "Failed to create channel ", throwable);
+  //          listener.onFailure(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+  //        }
+  //      }).executeInBackground();
+  //}
+
   /**
    * Delete this channel.  Possible failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND}
    * for no such channel, {@link FailureCode#CHANNEL_FORBIDDEN} for
@@ -1094,6 +1150,26 @@ public class MMXChannel {
     MMXInviteInfo inviteInfo = new MMXInviteInfo(invitees, MMX.getCurrentUser(), this, invitationText);
     MMXInvite invite = new MMXInvite(inviteInfo, false);
     invite.send(listener);
+  }
+
+  /**
+   * Add subscribers to the channel. Currently only channel owner has the permission for this operation.
+   * The listener returns the user ids which fail to be added to the channel
+   * @param newSubscribers
+   * @param listener
+   */
+  public void addSubscribers(final Set<User> newSubscribers, final OnFinishedListener<String> listener) {
+
+  }
+
+  /**
+   * Remove subscribers from the channel. Currently only channel owner has the permission for this operation.
+   * The listener returns the user ids which fail to be removed from the channel
+   * @param subscribersToBeRemoved
+   * @param listener
+   */
+  public void removeSubscribers(final Set<User> subscribersToBeRemoved, final OnFinishedListener<MMXInvite> listener) {
+
   }
 
     /**
@@ -1416,6 +1492,22 @@ public class MMXChannel {
       }
     };
     task.execute();
+  }
+
+  /**
+   * Find channels that includes given subscriber(s).  If there are
+   * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
+   * an empty list.
+   *
+   * @param subscribers the subscribers
+   * @param matchType
+   * @param limit the maximum number of results to return
+   * @param offset the offset of results to return
+   * @param listener the listener for the query results
+   */
+  public static void findChannelsBySubscribers(final Set<User> subscribers, ChannelMatchType matchType,
+      final Integer limit, final Integer offset, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+
   }
 
   /**
