@@ -3,14 +3,17 @@
  */
 package com.magnet.mmx.client.api;
 
-import com.magnet.max.android.User;
+import com.google.gson.annotations.SerializedName;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import retrofit.Callback;
 import retrofit.MagnetCall;
 import retrofit.http.Body;
 import retrofit.http.GET;
 import retrofit.http.POST;
+import retrofit.http.Path;
 
 public interface ChannelService {
   @POST("/api/com.magnet.server/channel/create")
@@ -26,9 +29,9 @@ public interface ChannelService {
    * @param callback asynchronous callback
    */
   @POST("com.magnet.server/channel/query")
-  MagnetCall<String> queryChannels(
-      @Body QueryChannelRequest body,
-      retrofit.Callback<String> callback
+  MagnetCall<ChannelQueryResponse> queryChannelsBySubscribers(
+      @Body ChannelBySubscriberRequest body,
+      retrofit.Callback<ChannelQueryResponse> callback
   );
 
   /**
@@ -37,10 +40,11 @@ public interface ChannelService {
    * @param body style:Body optional:false
    * @param callback asynchronous callback
    */
-  @POST("com.magnet.server/channel/subscribers/add")
-  MagnetCall<String> addSubscriberToChannel(
-      @Body ChannelRequest body,
-      retrofit.Callback<String> callback
+  @POST("com.magnet.server/channel/{channelName}/subscribers/add")
+  MagnetCall<ChannelSubscribeResponse> addSubscriberToChannel(
+      @Path("channelName") String channelName,
+      @Body ChannelSubscribeRequest body,
+      retrofit.Callback<ChannelSubscribeResponse> callback
   );
 
   /**
@@ -49,18 +53,152 @@ public interface ChannelService {
    * @param body style:Body optional:false
    * @param callback asynchronous callback
    */
-  @POST("com.magnet.server/channel/subscribers/remove")
-  MagnetCall<String> removeSubscriberFromChannel(
-      @Body ChannelRequest body,
-      retrofit.Callback<String> callback
+  @POST("com.magnet.server/channel/{channelName}/subscribers/remove")
+  MagnetCall<ChannelSubscribeResponse> removeSubscriberFromChannel(
+      @Path("channelName") String channelName,
+      @Body ChannelSubscribeRequest body,
+      retrofit.Callback<ChannelSubscribeResponse> callback
   );
 
-  class ChannelInfo {
-    private String channelName;
-
-    //Set to true to make channel private, false to make public.
+  class ChannelSubscribeRequest {
+    //Set to true to if channel is private, false to make public.
     //Default to false
+    protected boolean privateChannel;
+    protected Set<String> subscribers;
+
+    public ChannelSubscribeRequest(boolean privateChannel, Set<String> subscribers) {
+      this.privateChannel = privateChannel;
+      this.subscribers = subscribers;
+    }
+
+    public boolean isPrivateChannel() {
+      return privateChannel;
+    }
+
+    public Set<String> getSubscribers() {
+      return subscribers;
+    }
+  }
+
+  abstract class BaseMMXResponse {
+    public static final int SUCCESS_CODE = 0;
+
+    protected int code;
+    protected String message;
+
+    public BaseMMXResponse(int code, String message) {
+      this.code = code;
+      this.message = message;
+    }
+
+    public int getCode() {
+      return code;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
+    public boolean isSuccess() {
+      return code == SUCCESS_CODE;
+    }
+  }
+
+  class ChannelSubscribeResponse extends BaseMMXResponse {
+    private Map<String, SubscribeResult> subscribeResponse;
+
+    public ChannelSubscribeResponse(int code, String message,
+        Map<String, SubscribeResult> subscribeResponse) {
+      super(code, message);
+      this.subscribeResponse = subscribeResponse;
+    }
+
+    public Map<String, SubscribeResult> getSubscribeResponse() {
+      return subscribeResponse;
+    }
+
+    public static class SubscribeResult extends BaseMMXResponse {
+      private String subId;
+
+      public SubscribeResult(int code, String message, String subId) {
+        super(code, message);
+        this.subId = subId;
+      }
+
+      public String getSubId() {
+        return subId;
+      }
+    }
+  }
+
+  class ChannelInfoResponse {
+    private String name;
+    private String description;
+    private Date creationDate;
+    private Date modifiedDate;
+    @SerializedName("creator")
+    private String ownerId;
+    @SerializedName("userChannel")
     private boolean privateChannel;
+    private String publishPermission;
+
+    public String getName() {
+      return name;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public Date getCreationDate() {
+      return creationDate;
+    }
+
+    public Date getModifiedDate() {
+      return modifiedDate;
+    }
+
+    public String getOwnerId() {
+      return ownerId;
+    }
+
+    public boolean isPrivateChannel() {
+      return privateChannel;
+    }
+
+    public String getPublishPermission() {
+      return publishPermission;
+    }
+
+    public MMXChannel toMMXChannel() {
+      return new MMXChannel.Builder()
+          .name(name)
+          .summary(description)
+          .ownerId(ownerId)
+          .setPublic(!privateChannel)
+          .publishPermission(MMXChannel.PublishPermission.valueOf(publishPermission))
+          .creationDate(creationDate)
+          .subscribed(true)
+          .lastTimeActive(modifiedDate)
+          .build();
+    }
+  }
+
+  class ChannelQueryResponse extends BaseMMXResponse {
+    private List<ChannelInfoResponse> channels;
+
+    public ChannelQueryResponse(int code, String message, List<ChannelInfoResponse> channels) {
+      super(code, message);
+      this.channels = channels;
+    }
+
+    public List<ChannelInfoResponse> getChannels() {
+      return channels;
+    }
+  }
+
+  class ChannelInfo extends ChannelSubscribeRequest {
+    private String channelName;
 
     private String description;
 
@@ -70,23 +208,16 @@ public interface ChannelService {
     //subscribers
     private String publishPermission;
 
-    private Set<String> subscribers;
-
     public ChannelInfo(String channelName, String description, boolean privateChannel,
         String publishPermission, Set<String> subscribers) {
+      super(privateChannel, subscribers);
       this.channelName = channelName;
-      this.privateChannel = privateChannel;
       this.description = description;
       this.publishPermission = publishPermission;
-      this.subscribers = subscribers;
     }
 
     public String getChannelName() {
       return channelName;
-    }
-
-    public boolean isPrivateChannel() {
-      return privateChannel;
     }
 
     public String getDescription() {
@@ -96,208 +227,24 @@ public interface ChannelService {
     public String getPublishPermission() {
       return publishPermission;
     }
-
-    public Set<String> getSubscribers() {
-      return subscribers;
-    }
   }
 
-  class QueryChannelRequest {
-
-    private String mmxAppId;
-
-    private String userId;
-
-    private java.util.List<String> subscribers;
-
-    private String deviceId;
-
+  class ChannelBySubscriberRequest {
     private ChannelMatchType matchFilter;
+    private Set<String> subscribers;
 
-    public String getMmxAppId() {
-      return mmxAppId;
-    }
-
-    public String getUserId() {
-      return userId;
-    }
-
-    public java.util.List<String> getSubscribers() {
-      return subscribers;
-    }
-
-    public String getDeviceId() {
-      return deviceId;
+    public ChannelBySubscriberRequest(Set<String> subscribers,
+        ChannelMatchType matchFilter) {
+      this.subscribers = subscribers;
+      this.matchFilter = matchFilter;
     }
 
     public ChannelMatchType getMatchFilter() {
       return matchFilter;
     }
 
-    /**
-     * Builder for QueryChannelRequest
-     **/
-    public static class QueryChannelRequestBuilder {
-      private QueryChannelRequest toBuild = new QueryChannelRequest();
-
-      public QueryChannelRequestBuilder() {
-      }
-
-      public QueryChannelRequest build() {
-        return toBuild;
-      }
-
-      public QueryChannelRequestBuilder mmxAppId(String value) {
-        toBuild.mmxAppId = value;
-        return this;
-      }
-
-      public QueryChannelRequestBuilder userId(String value) {
-        toBuild.userId = value;
-        return this;
-      }
-
-      public QueryChannelRequestBuilder subscribers(java.util.List<String> value) {
-        toBuild.subscribers = value;
-        return this;
-      }
-
-      public QueryChannelRequestBuilder deviceId(String value) {
-        toBuild.deviceId = value;
-        return this;
-      }
-
-      public QueryChannelRequestBuilder matchFilter(ChannelMatchType value) {
-        toBuild.matchFilter = value;
-        return this;
-      }
-    }
-  }
-
-  public class ChannelRequest {
-
-
-
-    private String mmxAppId;
-
-
-    private Boolean privateChannel;
-
-
-    private String channelName;
-
-
-    private Boolean subscribeOnCreate;
-
-
-    private String publishPermission;
-
-
-    private String description;
-
-
-    private String userId;
-
-
-    private java.util.List<String> subscribers;
-
-
-    private String deviceId;
-
-    public String getMmxAppId() {
-      return mmxAppId;
-    }
-
-    public Boolean getPrivateChannel() {
-      return privateChannel;
-    }
-
-    public String getChannelName() {
-      return channelName;
-    }
-
-    public Boolean getSubscribeOnCreate() {
-      return subscribeOnCreate;
-    }
-
-    public String getPublishPermission() {
-      return publishPermission;
-    }
-
-    public String getDescription() {
-      return description;
-    }
-
-    public String getUserId() {
-      return userId;
-    }
-
-    public java.util.List<String> getSubscribers() {
+    public Set<String> getSubscribers() {
       return subscribers;
-    }
-
-    public String getDeviceId() {
-      return deviceId;
-    }
-
-
-    /**
-     * Builder for ChannelRequest
-     **/
-    public static class ChannelRequestBuilder {
-      private ChannelRequest toBuild = new ChannelRequest();
-
-      public ChannelRequestBuilder() {
-      }
-
-      public ChannelRequest build() {
-        return toBuild;
-      }
-
-      public ChannelRequestBuilder mmxAppId(String value) {
-        toBuild.mmxAppId = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder privateChannel(Boolean value) {
-        toBuild.privateChannel = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder channelName(String value) {
-        toBuild.channelName = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder subscribeOnCreate(Boolean value) {
-        toBuild.subscribeOnCreate = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder publishPermission(String value) {
-        toBuild.publishPermission = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder description(String value) {
-        toBuild.description = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder userId(String value) {
-        toBuild.userId = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder subscribers(java.util.List<String> value) {
-        toBuild.subscribers = value;
-        return this;
-      }
-
-      public ChannelRequestBuilder deviceId(String value) {
-        toBuild.deviceId = value;
-        return this;
-      }
     }
   }
 }

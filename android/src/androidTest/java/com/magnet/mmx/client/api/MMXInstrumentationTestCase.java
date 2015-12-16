@@ -23,7 +23,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
   private static final String TAG = MMXInstrumentationTestCase.class.getSimpleName();
-  public static final int TIMEOUT = 5 * 1000;
+
+  public static final int TIMEOUT_IN_SECOND = 5;
+  public static final int TIMEOUT_IN_MILISEC = TIMEOUT_IN_SECOND * 1000;
 
   private Context mContext;
   protected static final String USERNAME_PREFIX = "mmxusertest";
@@ -209,6 +211,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
           //});
           //
           //findUserMonitor.waitFor(10*1000);
+          userReg.invoked(null);
         } else {
           userReg.failed(apiError);
         }

@@ -4,9 +4,6 @@
 package com.magnet.mmx.client.api;
 
 public class ChannelSummaryOptions {
-  public static final int MAX_MESSAGE_NUM = 25;
-  public static final int MAX_SUBSCIRBER_NUM = 25;
-
   private int messageNum;
   private int subscriberNum;
   private boolean wantOwnerInfo;
@@ -35,19 +32,11 @@ public class ChannelSummaryOptions {
     }
 
     public Builder messageNum(int messageNum) {
-      if(messageNum > MAX_MESSAGE_NUM) {
-        throw new IllegalArgumentException("messageNum should less than " + MAX_MESSAGE_NUM);
-      }
-
       options.messageNum = messageNum;
       return this;
     }
 
     public Builder subscriberNum(int subscriberNum) {
-      if(subscriberNum > MAX_SUBSCIRBER_NUM) {
-        throw new IllegalArgumentException("subscriberNum should less than " + MAX_SUBSCIRBER_NUM);
-      }
-
       options.subscriberNum = subscriberNum;
       return this;
     }
