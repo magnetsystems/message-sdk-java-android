@@ -1,9 +1,11 @@
 /**
  * Copyright (c) 2012-2015 Magnet Systems. All rights reserved.
  */
-package com.magnet.mmx.client.api;
+package com.magnet.mmx.client.internal.channel;
 
 import com.google.gson.annotations.SerializedName;
+import com.magnet.mmx.client.api.ChannelMatchType;
+import com.magnet.mmx.client.api.MMXChannel;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +22,7 @@ public interface ChannelService {
   MagnetCall<Void> createChannel(@Body ChannelInfo channelInfo, Callback<Void> callback);
 
   @GET("/api/com.magnet.server/channel/summary")
-  MagnetCall<List<ChannelSummary>> getChannelSummary(@Body List<String> channelIds, ChannelSummaryOptions options, Callback<List<ChannelSummary>> callback);
+  MagnetCall<List<ChannelSummaryResponse>> getChannelSummary(@Body ChannelSummaryRequest request, Callback<List<ChannelSummaryResponse>> callback);
 
   /**
    *
