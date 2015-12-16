@@ -16,6 +16,9 @@ package com.magnet.mmx.client.api;
 
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.internal.channel.ChannelService;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -182,7 +185,7 @@ public class MMXChannel {
    * The builder for a MMXChannel object
    *
    */
-  static final class Builder {
+  static public final class Builder {
     private MMXChannel mChannel;
 
     public Builder() {
@@ -217,7 +220,7 @@ public class MMXChannel {
      * @param ownerId the owner userId
      * @return this Builder object
      */
-    Builder ownerId(String ownerId) {
+    public Builder ownerId(String ownerId) {
       mChannel.ownerId(ownerId);
       return this;
     }
@@ -239,7 +242,7 @@ public class MMXChannel {
      * @param lastTimeActive the last active time
      * @return this Builder object
      */
-    Builder lastTimeActive(Date lastTimeActive) {
+    public Builder lastTimeActive(Date lastTimeActive) {
       mChannel.lastTimeActive(lastTimeActive);
       return this;
     }
@@ -250,7 +253,7 @@ public class MMXChannel {
      * @param subscribed the subscribed flag
      * @return this Builder object
      */
-    Builder subscribed(Boolean subscribed) {
+    public Builder subscribed(Boolean subscribed) {
       mChannel.subscribed(subscribed);
       return this;
     }
@@ -266,7 +269,7 @@ public class MMXChannel {
       return this;
     }
 
-    Builder publishPermission(PublishPermission publishPermission) {
+    public Builder publishPermission(PublishPermission publishPermission) {
       mChannel.setPublishPermission(publishPermission);
       return this;
     }
@@ -277,7 +280,7 @@ public class MMXChannel {
      * @param creationDate the creation date
      * @return this Builder object
      */
-    Builder creationDate(Date creationDate) {
+    public Builder creationDate(Date creationDate) {
       mChannel.creationDate(creationDate);
       return this;
     }
@@ -1169,7 +1172,7 @@ public class MMXChannel {
    * @param listener
    */
   public void addSubscribers(final Set<User> newSubscribers, final OnFinishedListener<List<String>> listener) {
-    checkIfAllowedToManageSubscriber();
+    checkIfAllowedToAddSubscriber();
 
     Set<String> userIds = userSetToIds(newSubscribers, listener);
     if(null != userIds) {
@@ -1199,7 +1202,7 @@ public class MMXChannel {
    * @param listener
    */
   public void removeSubscribers(final Set<User> subscribersToBeRemoved, final OnFinishedListener<List<String>> listener) {
-    checkIfAllowedToManageSubscriber();
+    checkIfAllowedToRemoveSubscriber();
 
     Set<String> userIds = userSetToIds(subscribersToBeRemoved, listener);
     if(null != userIds) {
@@ -1262,10 +1265,21 @@ public class MMXChannel {
     }
   }
 
-  private void checkIfAllowedToManageSubscriber() {
+  private void checkIfAllowedToAddSubscriber() {
     // Currently only owner is allowed
-    if(!StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId())) {
-      throw new IllegalStateException("Only owner is allowed to add/remove subscribers");
+    boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
+    if(mPublic && !mSubscribed) {
+      throw new IllegalStateException("Only owner and subscriber is allowed to add subscribers for public channel");
+    } else if(!mPublic && !isOwner) {
+      throw new IllegalStateException("Only owner is allowed to add subscribers for private channel");
+    }
+  }
+
+  private void checkIfAllowedToRemoveSubscriber() {
+    // Currently only owner is allowed
+    boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
+    if(!isOwner) {
+      throw new IllegalStateException("Only owner is allowed to remove subscribers for channel");
     }
   }
 
@@ -1641,18 +1655,13 @@ public class MMXChannel {
   }
 
   /**
-   *
-   * @param channels
+   * Get summary for channels
    * @param options
    * @param listener
    */
-  public static void getChannelSummary(List<MMXChannel> channels, ChannelSummaryOptions options, final OnFinishedListener<List<ChannelSummary>> listener) {
-    List<String> channelIds = new ArrayList<>(channels.size());
-    for(MMXChannel c : channels) {
-      channelIds.add(c.getName());
-    }
-    getChannelService().getChannelSummary(channelIds, options, new Callback<List<ChannelSummary>>() {
-      @Override public void onResponse(Response<List<ChannelSummary>> response) {
+  public static void getChannelSummary(ChannelSummaryRequest options, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
+    getChannelService().getChannelSummary(options, new Callback<List<ChannelSummaryResponse>>() {
+      @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
         listener.onSuccess(response.body());
       }
 
@@ -1662,17 +1671,17 @@ public class MMXChannel {
     }).executeInBackground();
   }
 
-  public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
-    getChannelService().getChannelSummary(Arrays.asList(channelId), options, new Callback<List<ChannelSummary>>() {
-      @Override public void onResponse(Response<List<ChannelSummary>> response) {
-        listener.onSuccess(response.body().get(0));
-      }
-
-      @Override public void onFailure(Throwable throwable) {
-
-      }
-    }).executeInBackground();
-  }
+  //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
+  //  getChannelService().getChannelSummary(Arrays.asList(channelId), options, new Callback<List<ChannelSummary>>() {
+  //    @Override public void onResponse(Response<List<ChannelSummary>> response) {
+  //      listener.onSuccess(response.body().get(0));
+  //    }
+  //
+  //    @Override public void onFailure(Throwable throwable) {
+  //
+  //    }
+  //  }).executeInBackground();
+  //}
 
   /**
    * This method only populates the topic name and the public flag in all cases.
