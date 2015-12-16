@@ -1244,7 +1244,7 @@ public class MMXChannel {
         !subscribeResponse.getSubscribeResponse().isEmpty()) {
       result = new ArrayList<>(subscribeResponse.getSubscribeResponse().size());
       for(Map.Entry<String, ChannelService.ChannelSubscribeResponse.SubscribeResult> e : subscribeResponse.getSubscribeResponse().entrySet()) {
-        if(e.getValue().isSuccess()) {
+        if(!e.getValue().isSuccess()) {
           result.add(e.getKey());
         }
       }
