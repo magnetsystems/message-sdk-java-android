@@ -26,7 +26,6 @@ import com.magnet.mmx.client.api.MMXMessage.InvalidRecipientException;
 import com.magnet.mmx.client.common.Log;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -50,7 +49,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(TIMEOUT);
+        loginListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -103,12 +102,12 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     });
     // Check if the send is success
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT_IN_MILISEC);
     assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals(messageId, sendResult.getReturnValue());
     
     // Check if the receive is success
-    status = receivedResult.waitFor(TIMEOUT);
+    status = receivedResult.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSendMessage() receive msg timed out");
     }
@@ -117,7 +116,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
 
     //check acknowledgement
 
-    status = acknowledgeResult.waitFor(TIMEOUT);
+    status = acknowledgeResult.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSenddMessage() receive acknowledgement timed out");
     }
@@ -129,7 +128,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(TIMEOUT);
+        logoutListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -148,7 +147,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(TIMEOUT);
+        loginListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -241,7 +240,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(MMX.getCurrentUser().getFirstName(), senderBuffer.toString());
 
     //check acknowledgement
-    status = acknowledgeResult.waitFor(TIMEOUT);
+    status = acknowledgeResult.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSenddMessage() receive acknowledgement timed out");
     }
@@ -266,7 +265,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     });
     try {
-      downLatch.await(TIMEOUT, TimeUnit.MILLISECONDS);
+      downLatch.await(TIMEOUT_IN_MILISEC, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       fail(e.getMessage());
     }
@@ -279,7 +278,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(TIMEOUT);
+        logoutListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -309,7 +308,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         failureMonitor.failed(code);
       }
     });
-    ExecMonitor.Status status = failureMonitor.waitFor(TIMEOUT);
+    ExecMonitor.Status status = failureMonitor.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.INVOKED) {
       fail("should have called onFailure()");
     } else if (status == ExecMonitor.Status.FAILED) {
@@ -362,7 +361,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(TIMEOUT);
+        loginListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -422,7 +421,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     
     // Send failed because of an invalid recipient
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT_IN_MILISEC);
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(1, invalidUsers.size());
@@ -438,7 +437,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(TIMEOUT);
+        logoutListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -461,7 +460,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.login(username, new String(PASSWORD), false, loginListener);
     synchronized (loginListener) {
       try {
-        loginListener.wait(TIMEOUT);
+        loginListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
@@ -525,7 +524,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     
     // Send partial failure despite invalid recipients
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT_IN_MILISEC);
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(2, invalidUsers.size());
@@ -549,7 +548,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     User.logout(logoutListener);
     synchronized (logoutListener) {
       try {
-        logoutListener.wait(TIMEOUT);
+        logoutListener.wait(TIMEOUT_IN_MILISEC);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
