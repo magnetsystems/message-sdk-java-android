@@ -25,18 +25,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import android.util.Log;
 
-import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.filter;
 
 public class MMXChannelTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXChannelTest.class.getSimpleName();
@@ -45,7 +41,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpLogin(MMX_TEST_USER_1);
   }
 
+  @Override
   public void tearDown() {
+    Log.d(TAG, "------tearDown test " + getName());
     helpLogout();
   }
 
@@ -302,26 +300,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     String publicChannelSummary = publicChannelName + " Summary";
     MMXChannel publicChannel = helpCreate(publicChannelName, publicChannelSummary, true);
 
-    //should have autosubscribed since we created them
-    final ExecMonitor<Integer, FailureCode> subCount = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
-      public void onSuccess(List<MMXChannel> result) {
-        subCount.invoked(result.size());
-      }
-
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        subCount.failed(code);
-      }
-    });
-    ExecMonitor.Status status = subCount.waitFor(TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.INVOKED) {
-      assertEquals(2, subCount.getReturnValue().intValue());
-    } else if (status == ExecMonitor.Status.FAILED) {
-      fail("getAllSubscriptions() failed: "+subCount.getFailedValue());
-    } else {
-      fail("getAllSubscriptions() timed out");
-    }
+    helpGetAllSubscriptions(2);
 
     helpDelete(publicChannel);
     helpDelete(privateChannel);
@@ -364,28 +343,12 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     helpLogin(newUser, newUser, newUser, suffix, true);
     helpSubscribe(channel, 2);
     // Get the subscribed channel information.
-    final ExecMonitor<List<MMXChannel>, FailureCode> channels = new ExecMonitor<List<MMXChannel>, FailureCode>();
-    MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
-      public void onSuccess(List<MMXChannel> result) {
-        channels.invoked(result);
-      }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        channels.failed(code);
-      }
-    });
-    ExecMonitor.Status status = channels.waitFor(TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.FAILED) {
-      fail("getAllSubscriptions failed: "+channels.getFailedValue());
-    } else if (status == ExecMonitor.Status.WAITING) {
-      fail("getAllSubscriptions timed out");
-    } else {
-      List<MMXChannel> subChannels = channels.getReturnValue();
-      assertNotNull(subChannels);
-      assertEquals(1, subChannels.size());
-      assertEquals(user1.getUserIdentifier(), subChannels.get(0).getOwnerId());
-    }
+    List<MMXChannel> subChannels = helpGetAllSubscriptions(1);
+    assertNotNull(subChannels);
+    assertEquals(1, subChannels.size());
+    assertEquals(user1.getUserIdentifier(), subChannels.get(0).getOwnerId());
+
     helpLogout();
     
     // Login as user1 again and delete the channel.
@@ -627,6 +590,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpSubscribe(MMXChannel channel, final int expectedSubscriberCount) {
     //subscribe
     final CountDownLatch subScribeLatch = new CountDownLatch(1);
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     channel.subscribe(new MMXChannel.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         subScribeLatch.countDown();
@@ -634,7 +598,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        fail("channel.subscribe failed due to " + ex.getMessage());
+        errorRef.set(ex);
+        //fail("channel.subscribe failed due to " + ex.getMessage());
+        subScribeLatch.countDown();
       }
     });
     try {
@@ -642,18 +608,22 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     } catch (InterruptedException e) {
       fail("channel.subscribe timeout");
     }
+    assertThat(errorRef.get()).isNull();
     assertTrue(channel.isSubscribed());
 
     final CountDownLatch getSubScribesLatch = new CountDownLatch(1);
+    errorRef.set(null);
     channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<User>>() {
       public void onSuccess(ListResult<User> result) {
         assertThat(result.totalCount).isEqualTo(expectedSubscriberCount);
-        getSubScribesLatch.countDown();;
+        getSubScribesLatch.countDown();
       }
 
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught: " + code, ex);
-        fail("channel.getAllSubscribers failed due to " + ex.getMessage());
+        //fail("channel.getAllSubscribers failed due to " + ex.getMessage());
+        errorRef.set(ex);
+        getSubScribesLatch.countDown();
       }
     });
     try {
@@ -661,6 +631,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     } catch (InterruptedException e) {
       fail("channel.getAllSubscribers timeout");
     }
+    assertThat(errorRef.get()).isNull();
   }
   
   private void helpSubscribeError(MMXChannel channel, final FailureCode expected) {
@@ -736,7 +707,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
 
     try {
-      Thread.sleep(TIMEOUT_IN_MILISEC);
+      Thread.sleep(SLEEP_IN_MILISEC);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
@@ -918,6 +889,11 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
 
   private void helpFetch(MMXChannel channel, final int expectedCount) {
+    try {
+      Thread.sleep(SLEEP_IN_MILISEC);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
     //test basic fetch
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<ListResult<MMXMessage>> resultRef = new AtomicReference<>();
@@ -946,9 +922,13 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     if(null != errorRef.get()) {
       fail("channel.getMessages failed due to " + errorRef.get().getMessage());
     } else {
-      assertThat(resultRef.get()).isNotNull();
-      ListResult<MMXMessage> result = resultRef.get();
-      assertThat(result.totalCount).isEqualTo(expectedCount);
+      if(0 != expectedCount) {
+        assertThat(resultRef.get()).isNotNull();
+        ListResult<MMXMessage> result = resultRef.get();
+        assertThat(result.totalCount).isEqualTo(expectedCount);
+      } else {
+        assertThat(resultRef.get() == null || resultRef.get().totalCount == 0).isTrue();
+      }
     }
   }
 
@@ -999,7 +979,6 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   }
   private void helpLogin(String userName, String displayName, String password,
         String suffix, boolean regUser) {
-    ApiCallback<Boolean> loginListener = getLoginListener();
     if(null != suffix) {
       userName = userName + suffix;
       displayName = displayName + suffix;
@@ -1012,37 +991,16 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     }
 
     //login with credentials
-    Log.d(TAG, "--------Logging user " + userName);
-    User.login(userName, new String(password), false, loginListener);
-    synchronized (loginListener) {
-      try {
-        loginListener.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    loginMax(userName, password);
+
     assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
-  }
-
-  private void helpLogout() {
-    Log.d(TAG, "--------Logout user " + User.getCurrentUser().getUserName());
-    logoutMMX();
-    ApiCallback<Boolean> logoutListener = getLogoutListener();
-    User.logout(logoutListener);
-    synchronized (logoutListener) {
-      try {
-        logoutListener.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-    //assertFalse(MMX.getMMXClient().isConnected());
   }
 
   private List<User> helpGetSubscribers(final MMXChannel channel) {
     final CountDownLatch getSubLatch = new CountDownLatch(1);
     final List<User> subscribers = new ArrayList<>();
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     channel.getAllSubscribers(10, 0, new MMXChannel.OnFinishedListener<ListResult<User>>() {
       @Override public void onSuccess(ListResult<User> result) {
         subscribers.addAll(result.items);
@@ -1054,7 +1012,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override public void onFailure(FailureCode code, Throwable throwable) {
-        fail("Failed to get subscriber due to: " + throwable.getMessage());
+        errorRef.set(throwable);
+        getSubLatch.countDown();
+        //fail("Failed to get subscriber due to: " + throwable.getMessage());
         //getSubLatch.countDown();
       }
     });
@@ -1064,6 +1024,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       fail("Failed to get subscriber : timeout");
     }
 
+    assertThat(errorRef.get()).isNull();
+
     return subscribers;
   }
 
@@ -1071,7 +1033,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     printCollection(userIdsExpected, "exected subscribers in assertSubscribers");
     printCollection(subscribersFound, "actual subscribers in assertSubscribers");
     //assertEquals(userIdsExpected.size(), subscribersFound.size());
-    assertThat(subscribersFound).hasSize(userIdsExpected.size()).containsExactlyElementsOf(userIdsExpected);
+    assertThat(subscribersFound).hasSize(userIdsExpected.size()).containsAll(userIdsExpected);
     //for(User u : subscribersFound) {
     //  assertThat(userIdsExpected.contains(u.getUserIdentifier())).isTrue();
     //}
@@ -1079,6 +1041,7 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
 
   private void helpAddSubscriber(MMXChannel channel, Set<User> users) {
     final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     channel.addSubscribers(users, new MMXChannel.OnFinishedListener<List<String>>() {
       @Override public void onSuccess(List<String> result) {
         assertThat(result).isEmpty();
@@ -1086,7 +1049,9 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override public void onFailure(FailureCode code, Throwable throwable) {
-        fail("Failed to add subscriber due to: " + throwable.getMessage());
+        errorRef.set(throwable);
+        //fail("Failed to add subscriber due to: " + throwable.getMessage());
+        latch.countDown();
       }
     });
     try {
@@ -1094,10 +1059,13 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     } catch (InterruptedException e) {
       fail("Failed to add subscriber : timeout");
     }
+
+    assertThat(errorRef.get()).isNull();
   }
 
   private void helpRemoveSubscriber(MMXChannel channel, Set<User> users) {
     final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     channel.removeSubscribers(users, new MMXChannel.OnFinishedListener<List<String>>() {
       @Override public void onSuccess(List<String> result) {
         assertThat(result).isEmpty();
@@ -1105,7 +1073,8 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       }
 
       @Override public void onFailure(FailureCode code, Throwable throwable) {
-        fail("Failed to remove subscriber due to: " + throwable.getMessage());
+        errorRef.set(throwable);
+        latch.countDown();
       }
     });
     try {
@@ -1113,19 +1082,24 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     } catch (InterruptedException e) {
       fail("Failed to remove subscriber : timeout");
     }
+
+    assertThat(errorRef.get()).isNull();
   }
 
   private List<MMXChannel> helpFindChannelBySubscribers(Set<User> users) {
     final List<MMXChannel> channels = new ArrayList<>();
 
     final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     MMXChannel.findChannelsBySubscribers(users, ChannelMatchType.EXACT_MATCH, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override public void onSuccess(ListResult<MMXChannel> result) {
         channels.addAll(result.items);
+        latch.countDown();
       }
 
       @Override public void onFailure(FailureCode code, Throwable throwable) {
-
+        errorRef.set(throwable);
+        latch.countDown();
       }
     });
     try {
@@ -1134,7 +1108,53 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       fail("Failed to findChannelsBySubscribers : timeout");
     }
 
+    assertThat(errorRef.get()).isNull();
+
     return channels;
+  }
+
+  private List<MMXChannel> helpGetAllSubscriptions(int expectedCount) {
+    try {
+      Thread.sleep(SLEEP_IN_MILISEC);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<List<MMXChannel>> resultRef = new AtomicReference<>();
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
+    MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
+      public void onSuccess(List<MMXChannel> result) {
+        resultRef.set(result);
+        latch.countDown();
+      }
+
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught: " + code, ex);
+        errorRef.set(ex);
+        latch.countDown();
+      }
+    });
+    try {
+      latch.await(TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      fail("MMXChannel.getAllSubscriptions : timeout");
+    }
+
+    if(null != errorRef.get()) {
+      fail("MMXChannel.getAllSubscriptions failed due to " + errorRef.get().getMessage());
+    } else {
+      if(0 != expectedCount) {
+        assertThat(resultRef.get()).isNotNull();
+        List<MMXChannel> result = resultRef.get();
+        assertThat(result.size()).isEqualTo(expectedCount);
+        return result;
+      } else {
+        assertThat(resultRef.get() == null || resultRef.get().isEmpty()).isTrue();
+      }
+    }
+
+    return null;
   }
 
   private void printCollection(Collection<?> set, String description) {
