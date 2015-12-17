@@ -109,7 +109,7 @@ public class MMXChannel {
       this.type = type;
     }
 
-    private static PublishPermission fromPublisherType(TopicAction.PublisherType type) {
+    public static PublishPermission fromPublisherType(TopicAction.PublisherType type) {
       switch (type) {
         case anyone:
           return ANYONE;
@@ -1166,7 +1166,9 @@ public class MMXChannel {
   }
 
   /**
-   * Add subscribers to the channel. Currently only channel owner has the permission for this operation.
+   * Add subscribers to the channel.
+   * Only channel owner has the permission for private channel.
+   * Channel owner and subscribers have the permission for public channel.
    * The listener returns the user ids which fail to be added to the channel
    * @param newSubscribers
    * @param listener
@@ -1196,7 +1198,8 @@ public class MMXChannel {
   }
 
   /**
-   * Remove subscribers from the channel. Currently only channel owner has the permission for this operation.
+   * Remove subscribers from the channel.
+   * Only channel owner has the permission for this operation.
    * The listener returns the user ids which fail to be removed from the channel
    * @param subscribersToBeRemoved
    * @param listener

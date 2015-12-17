@@ -33,6 +33,7 @@ import android.util.Log;
 import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.filter;
@@ -769,33 +770,42 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       assertEquals(expected, obj.getReturnValue());
   }
 
-  private void helpChannelSummary(String channelName, int expectedChannelCount, int expectedItemCount) {
+  private void helpChannelSummary(String channelName, final int expectedChannelCount, final int expectedItemCount) {
     //get topic again
-    final AtomicInteger itemCount = new AtomicInteger(0);
-    final ExecMonitor<Integer, FailureCode> channelCount = new ExecMonitor<Integer, FailureCode>();
+    //final AtomicInteger itemCount = new AtomicInteger(0);
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<ListResult<MMXChannel>> resultRef = new AtomicReference<>();
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
       @Override
       public void onSuccess(ListResult<MMXChannel> result) {
-        if (result.items.size() > 0) {
-          itemCount.set(result.items.get(0).getNumberOfMessages());
-        }
-        channelCount.invoked(result.totalCount);
+        resultRef.set(result);
+        latch.countDown();
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        channelCount.failed(code);
+        Log.e(TAG, "Exception caught in MMXChannel.findPublicChannelsByName : " + code, ex);
+        errorRef.set(ex);
       }
     });
-    ExecMonitor.Status status = channelCount.waitFor(TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.INVOKED) {
-      assertEquals(expectedChannelCount, channelCount.getReturnValue().intValue());
-      assertEquals(expectedItemCount, itemCount.intValue());
-    } else if (status == ExecMonitor.Status.FAILED)
-      fail("Channel summary failed: " + channelCount.getFailedValue());
-    else
-      fail("Channel summary timed out");
+
+    try {
+      latch.await(TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      fail("MMXChannel.findPublicChannelsByName timed out");
+    }
+
+    if(null != errorRef.get()) {
+      fail("MMXChannel.findPublicChannelsByName failed due to " + errorRef.get().getMessage());
+    } else {
+      assertThat(resultRef.get()).isNotNull();
+      ListResult<MMXChannel> result = resultRef.get();
+      assertThat(result.totalCount).isEqualTo(expectedChannelCount);
+      if (result.items.size() > 0) {
+        assertThat(result.items.get(0).getNumberOfMessages()).isEqualTo(expectedItemCount);
+      }
+    }
   }
   
   private void helpChannelSummaryError(String channelName, int expected) {
@@ -910,17 +920,20 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
   private void helpFetch(MMXChannel channel, final int expectedCount) {
     //test basic fetch
     final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<ListResult<MMXMessage>> resultRef = new AtomicReference<>();
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     channel.getMessages(null, null, null, null, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
       @Override
       public void onSuccess(ListResult<MMXMessage> result) {
-        assertThat(result.totalCount).isEqualTo(expectedCount);
+        resultRef.set(result);
         latch.countDown();
       }
 
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        fail("channel.getMessages failed due to " + ex.getMessage());
+        errorRef.set(ex);
+        Log.e(TAG, "Exception caught channel.getMessages : " + code, ex);
+        //fail("channel.getMessages failed due to " + ex.getMessage());
       }
     });
 
@@ -928,6 +941,14 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
       latch.await(TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       fail("channel.getMessages timeout");
+    }
+
+    if(null != errorRef.get()) {
+      fail("channel.getMessages failed due to " + errorRef.get().getMessage());
+    } else {
+      assertThat(resultRef.get()).isNotNull();
+      ListResult<MMXMessage> result = resultRef.get();
+      assertThat(result.totalCount).isEqualTo(expectedCount);
     }
   }
 
@@ -1050,10 +1071,10 @@ public class MMXChannelTest extends MMXInstrumentationTestCase {
     printCollection(userIdsExpected, "exected subscribers in assertSubscribers");
     printCollection(subscribersFound, "actual subscribers in assertSubscribers");
     //assertEquals(userIdsExpected.size(), subscribersFound.size());
-    assertThat(subscribersFound.size()).isEqualTo(userIdsExpected.size());
-    for(User u : subscribersFound) {
-      assertThat(userIdsExpected.contains(u.getUserIdentifier())).isTrue();
-    }
+    assertThat(subscribersFound).hasSize(userIdsExpected.size()).containsExactlyElementsOf(userIdsExpected);
+    //for(User u : subscribersFound) {
+    //  assertThat(userIdsExpected.contains(u.getUserIdentifier())).isTrue();
+    //}
   }
 
   private void helpAddSubscriber(MMXChannel channel, Set<User> users) {

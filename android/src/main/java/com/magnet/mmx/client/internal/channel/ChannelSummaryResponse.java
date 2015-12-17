@@ -7,7 +7,11 @@ package com.magnet.mmx.client.internal.channel;
 
 public class ChannelSummaryResponse {
 
-  
+  private String channelName;
+
+  private int publishedItemCount;
+
+  private String lastPublishedTime;
   
   private Integer subscriberCount;
 
@@ -29,33 +33,16 @@ public class ChannelSummaryResponse {
     return messages;
   }
 
-
-  /**
-  * Builder for ChannelSummaryResponse
-  **/
-  public static class ChannelSummaryResponseBuilder {
-    private ChannelSummaryResponse toBuild = new ChannelSummaryResponse();
-
-    public ChannelSummaryResponseBuilder() {
-    }
-
-    public ChannelSummaryResponse build() {
-      return toBuild;
-    }
-
-    public ChannelSummaryResponseBuilder subscriberCount(Integer value) {
-      toBuild.subscriberCount = value;
-      return this;
-    }
-
-    public ChannelSummaryResponseBuilder subscribers(java.util.List<UserInfo> value) {
-      toBuild.subscribers = value;
-      return this;
-    }
-
-    public ChannelSummaryResponseBuilder messages(java.util.List<PubSubItemChannel> value) {
-      toBuild.messages = value;
-      return this;
-    }
+  public String getChannelName() {
+    return channelName;
   }
+
+  public int getPublishedItemCount() {
+    return publishedItemCount;
+  }
+
+  public String getLastPublishedTime() {
+    return lastPublishedTime;
+  }
+
 }
