@@ -142,6 +142,16 @@ task androidJavadocs(type: Javadoc) {
     ext.androidSupportV4Jar = "${System.env.ANDROID_HOME}/extras/android/support/v4/android-support-v4.jar"
     classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath
 
+    if (project.hasProperty('externalJavadocJars')) {
+        println "Adding external jars: ${externalJavadocJars}"
+        new File("${externalJavadocJars}").eachLine { line ->
+            println line
+            classpath += files(line)
+        }
+    }
+
+    println "androidJavadocs classpath : ${classpath} "
+
     options {
         doclet "com.google.doclava.Doclava"
         addStringOption "hdf project.name", "Magnet Max SDK for Android"
