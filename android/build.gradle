@@ -146,11 +146,11 @@ task androidJavadocs(type: Javadoc) {
         println "Adding external jars: ${externalJavadocJars}"
         new File("${externalJavadocJars}").eachLine { line ->
             println line
-            classpath += files(line)
+            classpath = classpath + files(line)
         }
     }
 
-    println "androidJavadocs classpath : ${classpath.getAsPath()} "
+    println "androidJavadocs classpath : $classpath.getAsPath "
 
     options {
         doclet "com.google.doclava.Doclava"
