@@ -7,15 +7,13 @@ package com.magnet.mmx.client.internal.channel;
 
 public class ChannelSummaryRequest {
 
-  
-  
   private Boolean includeOwnerInfo;
 
   
   private Integer numOfMessages;
 
-  
-  private java.util.List<String> channelIds;
+
+  private java.util.List<ChannelLookupKey> channelIds;
 
   
   private Long messagesSince;
@@ -31,7 +29,7 @@ public class ChannelSummaryRequest {
     return numOfMessages;
   }
 
-  public java.util.List<String> getChannelIds() {
+  public java.util.List<ChannelLookupKey> getChannelIds() {
     return channelIds;
   }
 
@@ -67,7 +65,7 @@ public class ChannelSummaryRequest {
       return this;
     }
 
-    public ChannelSummaryRequestBuilder channelIds(java.util.List<String> value) {
+    public ChannelSummaryRequestBuilder channelIds(java.util.List<ChannelLookupKey> value) {
       toBuild.channelIds = value;
       return this;
     }
