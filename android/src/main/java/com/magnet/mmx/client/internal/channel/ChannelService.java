@@ -6,6 +6,7 @@ package com.magnet.mmx.client.internal.channel;
 import com.google.gson.annotations.SerializedName;
 import com.magnet.mmx.client.api.ChannelMatchType;
 import com.magnet.mmx.client.api.MMXChannel;
+import com.magnet.mmx.protocol.TopicAction;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -178,7 +179,8 @@ public interface ChannelService {
           .summary(description)
           .ownerId(ownerId)
           .setPublic(!privateChannel)
-          .publishPermission(MMXChannel.PublishPermission.valueOf(publishPermission))
+          .publishPermission(MMXChannel.PublishPermission.fromPublisherType(
+              TopicAction.PublisherType.valueOf(publishPermission)))
           .creationDate(creationDate)
           .subscribed(true)
           .lastTimeActive(modifiedDate)
