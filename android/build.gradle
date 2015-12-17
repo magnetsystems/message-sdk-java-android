@@ -150,7 +150,8 @@ task androidJavadocs(type: Javadoc) {
         }
     }
 
-    println "androidJavadocs classpath : $classpath.getAsPath "
+    println "androidJavadocs classpath : "
+    classpath.each { println it }
 
     options {
         doclet "com.google.doclava.Doclava"
