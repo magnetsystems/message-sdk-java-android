@@ -80,7 +80,7 @@ dependencies {
 }
 
 android {
-    compileSdkVersion 23
+    compileSdkVersion 22
     buildToolsVersion "22.0.1"
 
     defaultConfig {
@@ -146,11 +146,12 @@ task androidJavadocs(type: Javadoc) {
         println "Adding external jars: ${externalJavadocJars}"
         new File("${externalJavadocJars}").eachLine { line ->
             println line
-            classpath += files(line)
+            classpath = classpath + files(line)
         }
     }
 
-    println "androidJavadocs classpath : ${classpath} "
+    println "androidJavadocs classpath : "
+    classpath.getAsFileTree().each { println it }
 
     options {
         doclet "com.google.doclava.Doclava"
