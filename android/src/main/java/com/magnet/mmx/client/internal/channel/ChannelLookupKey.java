@@ -16,9 +16,9 @@ public class ChannelLookupKey {
   @SerializedName("userId")
   private String ownerId;
 
-  public ChannelLookupKey(String channelName, Boolean privateChannel, String ownerId) {
+  public ChannelLookupKey(String channelName, Boolean isPublic, String ownerId) {
     this.channelName = channelName;
-    this.privateChannel = privateChannel;
+    this.privateChannel = !isPublic;
     this.ownerId = ownerId;
   }
 
@@ -26,8 +26,8 @@ public class ChannelLookupKey {
     return channelName;
   }
 
-  public Boolean isPrivateChannel() {
-    return privateChannel;
+  public Boolean isPublicChannel() {
+    return !privateChannel;
   }
 
   public String getOwnerId() {
