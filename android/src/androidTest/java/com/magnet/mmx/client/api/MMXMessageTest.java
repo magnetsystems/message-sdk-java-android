@@ -20,7 +20,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXMessage.InvalidRecipientException;
 import com.magnet.mmx.client.common.Log;

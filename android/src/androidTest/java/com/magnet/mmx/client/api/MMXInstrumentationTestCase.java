@@ -4,20 +4,15 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.test.InstrumentationTestCase;
-
 import com.google.gson.Gson;
 import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.auth.model.UserRegistrationInfo;
-import com.magnet.max.android.config.MaxAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
-
 import com.magnet.mmx.client.utils.MaxAndroidJsonConfig;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -158,7 +153,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
       return;
     }
 
-    Log.d(TAG, "----------calling logout from ", new Exception());
+    //Log.d(TAG, "----------calling logout from ", new Exception());
 
     android.util.Log.d(TAG, "--------Logout user " + User.getCurrentUser().getUserName());
     final CountDownLatch latch = new CountDownLatch(1);
