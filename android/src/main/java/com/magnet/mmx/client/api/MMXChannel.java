@@ -14,8 +14,10 @@
  */
 package com.magnet.mmx.client.api;
 
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.internal.channel.ChannelLookupKey;
 import com.magnet.mmx.client.internal.channel.ChannelService;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
@@ -1659,19 +1661,43 @@ public class MMXChannel {
 
   /**
    * Get summary for channels
-   * @param options
+   * @param channels
+   * @param numOfMessages
+   * @param numberOfSubscribers
    * @param listener
    */
-  public static void getChannelSummary(ChannelSummaryRequest options, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
-    getChannelService().getChannelSummary(options, new Callback<List<ChannelSummaryResponse>>() {
-      @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
-        listener.onSuccess(response.body());
+  public static void getChannelSummary(Set<MMXChannel> channels, Integer numOfMessages, Integer numberOfSubscribers, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
+    if(null == channels || channels.isEmpty()) {
+      if(null != listener) {
+        listener.onSuccess(Collections.EMPTY_LIST);
       }
-
-      @Override public void onFailure(Throwable throwable) {
-
+    } else {
+      List<ChannelLookupKey> keys = new ArrayList<>(channels.size());
+      for(MMXChannel c : channels) {
+        keys.add(new ChannelLookupKey(c.getName(), c.isPublic(), c.getOwnerId()));
       }
-    }).executeInBackground();
+      getChannelService().getChannelSummary(new ChannelSummaryRequest.Builder().channelIds(keys).numOfMessages(numOfMessages).numOfSubcribers(numberOfSubscribers).build(),
+          new Callback<List<ChannelSummaryResponse>>() {
+        @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
+          if(response.isSuccess()) {
+            listener.onSuccess(response.body());
+          } else {
+            handleError(new ApiError(response.message(), response.code()), listener);
+          }
+        }
+
+        @Override public void onFailure(Throwable throwable) {
+          handleError(throwable, listener);
+        }
+
+        private void handleError(Throwable error, OnFinishedListener listener) {
+          Log.e(TAG, "Failed to getChannelSummary", error);
+          if(null != listener) {
+            listener.onFailure(FailureCode.GENERIC_FAILURE, error);
+          }
+        }
+      }).executeInBackground();
+    }
   }
 
   //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {

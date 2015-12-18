@@ -45,37 +45,37 @@ public class ChannelSummaryRequest {
   /**
   * Builder for ChannelSummaryRequest
   **/
-  public static class ChannelSummaryRequestBuilder {
+  public static class Builder {
     private ChannelSummaryRequest toBuild = new ChannelSummaryRequest();
 
-    public ChannelSummaryRequestBuilder() {
+    public Builder() {
     }
 
     public ChannelSummaryRequest build() {
       return toBuild;
     }
 
-    public ChannelSummaryRequestBuilder includeOwnerInfo(Boolean value) {
+    public Builder includeOwnerInfo(Boolean value) {
       toBuild.includeOwnerInfo = value;
       return this;
     }
 
-    public ChannelSummaryRequestBuilder numOfMessages(Integer value) {
+    public Builder numOfMessages(Integer value) {
       toBuild.numOfMessages = value;
       return this;
     }
 
-    public ChannelSummaryRequestBuilder channelIds(java.util.List<ChannelLookupKey> value) {
+    public Builder channelIds(java.util.List<ChannelLookupKey> value) {
       toBuild.channelIds = value;
       return this;
     }
 
-    public ChannelSummaryRequestBuilder messagesSince(Long value) {
+    public Builder messagesSince(Long value) {
       toBuild.messagesSince = value;
       return this;
     }
 
-    public ChannelSummaryRequestBuilder numOfSubcribers(Integer value) {
+    public Builder numOfSubcribers(Integer value) {
       toBuild.numOfSubcribers = value;
       return this;
     }
