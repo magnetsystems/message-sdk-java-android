@@ -11,9 +11,12 @@ public class ChannelLookupKey {
 
   private Boolean privateChannel;
 
-  public ChannelLookupKey(String channelName, Boolean privateChannel) {
+  private String userId;
+
+  public ChannelLookupKey(String channelName, Boolean privateChannel, String userId) {
     this.channelName = channelName;
     this.privateChannel = privateChannel;
+    this.userId = userId;
   }
 
   public String getChannelName() {
@@ -24,5 +27,7 @@ public class ChannelLookupKey {
     return privateChannel;
   }
 
-
+  public String getUserId() {
+    return userId;
+  }
 }
