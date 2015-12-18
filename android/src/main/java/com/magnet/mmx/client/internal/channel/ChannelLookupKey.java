@@ -7,6 +7,9 @@ package com.magnet.mmx.client.internal.channel;
 
 import com.google.gson.annotations.SerializedName;
 
+/**
+ * The key to look up channel summary
+ */
 public class ChannelLookupKey {
 
   private String channelName;
@@ -16,6 +19,12 @@ public class ChannelLookupKey {
   @SerializedName("userId")
   private String ownerId;
 
+  /**
+   *
+   * @param channelName
+   * @param isPublic
+   * @param ownerId
+   */
   public ChannelLookupKey(String channelName, Boolean isPublic, String ownerId) {
     this.channelName = channelName;
     this.privateChannel = !isPublic;
