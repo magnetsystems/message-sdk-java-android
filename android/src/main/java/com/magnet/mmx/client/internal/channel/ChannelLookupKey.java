@@ -5,29 +5,32 @@
 
 package com.magnet.mmx.client.internal.channel;
 
+import com.google.gson.annotations.SerializedName;
+
 public class ChannelLookupKey {
 
   private String channelName;
 
   private Boolean privateChannel;
 
-  private String userId;
+  @SerializedName("userId")
+  private String ownerId;
 
-  public ChannelLookupKey(String channelName, Boolean privateChannel, String userId) {
+  public ChannelLookupKey(String channelName, Boolean privateChannel, String ownerId) {
     this.channelName = channelName;
     this.privateChannel = privateChannel;
-    this.userId = userId;
+    this.ownerId = ownerId;
   }
 
   public String getChannelName() {
     return channelName;
   }
 
-  public Boolean getPrivateChannel() {
+  public Boolean isPrivateChannel() {
     return privateChannel;
   }
 
-  public String getUserId() {
-    return userId;
+  public String getOwnerId() {
+    return ownerId;
   }
 }
