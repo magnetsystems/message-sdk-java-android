@@ -22,7 +22,7 @@ public interface ChannelService {
   @POST("/api/com.magnet.server/channel/create")
   MagnetCall<Void> createChannel(@Body ChannelInfo channelInfo, Callback<Void> callback);
 
-  @GET("/api/com.magnet.server/channel/summary")
+  @POST("/api/com.magnet.server/channel/summary")
   MagnetCall<List<ChannelSummaryResponse>> getChannelSummary(@Body ChannelSummaryRequest request, Callback<List<ChannelSummaryResponse>> callback);
 
   /**
