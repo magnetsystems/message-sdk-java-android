@@ -1191,7 +1191,7 @@ public class PubSubManager {
   /**
    * Get the last published item delivery time.
    */
-  Date getLastDelivery() {
+  public Date getLastDelivery() {
     if (mBuffer == null) {
       // Delay initializing mBuffer until mCon is connected.
       mBuffer = mapDeliveryLogFile();

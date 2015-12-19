@@ -128,16 +128,25 @@ public class TestPubSub extends InstrumentationTestCase {
         pubManager.createTopic(topic, options);
       }
 
+      String id = null;
+      byte[] emojiBytes = new byte[]{(byte)0xF0, (byte)0x9F, (byte)0x98, (byte)0x80};
+      String emojiAsString = new String(emojiBytes, Charset.forName("UTF-8"));
       for (int i = 0; i < 5; i++) {
-        String id = pubManager.publish(topics[1], new MMXPayload("This is msg"+i));
+        id = pubManager.publish(topics[1], new MMXPayload(emojiAsString+" msg"+i));
         assertNotNull(id);
       }
+      // Fetch the last published item and emoji char using utf8mb4 encoding
+      Map<String, MMXMessage> result = pubManager.getItemsByIds(topics[1],
+          Arrays.asList(id));
+      MMXMessage msg = result.get(id);
+      assertEquals(emojiAsString+" msg4", msg.getPayload().getDataAsText());
+
       // Only last 10 items are available.
       for (int i = 0; i < 15; i++) {
-        String id = pubManager.publish(topics[2], new MMXPayload("This is msg"+i));
+        id = pubManager.publish(topics[2], new MMXPayload("This is msg"+i));
         assertNotNull(id);
       }
-      
+
       // Since server time and this client time are not synchronized, add one
       // day to make sure that it is long enough.
       Date since = new Date(0);
@@ -154,15 +163,15 @@ public class TestPubSub extends InstrumentationTestCase {
       list = pubManager.getTopicSummary(Arrays.asList(topics), since, null);
       assertNotNull(list);
       assertEquals(3, list.size());
-      
+
       list = pubManager.getTopicSummary(Arrays.asList(topics), null, until);
       assertNotNull(list);
       assertEquals(3, list.size());
-      
+
       list = pubManager.getTopicSummary(Arrays.asList(topics), since, until);
       assertNotNull(list);
       assertEquals(3, list.size());
-      
+
       for (TopicSummary summary : list) {
         if (summary.getTopicNode().equals(topics[0])) {
           assertEquals(0, summary.getCount());
@@ -178,18 +187,18 @@ public class TestPubSub extends InstrumentationTestCase {
       }
     }
   }
-  
+
   @SmallTest
   public void testTopicNames() throws MMXException {
     // create a new node
     MMXPubSubManager pubManager = mmxClient.getPubSubManager();
     MMXTopic mcTopic = new MMXGlobalTopic(mixCaseTopicName);
     MMXTopic lcTopic = new MMXGlobalTopic(lowerCaseTopicName);
-    
+
     // Test equality
     assertTrue(mcTopic.equals(lcTopic));
 
-    // Prepare 
+    // Prepare
     try {
       pubManager.deleteTopic(mcTopic);
     } catch (TopicNotFoundException e) {
@@ -203,7 +212,7 @@ public class TestPubSub extends InstrumentationTestCase {
       fail("Unexpected MMXException at delete: "+e);
     }
     Log.d(TAG, "testTopicNames() is ready...");
-    
+
     // Test topic creation.
     MMXTopicOptions options = new MMXTopicOptions().setMaxItems(2);
     pubManager.createTopic(mcTopic, options);
@@ -216,7 +225,7 @@ public class TestPubSub extends InstrumentationTestCase {
 //      Log.e(TAG, "Unexpected MMXException at create: code="+e.getCode(), e);
       fail("Unexpected MMXException at create: "+e);
     }
-    
+
     // Test getting topic info
     MMXTopicInfo mcInfo = pubManager.getTopic(mcTopic);
     assertNotNull(mcInfo);
@@ -229,32 +238,34 @@ public class TestPubSub extends InstrumentationTestCase {
     String lcSubId = pubManager.subscribe(lcTopic, true);
     String mcSubId = pubManager.subscribe(mcTopic, true);
     assertEquals(lcSubId, mcSubId);
-    
+
     // Test listing subscription
     List<MMXSubscription> mcSubList = pubManager.listSubscriptions(mcTopic);
     assertNotNull(mcSubList);
     boolean found = false;
     for (MMXSubscription sub : mcSubList) {
-      if (mcTopic.equals(sub.getTopic()) && sub.getId().equals(mcSubId))
-          found = true;
+      if (mcTopic.equals(sub.getTopic()) && sub.getId().equals(mcSubId)) {
+        found = true;
+      }
     }
     assertTrue(found);
     found = false;
     List<MMXSubscription> lcSubList = pubManager.listSubscriptions(lcTopic);
     assertNotNull(lcSubList);
     for (MMXSubscription sub : lcSubList) {
-      if (lcTopic.equals(sub.getTopic()) && sub.getId().equals(lcSubId))
+      if (lcTopic.equals(sub.getTopic()) && sub.getId().equals(lcSubId)) {
         found = true;
+      }
     }
     assertTrue(found);
-    
+
     // Test publishing item
     String mcItemId = pubManager.publish(mcTopic, new MMXPayload("This is msg1"));
     assertNotNull(mcItemId);
     String lcItemId = pubManager.publish(lcTopic, new MMXPayload("This is msg2"));
     assertNotNull(lcItemId);
     assertFalse(mcItemId.equals(lcItemId));
-    
+
     // Test fetching items
     MMXResult<List<MMXMessage>> items = pubManager.getItems(mcTopic, null);
     assertNotNull(items);
@@ -290,7 +301,7 @@ public class TestPubSub extends InstrumentationTestCase {
     pubManager.updateOptions(lcTopic, lcOptions);
     mcOptions = pubManager.getOptions(mcTopic);
     assertEquals(lowerCaseDescription, mcOptions.getDescription());
-    
+
     // Test set and get tags
     try {
       pubManager.setAllTags(mcTopic, Arrays.asList(new String[] {
@@ -303,7 +314,7 @@ public class TestPubSub extends InstrumentationTestCase {
     TopicTags result = pubManager.getAllTags(lcTopic);
     assertTrue(result.getTags().contains("Tag1"));
     assertTrue(result.getTags().contains("tag2"));
-    
+
     // Test remove tags
     pubManager.removeTags(mcTopic, Arrays.asList(new String[] { "Tag1" }));
     result = pubManager.getAllTags(mcTopic);
@@ -314,13 +325,13 @@ public class TestPubSub extends InstrumentationTestCase {
     result = pubManager.getAllTags(mcTopic);
     assertNotNull(result.getTags());
     assertTrue(result.getTags().isEmpty());
-    
+
     // Test unsubscribing topic
     boolean mcUnsub = pubManager.unsubscribe(mcTopic, null);
     assertTrue(mcUnsub);
     boolean lcUnsub = pubManager.unsubscribe(lcTopic, null);
     assertFalse(lcUnsub);
-    
+
     // Final clean up.
     pubManager.deleteTopic(mcTopic);
     try {
