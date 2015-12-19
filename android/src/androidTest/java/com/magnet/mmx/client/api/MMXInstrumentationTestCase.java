@@ -4,28 +4,31 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.test.InstrumentationTestCase;
-
 import com.google.gson.Gson;
 import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.auth.model.UserRegistrationInfo;
-import com.magnet.max.android.config.MaxAndroidPropertiesConfig;
 import com.magnet.mmx.client.common.Log;
-
 import com.magnet.mmx.client.utils.MaxAndroidJsonConfig;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase {
   private static final String TAG = MMXInstrumentationTestCase.class.getSimpleName();
-  public static final int TIMEOUT = 5 * 1000;
 
-  private Context mContext;
+  public static final int TIMEOUT_IN_SECOND = 50;
+  public static final int TIMEOUT_IN_MILISEC = TIMEOUT_IN_SECOND * 1000;
+  public static final int SLEEP_IN_MILISEC = 3 * 1000;
+
+  private static Context mContext;
   protected static final String USERNAME_PREFIX = "mmxusertest";
   protected static final byte[] PASSWORD = "test".getBytes();
   protected static final String DISPLAY_NAME_PREFIX = "MMX TestUser";
@@ -42,6 +45,8 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   protected static String MMX_TEST_USER_4 = "MMX_TEST_USER_4";
   protected static String MMX_TEST_USER_5 = "MMX_TEST_USER_5";
 
+  private static boolean isMaxInited;
+
   protected User getInvalidUser(String username) {
     Gson gson = new Gson();
     return gson.fromJson(INVALID_USER_JSON.replace("USERNAME", username), User.class);
@@ -49,12 +54,16 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
 
   @Override
   protected final void setUp() throws Exception {
-    Log.setLoggable(null, Log.VERBOSE);
-    mContext = this.getInstrumentation().getTargetContext();
-    HandlerThread callbackThread = new HandlerThread("TestCaseCallbackThread");
-    callbackThread.start();
-    MMX.setCallbackHandler(new Handler(callbackThread.getLooper()));
-    MaxCore.init(mContext, new MaxAndroidJsonConfig(mContext, com.magnet.mmx.test.R.raw.keys));
+    if(!isMaxInited) {
+      Log.setLoggable(null, Log.VERBOSE);
+      mContext = this.getInstrumentation().getTargetContext();
+      HandlerThread callbackThread = new HandlerThread("TestCaseCallbackThread");
+      callbackThread.start();
+      MMX.setCallbackHandler(new Handler(callbackThread.getLooper()));
+      MaxCore.init(mContext, new MaxAndroidJsonConfig(mContext, com.magnet.mmx.test.R.raw.keys));
+
+      isMaxInited = true;
+    }
     postSetUp();
   }
 
@@ -67,76 +76,118 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   }
 
   protected void logoutMMX() {
+    final CountDownLatch latch = new CountDownLatch(1);
     final AtomicBoolean logoutResult = new AtomicBoolean(false);
     MMX.logout(new MMX.OnFinishedListener<Void>() {
       @Override
       public void onSuccess(Void result) {
         logoutResult.set(true);
-        synchronized (logoutResult) {
-          logoutResult.notify();
-        }
+        latch.countDown();
       }
 
       @Override
       public void onFailure(MMX.FailureCode code, Throwable ex) {
-        synchronized (logoutResult) {
-          logoutResult.notify();
-        }
+        latch.countDown();
       }
     });
     try {
-      Log.d(TAG, "logoutMMX(): result=" + logoutResult.get());
-      synchronized (logoutResult) {
-        logoutResult.wait(10000);
-      }
+      //Log.d(TAG, "logoutMMX(): result=" + logoutResult.get());
+      assertThat(logoutResult.get()).isFalse();
+      latch.await(TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
   }
 
-  protected ApiCallback<Boolean> getLoginListener() {
-    return new ApiCallback<Boolean>() {
+  protected void loginMax(String userName, String password) {
+    final CountDownLatch latch = new CountDownLatch(2);
+    final AtomicReference<ApiError> errorRef = new AtomicReference<>();
+    android.util.Log.d(TAG, "--------Logging user " + userName);
+    User.login(userName, password, false, new ApiCallback<Boolean>() {
       @Override
       public void success(Boolean aBoolean) {
         if (aBoolean.booleanValue()) {
           MaxCore.initModule(MMX.getModule(), new ApiCallback<Boolean>() {
             @Override
             public void success(Boolean aBoolean) {
-              synchronized (this) {
-                this.notify();
-              }
+              latch.countDown();
             }
 
             @Override
             public void failure(ApiError apiError) {
-              Log.e(TAG, "Failed to initModule MMX due to : " + apiError.getMessage(), apiError.getCause());
+              android.util.Log.e(TAG, "Failed to initModule MMX due to : " + apiError.getMessage(), apiError.getCause());
+              errorRef.set(apiError);
               fail("Failed to initModule MMX  due to: " + apiError.getMessage());
-              synchronized (this) {
-                this.notify();
-              }
+              latch.countDown();
             }
           });
-        } else {
-          synchronized (this) {
-            this.notify();
-          }
         }
+
+        latch.countDown();
       }
 
       @Override
       public void failure(ApiError apiError) {
-        Log.e(TAG, "Failed to login due to : " + apiError.getMessage(), apiError.getCause());
+        android.util.Log.e(TAG, "Failed to login due to : " + apiError.getMessage(), apiError.getCause());
         fail("Failed to login due to : " + apiError.getMessage());
-        synchronized (this) {
-          this.notify();
-        }
+        errorRef.set(apiError);
+        latch.countDown();
+        latch.countDown();
       }
-    };
+    });
+
+    try {
+      latch.await(TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      fail("User.login timeout");
+    }
+
+    if(null != errorRef.get()) {
+      fail("User.login failed due to " + errorRef.get().getMessage());
+    }
+  }
+
+  protected void helpLogout() {
+    if(null == User.getCurrentUser()) {
+      android.util.Log.d(TAG, "--------No user login, no need to logout");
+      return;
+    }
+
+    //Log.d(TAG, "----------calling logout from ", new Exception());
+
+    android.util.Log.d(TAG, "--------Logout user " + User.getCurrentUser().getUserName());
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<ApiError> errorRef = new AtomicReference<>();
+    logoutMMX();
+    User.logout(new ApiCallback<Boolean>() {
+      @Override
+      public void success(Boolean aBoolean) {
+        MaxCore.deInitModule(MMX.getModule(), null);
+        latch.countDown();
+      }
+
+      @Override
+      public void failure(ApiError apiError) {
+        latch.countDown();
+      }
+    });
+
+    try {
+      latch.await(TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      fail("User.login timeout");
+    }
+
+    if(null != errorRef.get()) {
+      fail("User.logout failed due to " + errorRef.get().getMessage());
+    }
+    //assertFalse(MMX.getMMXClient().isConnected());
   }
 
   protected ApiCallback<Boolean> getLogoutListener() { return new ApiCallback<Boolean>() {
     @Override
     public void success(Boolean aBoolean) {
+      MaxCore.deInitModule(MMX.getModule(), null);
       synchronized (this) {
         this.notify();
       }
@@ -191,23 +242,24 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
       public void failure(ApiError apiError) {
         Log.e(TAG, "onFailure(): code=" + apiError, apiError.getCause());
         if(reuseExistingUser && apiError.getKind() == 409) {
-          final ExecMonitor<User, ApiError> findUserMonitor = new ExecMonitor<User, ApiError>();
-          User.getUsersByUserNames(Arrays.asList(username), new ApiCallback<List<User>>() {
-            @Override public void success(List<User> users) {
-              if(null != users && users.size() == 1) {
-                User foundUser = users.get(0);
-                findUserMonitor.invoked(foundUser);
-                userReg.invoked(foundUser);
-                REGISTERED_USERS.put(username, foundUser);
-              }
-            }
-
-            @Override public void failure(ApiError apiError) {
-              userReg.failed(apiError);
-            }
-          });
-
-          findUserMonitor.waitFor(10*1000);
+          //final ExecMonitor<User, ApiError> findUserMonitor = new ExecMonitor<User, ApiError>();
+          //User.getUsersByUserNames(Arrays.asList(username), new ApiCallback<List<User>>() {
+          //  @Override public void success(List<User> users) {
+          //    if(null != users && users.size() == 1) {
+          //      User foundUser = users.get(0);
+          //      findUserMonitor.invoked(foundUser);
+          //      userReg.invoked(foundUser);
+          //      REGISTERED_USERS.put(username, foundUser);
+          //    }
+          //  }
+          //
+          //  @Override public void failure(ApiError apiError) {
+          //    userReg.failed(apiError);
+          //  }
+          //});
+          //
+          //findUserMonitor.waitFor(10*1000);
+          userReg.invoked(null);
         } else {
           userReg.failed(apiError);
         }

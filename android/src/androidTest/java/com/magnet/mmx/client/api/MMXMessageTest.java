@@ -20,18 +20,21 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXMessage.InvalidRecipientException;
 import com.magnet.mmx.client.common.Log;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MMXMessageTest extends MMXInstrumentationTestCase {
   private static final String TAG = MMXMessageTest.class.getSimpleName();
+
+  @Override
+  public void tearDown() {
+    helpLogout();
+  }
 
   public void testFailureCodes() {
     assertEquals(MMXMessage.FailureCode.BAD_REQUEST, MMX.FailureCode.BAD_REQUEST);
@@ -40,21 +43,14 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
   }
   
   public void testSendMessage() {
-    ApiCallback<Boolean> loginListener = getLoginListener();
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
     registerUser(username, displayName, PASSWORD);
 
     //login with credentials
-    User.login(username, new String(PASSWORD), false, loginListener);
-    synchronized (loginListener) {
-      try {
-        loginListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    loginMax(username, new String(PASSWORD));
+
     assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
     final ExecMonitor<HashMap<String, Object>, Void> receivedResult = new ExecMonitor<HashMap<String, Object>, Void>();
@@ -103,12 +99,12 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     });
     // Check if the send is success
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT_IN_MILISEC);
     assertEquals(ExecMonitor.Status.INVOKED, status);
     assertEquals(messageId, sendResult.getReturnValue());
     
     // Check if the receive is success
-    status = receivedResult.waitFor(TIMEOUT);
+    status = receivedResult.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSendMessage() receive msg timed out");
     }
@@ -117,42 +113,25 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
 
     //check acknowledgement
 
-    status = acknowledgeResult.waitFor(TIMEOUT);
+    status = acknowledgeResult.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSenddMessage() receive acknowledgement timed out");
     }
     assertEquals(messageId, acknowledgeResult.getReturnValue());
 
     MMX.unregisterListener(messageListener);
-    logoutMMX();
-    ApiCallback<Boolean> logoutListener = getLogoutListener();
-    User.logout(logoutListener);
-    synchronized (logoutListener) {
-      try {
-        logoutListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
 //    assertFalse(MMX.getMMXClient().isConnected());
   }
 
   public void testSendMessageWithAttachments() {
-    ApiCallback<Boolean> loginListener = getLoginListener();
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
     registerUser(username, displayName, PASSWORD);
 
     //login with credentials
-    User.login(username, new String(PASSWORD), false, loginListener);
-    synchronized (loginListener) {
-      try {
-        loginListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    loginMax(username, new String(PASSWORD));
+
     assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
 
@@ -241,7 +220,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(MMX.getCurrentUser().getFirstName(), senderBuffer.toString());
 
     //check acknowledgement
-    status = acknowledgeResult.waitFor(TIMEOUT);
+    status = acknowledgeResult.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.WAITING) {
       fail("testSenddMessage() receive acknowledgement timed out");
     }
@@ -266,7 +245,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
       }
     });
     try {
-      downLatch.await(TIMEOUT, TimeUnit.MILLISECONDS);
+      downLatch.await(TIMEOUT_IN_MILISEC, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       fail(e.getMessage());
     }
@@ -274,16 +253,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(Attachment.Status.COMPLETE, attachmentReceived.getStatus());
 
     MMX.unregisterListener(messageListener);
-    logoutMMX();
-    ApiCallback<Boolean> logoutListener = getLogoutListener();
-    User.logout(logoutListener);
-    synchronized (logoutListener) {
-      try {
-        logoutListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
     //    assertFalse(MMX.getMMXClient().isConnected());
   }
   
@@ -309,7 +278,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
         failureMonitor.failed(code);
       }
     });
-    ExecMonitor.Status status = failureMonitor.waitFor(TIMEOUT);
+    ExecMonitor.Status status = failureMonitor.waitFor(TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.INVOKED) {
       fail("should have called onFailure()");
     } else if (status == ExecMonitor.Status.FAILED) {
@@ -349,7 +318,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
 //  }
 
   public void testSendUCastMessageError() {
-    ApiCallback<Boolean> loginListener = getLoginListener();
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
@@ -359,14 +327,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     final Set<String> invalidUsers = new HashSet<String>();
     
     //login with credentials
-    User.login(username, new String(PASSWORD), false, loginListener);
-    synchronized (loginListener) {
-      try {
-        loginListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    loginMax(username, new String(PASSWORD));
+
     assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
     final ExecMonitor<Boolean, MMXMessage.FailureCode> receivedResult =
@@ -422,7 +384,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     
     // Send failed because of an invalid recipient
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT_IN_MILISEC);
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(1, invalidUsers.size());
@@ -433,21 +395,10 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertEquals(ExecMonitor.Status.WAITING, status);
 
     MMX.unregisterListener(messageListener);
-    logoutMMX();
-    ApiCallback<Boolean> logoutListener = getLogoutListener();
-    User.logout(logoutListener);
-    synchronized (logoutListener) {
-      try {
-        logoutListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
 //    assertFalse(MMX.getMMXClient().isConnected());
   }
   
   public void testSendMCastMessageError() {
-    ApiCallback<Boolean> loginListener = getLoginListener();
     String suffix = String.valueOf(System.currentTimeMillis());
     String username = USERNAME_PREFIX + suffix;
     String displayName = DISPLAY_NAME_PREFIX + suffix;
@@ -458,14 +409,8 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     final Set<String> invalidUsers = new HashSet<String>();
     
     //login with credentials
-    User.login(username, new String(PASSWORD), false, loginListener);
-    synchronized (loginListener) {
-      try {
-        loginListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    loginMax(username, new String(PASSWORD));
+
     assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
     final ExecMonitor<Boolean, MMXMessage.FailureCode> receivedResult =
@@ -525,7 +470,7 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     });
     
     // Send partial failure despite invalid recipients
-    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT);
+    ExecMonitor.Status status = sendResult.waitFor(TIMEOUT_IN_MILISEC);
     assertEquals(ExecMonitor.Status.FAILED, status);
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendResult.getFailedValue());
     assertEquals(2, invalidUsers.size());
@@ -544,16 +489,6 @@ public class MMXMessageTest extends MMXInstrumentationTestCase {
     assertTrue(receivedResult.getReturnValue());
     
     MMX.unregisterListener(messageListener);
-    logoutMMX();
-    ApiCallback<Boolean> logoutListener = getLogoutListener();
-    User.logout(logoutListener);
-    synchronized (logoutListener) {
-      try {
-        logoutListener.wait(TIMEOUT);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
 //    assertFalse(MMX.getMMXClient().isConnected());
   }
 }
