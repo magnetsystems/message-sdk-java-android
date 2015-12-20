@@ -1176,26 +1176,26 @@ public class MMXChannel {
    * @param listener
    */
   public void addSubscribers(final Set<User> newSubscribers, final OnFinishedListener<List<String>> listener) {
-    checkIfAllowedToAddSubscriber();
-
-    Set<String> userIds = userSetToIds(newSubscribers, listener);
-    if(null != userIds) {
-      getChannelService().addSubscriberToChannel(mName,
-          new ChannelService.ChannelSubscribeRequest(!mPublic, userIds), new Callback<ChannelService.ChannelSubscribeResponse>() {
-            @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
-              if(response.isSuccess()) {
-                if(null != listener) {
-                  listener.onSuccess(getInvalidSubscribes(response.body()));
+    if(checkIfAllowedToAddSubscriber(listener)) {
+      Set<String> userIds = userSetToIds(newSubscribers, listener);
+      if (null != userIds) {
+        getChannelService().addSubscriberToChannel(mName,
+            new ChannelService.ChannelSubscribeRequest(!mPublic, userIds), new Callback<ChannelService.ChannelSubscribeResponse>() {
+              @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
+                if (response.isSuccess()) {
+                  if (null != listener) {
+                    listener.onSuccess(getInvalidSubscribes(response.body()));
+                  }
+                } else {
+                  handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, new Exception(response.message()), listener);
                 }
-              } else {
-                handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, new Exception(response.message()), listener);
               }
-            }
 
-            @Override public void onFailure(Throwable throwable) {
-              handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, throwable, listener);
-            }
-          }).executeInBackground();
+              @Override public void onFailure(Throwable throwable) {
+                handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, throwable, listener);
+              }
+            }).executeInBackground();
+      }
     }
   }
 
@@ -1207,26 +1207,26 @@ public class MMXChannel {
    * @param listener
    */
   public void removeSubscribers(final Set<User> subscribersToBeRemoved, final OnFinishedListener<List<String>> listener) {
-    checkIfAllowedToRemoveSubscriber();
-
-    Set<String> userIds = userSetToIds(subscribersToBeRemoved, listener);
-    if(null != userIds) {
-      getChannelService().removeSubscriberFromChannel(mName,
-          new ChannelService.ChannelSubscribeRequest(!mPublic, userIds), new Callback<ChannelService.ChannelSubscribeResponse>() {
-            @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
-              if(response.isSuccess()) {
-                if(null != listener) {
-                  listener.onSuccess(getInvalidSubscribes(response.body()));
+    if(checkIfAllowedToRemoveSubscriber(listener)){
+      Set<String> userIds = userSetToIds(subscribersToBeRemoved, listener);
+      if (null != userIds) {
+        getChannelService().removeSubscriberFromChannel(mName,
+            new ChannelService.ChannelSubscribeRequest(!mPublic, userIds), new Callback<ChannelService.ChannelSubscribeResponse>() {
+              @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
+                if (response.isSuccess()) {
+                  if (null != listener) {
+                    listener.onSuccess(getInvalidSubscribes(response.body()));
+                  }
+                } else {
+                  handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, new Exception(response.message()), listener);
                 }
-              } else {
-                handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, new Exception(response.message()), listener);
               }
-            }
 
-            @Override public void onFailure(Throwable throwable) {
-              handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, throwable, listener);
-            }
-          }).executeInBackground();
+              @Override public void onFailure(Throwable throwable) {
+                handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, throwable, listener);
+              }
+            }).executeInBackground();
+      }
     }
   }
 
@@ -1270,22 +1270,39 @@ public class MMXChannel {
     }
   }
 
-  private void checkIfAllowedToAddSubscriber() {
+  private boolean checkIfAllowedToAddSubscriber(OnFinishedListener<List<String>> listener) {
     // Currently only owner is allowed
     boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
     if(mPublic && !mSubscribed) {
-      throw new IllegalStateException("Only owner and subscriber is allowed to add subscribers for public channel");
+      String errorMessage = "Only owner and subscriber is allowed to add subscribers for public channel";
+      Log.e(TAG, errorMessage);
+      if(null != listener) {
+        listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      }
+      return false;
     } else if(!mPublic && !isOwner) {
-      throw new IllegalStateException("Only owner is allowed to add subscribers for private channel");
+      String errorMessage = "Only owner is allowed to add subscribers for private channel";
+      Log.e(TAG, errorMessage);
+      if(null != listener) {
+        listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      }
+      return false;
     }
+
+    return true;
   }
 
-  private void checkIfAllowedToRemoveSubscriber() {
+  private boolean checkIfAllowedToRemoveSubscriber(OnFinishedListener<List<String>> listener) {
     // Currently only owner is allowed
     boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
     if(!isOwner) {
-      throw new IllegalStateException("Only owner is allowed to remove subscribers for channel");
+      String errorMessage = "Only owner is allowed to remove subscribers for channel";
+      Log.e(TAG, errorMessage);
+      listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      return false;
     }
+
+    return true;
   }
 
   /**
