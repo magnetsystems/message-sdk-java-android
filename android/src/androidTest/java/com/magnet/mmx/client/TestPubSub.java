@@ -16,6 +16,8 @@
 package com.magnet.mmx.client;
 
 import android.test.suitebuilder.annotation.Suppress;
+
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
