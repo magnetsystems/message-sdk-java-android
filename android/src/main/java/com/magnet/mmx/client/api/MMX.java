@@ -1029,14 +1029,15 @@ public final class MMX {
     }
 
     @Override
-    public void onAppTokenUpdate(String appToken, String appId, String deviceId) {
+    public void onAppTokenUpdate(String appToken, String appId, String deviceId, ApiCallback<Boolean> callback) {
       //not implemented for now
       Log.d(TAG, "onAppTokenUpdate(): Not implemented for now.  appId=" + appId +
               ", deviceId=" + deviceId + ", appToken=" + appToken);
     }
 
     @Override
-    public void onUserTokenUpdate(final String userToken, final String userId, final String deviceId) {
+    public void onUserTokenUpdate(final String userToken, final String userId,
+        final String deviceId, final ApiCallback<Boolean> callback) {
       Log.d(TAG, "onUserTokenUpdate(): userId=" + userId +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
@@ -1055,27 +1056,29 @@ public final class MMX {
         MMX.logout(new MMX.OnFinishedListener<Void>() {
           public void onSuccess(Void result) {
             Log.d(TAG, "onUserTokenUpdate(): logout success");
-            loginHelper(userId, deviceId, userToken);
+            loginHelper(userId, deviceId, userToken, callback);
           }
 
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "onUserTokenUpdate(): logout failure: " + code, ex);
-            loginHelper(userId, deviceId, userToken);
+            loginHelper(userId, deviceId, userToken, callback);
           }
         });
       } else {
-        loginHelper(userId, deviceId, userToken);
+        loginHelper(userId, deviceId, userToken, callback);
       }
     }
 
     private void loginHelper(final String userId, final String deviceId,
-                             final String userToken) {
+                             final String userToken, final ApiCallback<Boolean> callback) {
       if (userId != null && deviceId != null && userToken != null) {
         MMX.login(userId, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
           @Override
           public void onSuccess(Void result) {
             Log.d(TAG, "loginHelper(): success");
-            if (mCallback != null) {
+            if(null != callback) {
+              callback.success(true);
+            } else if (mCallback != null) {
               mCallback.success(true);
             }
           }
@@ -1083,9 +1086,12 @@ public final class MMX {
           @Override
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "loginHelper(): failure=" + code, ex);
-            if (mCallback != null) {
-              mCallback.failure(new ApiError("Unable to login: " +
-                      code, ApiError.API_ERROR_UNEXPECTED, ex));
+            ApiError error = new ApiError("Unable to login: " +
+                code, ApiError.API_ERROR_UNEXPECTED, ex);
+            if(null != callback) {
+              callback.failure(error);
+            } else if (mCallback != null) {
+              mCallback.failure(error);
             }
           }
         });
@@ -1098,12 +1104,12 @@ public final class MMX {
     }
 
     @Override
-    public void onUserTokenInvalidate() {
+    public void onUserTokenInvalidate(final ApiCallback<Boolean> callback) {
       logoutHelper();
     }
 
     @Override
-    public void deInitModule() {
+    public void deInitModule(final ApiCallback<Boolean> callback) {
       logoutHelper();
     }
 
