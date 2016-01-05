@@ -61,7 +61,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
       callbackThread.start();
       MMX.setCallbackHandler(new Handler(callbackThread.getLooper()));
       MaxCore.init(mContext, new MaxAndroidJsonConfig(mContext, com.magnet.mmx.test.R.raw.keys));
-
+      MaxCore.register(MMX.getModule());
       isMaxInited = true;
     }
     postSetUp();
@@ -100,27 +100,27 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
   }
 
   protected void loginMax(String userName, String password) {
-    final CountDownLatch latch = new CountDownLatch(2);
+    final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<ApiError> errorRef = new AtomicReference<>();
     android.util.Log.d(TAG, "--------Logging user " + userName);
     User.login(userName, password, false, new ApiCallback<Boolean>() {
       @Override
       public void success(Boolean aBoolean) {
         if (aBoolean.booleanValue()) {
-          MaxCore.initModule(MMX.getModule(), new ApiCallback<Boolean>() {
-            @Override
-            public void success(Boolean aBoolean) {
-              latch.countDown();
-            }
-
-            @Override
-            public void failure(ApiError apiError) {
-              android.util.Log.e(TAG, "Failed to initModule MMX due to : " + apiError.getMessage(), apiError.getCause());
-              errorRef.set(apiError);
-              fail("Failed to initModule MMX  due to: " + apiError.getMessage());
-              latch.countDown();
-            }
-          });
+          //MaxCore.initModule(MMX.getModule(), new ApiCallback<Boolean>() {
+          //  @Override
+          //  public void success(Boolean aBoolean) {
+          //    latch.countDown();
+          //  }
+          //
+          //  @Override
+          //  public void failure(ApiError apiError) {
+          //    android.util.Log.e(TAG, "Failed to initModule MMX due to : " + apiError.getMessage(), apiError.getCause());
+          //    errorRef.set(apiError);
+          //    fail("Failed to initModule MMX  due to: " + apiError.getMessage());
+          //    latch.countDown();
+          //  }
+          //});
         }
 
         latch.countDown();
@@ -132,7 +132,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
         fail("Failed to login due to : " + apiError.getMessage());
         errorRef.set(apiError);
         latch.countDown();
-        latch.countDown();
+        //latch.countDown();
       }
     });
 
@@ -162,7 +162,7 @@ abstract public class MMXInstrumentationTestCase extends InstrumentationTestCase
     User.logout(new ApiCallback<Boolean>() {
       @Override
       public void success(Boolean aBoolean) {
-        MaxCore.deInitModule(MMX.getModule(), null);
+        //MaxCore.deInitModule(MMX.getModule(), null);
         latch.countDown();
       }
 

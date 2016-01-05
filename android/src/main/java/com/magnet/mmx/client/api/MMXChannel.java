@@ -14,8 +14,12 @@
  */
 package com.magnet.mmx.client.api;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.util.EqualityUtil;
+import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.internal.channel.ChannelLookupKey;
 import com.magnet.mmx.client.internal.channel.ChannelService;
@@ -83,7 +87,7 @@ import retrofit.Response;
  * <li>{@link #inviteUsers(Set, String, OnFinishedListener)}</li>
  * </ul>
  */
-public class MMXChannel {
+public class MMXChannel implements Parcelable {
   private static final String TAG = MMXChannel.class.getSimpleName();
   private static final int DEFAULT_LIMIT = 5000;  //this is enforced by the server
 
@@ -1654,7 +1658,9 @@ public class MMXChannel {
                   items = Collections.EMPTY_LIST;
                 }
 
-                listener.onSuccess(new ListResult<MMXChannel>(items.size(), items));
+                if(null != listener) {
+                  listener.onSuccess(new ListResult<MMXChannel>(items.size(), items));
+                }
               } else {
                 handleError(new Exception(response.message()), listener);
               }
@@ -1697,7 +1703,9 @@ public class MMXChannel {
           new Callback<List<ChannelSummaryResponse>>() {
         @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
           if(response.isSuccess()) {
-            listener.onSuccess(response.body());
+            if(null != listener) {
+              listener.onSuccess(response.body());
+            }
           } else {
             handleError(new ApiError(response.message(), response.code()), listener);
           }
@@ -2170,4 +2178,85 @@ public class MMXChannel {
       return response;
     }
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!EqualityUtil.quickCheck(this, obj)) {
+      return false;
+    }
+
+    MMXChannel theOther = (MMXChannel) obj;
+
+    return StringUtil.isStringValueEqual(mName, theOther.getName()) &&
+        StringUtil.isStringValueEqual(mSummary, theOther.getSummary()) &&
+        StringUtil.isStringValueEqual(mOwnerId, theOther.getOwnerId()) &&
+        mPublic == theOther.isPublic() &&
+        mPublishPermission == theOther.getPublishPermission() &&
+        StringUtil.isStringValueEqual(mName, theOther.getName()) &&
+        (null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
+  }
+
+  @Override
+  public int hashCode() {
+    return new HashCodeBuilder().hash(mName).hash(mSummary).hash(mOwnerId).hash(mPublic)
+        .hash(mPublishPermission).hash(mCreationDate).hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return new StringBuilder().append("{")
+        .append("name = ").append(mName).append(", ")
+        .append("ownerId = ").append(mOwnerId).append(", ")
+        .append("isPublic = ").append(mPublic).append(", ")
+        .append("publishPermission = ").append(mPublishPermission).append(", ")
+        .append("summary = ").append(mSummary).append(", ")
+        .append("isSubscribed = ").append(mSubscribed)
+        .append("}")
+        .toString();
+  }
+
+  //----------------Parcelable Methods----------------
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeString(this.mName);
+    dest.writeString(this.mSummary);
+    dest.writeString(this.mOwnerId);
+    dest.writeValue(this.mNumberOfMessages);
+    dest.writeLong(mLastTimeActive != null ? mLastTimeActive.getTime() : -1);
+    dest.writeByte(mPublic ? (byte) 1 : (byte) 0);
+    dest.writeInt(this.mPublishPermission == null ? -1 : this.mPublishPermission.ordinal());
+    dest.writeValue(this.mSubscribed);
+    dest.writeLong(mCreationDate != null ? mCreationDate.getTime() : -1);
+  }
+
+  protected MMXChannel(Parcel in) {
+    this.mName = in.readString();
+    this.mSummary = in.readString();
+    this.mOwnerId = in.readString();
+    this.mNumberOfMessages = (Integer) in.readValue(Integer.class.getClassLoader());
+    long tmpMLastTimeActive = in.readLong();
+    this.mLastTimeActive = tmpMLastTimeActive == -1 ? null : new Date(tmpMLastTimeActive);
+    this.mPublic = in.readByte() != 0;
+    int tmpMPublishPermission = in.readInt();
+    this.mPublishPermission =
+        tmpMPublishPermission == -1 ? null : PublishPermission.values()[tmpMPublishPermission];
+    this.mSubscribed = (Boolean) in.readValue(Boolean.class.getClassLoader());
+    long tmpMCreationDate = in.readLong();
+    this.mCreationDate = tmpMCreationDate == -1 ? null : new Date(tmpMCreationDate);
+  }
+
+  public static final Parcelable.Creator<MMXChannel> CREATOR =
+      new Parcelable.Creator<MMXChannel>() {
+        public MMXChannel createFromParcel(Parcel source) {
+          return new MMXChannel(source);
+        }
+
+        public MMXChannel[] newArray(int size) {
+          return new MMXChannel[size];
+        }
+      };
 }
