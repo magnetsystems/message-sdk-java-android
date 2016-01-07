@@ -67,7 +67,7 @@ abstract public class AbstractMMXListener implements MMXClient.MMXListener {
    * @param receiptId A delivery receipt ID or null if receipt was not requested
    */
   public void onMessageReceived(MMXClient mmxClient, MMXMessage mmxMessage, String receiptId) {
-    Log.d(TAG, "onMessageReceived(): start. ");
+    Log.d(TAG, "onMessageReceived(): start. " + mmxMessage.getId());
     try {
       handleMessageReceived(mmxClient, mmxMessage, receiptId);
     } catch (Throwable throwable) {

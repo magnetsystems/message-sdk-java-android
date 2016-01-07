@@ -77,6 +77,8 @@ dependencies {
 
     // For testing
     androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
+    androidTestCompile 'com.android.support.test:runner:0.4.1'
+    androidTestCompile 'junit:junit:4.12'
 }
 
 android {
@@ -87,6 +89,7 @@ android {
         minSdkVersion 16
         versionCode 1
         versionName "2.3.0-SNAPSHOT"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {

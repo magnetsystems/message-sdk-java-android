@@ -15,19 +15,10 @@
 
 package com.magnet.mmx.client;
 
-import android.test.suitebuilder.annotation.Suppress;
-import java.nio.CharBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import android.content.Context;
 import android.test.InstrumentationTestCase;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
-
 import com.magnet.mmx.client.common.MMXConnection;
 import com.magnet.mmx.client.common.MMXErrorMessage;
 import com.magnet.mmx.client.common.MMXException;
@@ -48,6 +39,13 @@ import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.protocol.UserQuery;
 import com.magnet.mmx.protocol.UserTags;
+import java.nio.CharBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 //FIXME : those test cases need rewriting for 2.0
 @Suppress
