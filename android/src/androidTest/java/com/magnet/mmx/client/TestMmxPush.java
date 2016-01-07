@@ -18,16 +18,12 @@ package com.magnet.mmx.client;
 import android.content.Intent;
 import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import com.google.gson.JsonObject;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.GCMPayload;
 import com.magnet.mmx.protocol.PushMessage;
-
+import java.util.Map;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.util.Map;
 
 public class TestMmxPush extends InstrumentationTestCase {
 

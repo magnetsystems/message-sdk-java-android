@@ -1,34 +1,37 @@
 package com.magnet.mmx.client.api;
 
-import com.magnet.max.android.ApiCallback;
+import android.support.test.runner.AndroidJUnit4;
 import com.magnet.max.android.User;
+import com.magnet.mmx.client.utils.MaxHelper;
+import com.magnet.mmx.client.utils.UserHelper;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class MMXTest extends MMXInstrumentationTestCase {
+import static junit.framework.Assert.assertEquals;
+
+@RunWith(AndroidJUnit4.class)
+public class MMXTest {
   private static final String TAG = MMXTest.class.getSimpleName();
 
+  @BeforeClass
+  public static void setUp() {
+    MaxHelper.initMax();
+  }
+
+  @AfterClass
+  public static void tearDown() {
+  }
+
+  @Test
   public void testLoginLogout() {
-    String suffix = String.valueOf(System.currentTimeMillis());
-    String username = USERNAME_PREFIX + suffix;
-    String displayName = DISPLAY_NAME_PREFIX + suffix;
-    registerUser(username, displayName, PASSWORD);
-
-    //login as this new user
-    loginMax(username, new String(PASSWORD));
-
+    UserHelper.registerAndLogin(UserHelper.MMX_TEST_USER_1, UserHelper.MMX_TEST_USER_1);
     User currentUser = MMX.getCurrentUser();
-    assertEquals(displayName, currentUser.getFirstName());
-    assertEquals(username, currentUser.getUserName());
+    assertEquals(UserHelper.MMX_TEST_USER_1, currentUser.getFirstName());
+    assertEquals(UserHelper.MMX_TEST_USER_1.toLowerCase(), currentUser.getUserName());
 
-    logoutMMX();
-    ApiCallback<Boolean> logoutListener = getLogoutListener();
-    User.logout(logoutListener);
-    synchronized (logoutListener) {
-      try {
-        logoutListener.wait(10000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    UserHelper.logout();
 //    assertNull(MMX.getCurrentUser());
 //    assertFalse(MMX.getMMXClient().isConnected());
   }
