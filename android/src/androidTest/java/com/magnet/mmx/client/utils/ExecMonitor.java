@@ -12,7 +12,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.magnet.mmx.client.api;
+package com.magnet.mmx.client.utils;
 
 import com.magnet.mmx.client.common.Log;
 

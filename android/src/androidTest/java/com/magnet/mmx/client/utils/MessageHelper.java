@@ -4,12 +4,12 @@
 package com.magnet.mmx.client.utils;
 
 import com.magnet.max.android.User;
-import com.magnet.mmx.client.api.ExecMonitor;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXMessage;
 import com.magnet.mmx.client.common.Log;
 
-import static junit.framework.Assert.*;
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertNotNull;
 
 public class MessageHelper {
 

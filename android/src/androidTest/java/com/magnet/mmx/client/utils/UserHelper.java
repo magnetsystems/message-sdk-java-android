@@ -8,7 +8,6 @@ import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.max.android.auth.model.UserRegistrationInfo;
-import com.magnet.mmx.client.api.ExecMonitor;
 import com.magnet.mmx.client.common.Log;
 import java.util.HashMap;
 import java.util.Map;

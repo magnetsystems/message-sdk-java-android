@@ -7,7 +7,6 @@ import android.util.Log;
 import com.magnet.max.android.Attachment;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.ChannelMatchType;
-import com.magnet.mmx.client.api.ExecMonitor;
 import com.magnet.mmx.client.api.ListResult;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXChannel;
