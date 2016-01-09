@@ -72,6 +72,7 @@ public class MMXMessageSingleSessionTest {
 
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
+    content.put("testCase", "testSendMessage");
 
     MMXMessage message = new MMXMessage.Builder()
             .recipients(recipients)
@@ -105,6 +106,7 @@ public class MMXMessageSingleSessionTest {
 
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
+    content.put("testCase", "testSendMessageWithAttachments");
     final Attachment attachment1 = new Attachment(MaxCore.getApplicationContext().getResources().openRawResource(
         com.magnet.mmx.test.R.raw.test_image), "image/jpeg");
     //final Attachment attachment1 = new TextAttachment(Attachment.TEXT_PLAIN, "hello world");
@@ -201,6 +203,7 @@ public class MMXMessageSingleSessionTest {
     
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
+    content.put("testCase", "testSendUCastMessageError");
     MMXMessage message = new MMXMessage.Builder()
             .recipients(recipients)
             .content(content)
@@ -221,7 +224,6 @@ public class MMXMessageSingleSessionTest {
 
   @Test
   public void testSendMCastMessageError() {
-    String suffix = String.valueOf(System.currentTimeMillis());
     String noSuchUser = UserHelper.NO_SUCH_USERNAME_PREFIX;
     String wrongUser = UserHelper.WRONG_USERNAME_PREFIX;
 
@@ -235,6 +237,7 @@ public class MMXMessageSingleSessionTest {
 
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
+    content.put("testCase", "testSendMCastMessageError");
     MMXMessage message = new MMXMessage.Builder()
             .recipients(recipients)
             .content(content)

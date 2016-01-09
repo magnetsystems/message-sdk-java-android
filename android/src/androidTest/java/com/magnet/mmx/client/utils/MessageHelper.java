@@ -4,12 +4,16 @@
 package com.magnet.mmx.client.utils;
 
 import com.magnet.max.android.User;
+import com.magnet.mmx.client.api.AssertionUtils;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXMessage;
 import com.magnet.mmx.client.common.Log;
+import java.util.Map;
+import junit.framework.Assert;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class MessageHelper {
 
@@ -22,10 +26,14 @@ public class MessageHelper {
     //assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
     MMX.EventListener messageListener = new MMX.EventListener() {
-      public boolean onMessageReceived(final MMXMessage message) {
+      public boolean onMessageReceived(final MMXMessage messageReceived) {
         Log.d(TAG, "onMessageReceived(): " + message.getId());
 
-        if(null != receiveMonitor) receiveMonitor.invoked(message);
+        if(messageReceived.getId().equals(message.getId())) {
+          if (null != receiveMonitor) receiveMonitor.invoked(messageReceived);
+        } else {
+          Log.d(TAG, "onMessageReceived(): " + messageReceived.getId() + " is not expected " + message.getId());
+        }
 
         return false;
       }
@@ -70,8 +78,10 @@ public class MessageHelper {
       ExecMonitor.Status receiveStatus = receiveMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
       assertEquals(expectedReceiveStatus, receiveStatus);
       if(expectedReceiveStatus == ExecMonitor.Status.INVOKED) {
-        assertNotNull(receiveMonitor.getReturnValue());
-        assertEquals(message.getId(), receiveMonitor.getReturnValue().getId());
+        MMXMessage messageReceived = receiveMonitor.getReturnValue();
+        assertNotNull(messageReceived);
+        assertEquals(message.getId(), messageReceived.getId());
+        AssertionUtils.assertMap(message.getContent(), messageReceived.getContent());
       }
     }
 

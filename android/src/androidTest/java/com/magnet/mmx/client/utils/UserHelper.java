@@ -9,7 +9,9 @@ import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.max.android.auth.model.UserRegistrationInfo;
 import com.magnet.mmx.client.common.Log;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -141,6 +143,41 @@ public class UserHelper {
     if(null != errorRef.get()) {
       fail("User.login failed due to " + errorRef.get().getMessage());
     }
+  }
+
+  public static List<User> searchUserByNane(String userName) {
+    final ExecMonitor<List<User>, ApiError> execMonitor = new ExecMonitor<>();
+    android.util.Log.d(TAG, "--------Find user by name " + userName);
+    User.getUsersByUserNames(Arrays.asList(userName), new ApiCallback<List<User>>() {
+      @Override
+      public void success(List<User> result) {
+        execMonitor.invoked(result);
+      }
+
+      @Override
+      public void failure(ApiError apiError) {
+        android.util.Log.e(TAG, "Failed to login due to : " + apiError.getMessage(), apiError.getCause());
+        //fail("Failed to login due to : " + apiError.getMessage());
+        execMonitor.failed(apiError);
+      }
+    });
+
+    ExecMonitor.Status status = execMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    assertEquals(ExecMonitor.Status.INVOKED, status);
+
+    return execMonitor.getReturnValue();
+  }
+
+  public static User findOrCreateUser(final String username, final String password) {
+    User result = null;
+    List<User> existingUser = searchUserByNane(username);
+    if(null == existingUser || existingUser.isEmpty()) {
+      result = UserHelper.registerUser(username, username, password, null, true);
+    } else {
+      result = existingUser.get(0);
+    }
+
+    return result;
   }
 
   public static void logout() {
