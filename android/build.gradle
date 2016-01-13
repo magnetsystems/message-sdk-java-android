@@ -35,7 +35,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "2.2.0-SNAPSHOT"
+version = "2.3.0-SNAPSHOT"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -64,16 +64,21 @@ dependencies {
 
 //    compile 'com.google.code.gson:gson:2.3'
 
-    compile 'com.magnet.mmx:mmx-common-api:2.2.0-SNAPSHOT'
+    compile 'com.magnet.mmx:mmx-common-api:2.3.0-SNAPSHOT'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    compile ('com.magnet.max.android:magnet-max-android-core:2.2.0-SNAPSHOT@aar') {
+    compile ('com.magnet.max.android:magnet-max-android-core:2.3.0-SNAPSHOT@aar') {
         transitive=true
     }
+
+    // For testing
+    androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
+    androidTestCompile 'com.android.support.test:runner:0.4.1'
+    androidTestCompile 'junit:junit:4.12'
 }
 
 android {
@@ -83,7 +88,8 @@ android {
     defaultConfig {
         minSdkVersion 16
         versionCode 1
-        versionName "2.2.0-SNAPSHOT"
+        versionName "2.3.0-SNAPSHOT"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -138,6 +144,17 @@ task androidJavadocs(type: Javadoc) {
     ext.googlePlayServicesJar = "${System.env.ANDROID_HOME}/extras/google/google_play_services/libproject/google-play-services_lib/libs/google-play-services.jar"
     ext.androidSupportV4Jar = "${System.env.ANDROID_HOME}/extras/android/support/v4/android-support-v4.jar"
     classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath
+
+    if (project.hasProperty('externalJavadocJars')) {
+        println "Adding external jars: ${externalJavadocJars} to classpath ${classpath.getAsPath()}"
+        new File("${externalJavadocJars}").eachLine { line ->
+            println "jar : ${line}"
+            classpath = classpath + files(line)
+        }
+    }
+
+    println "androidJavadocs classpath : "
+    classpath.each { println it.getAbsolutePath() }
 
     options {
         doclet "com.google.doclava.Doclava"

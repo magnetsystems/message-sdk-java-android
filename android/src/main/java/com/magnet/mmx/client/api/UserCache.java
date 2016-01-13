@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An in-memory user cache for convenience
@@ -79,6 +81,7 @@ final class UserCache {
       }
     }
 
+    final CountDownLatch latch = new CountDownLatch(1);
     final ApiCallback<List<User>> listener = new ApiCallback<List<User>>() {
       public void success(List<User> users) {
         Log.d(TAG, "fillCache(): retrieved users " + users.size());
@@ -90,16 +93,12 @@ final class UserCache {
             mUserIdCache.put(user.getUserIdentifier().toLowerCase(), cachedUser);
           }
         }
-        synchronized (this) {
-          notify();
-        }
+        latch.countDown();
       }
 
       public void failure(ApiError apiError) {
         Log.d(TAG, "fillCache(): error retrieving users: " + apiError, apiError.getCause());
-        synchronized (this) {
-          notify();
-        }
+        latch.countDown();
       }
     };
 
@@ -110,7 +109,7 @@ final class UserCache {
     }
     synchronized (listener) {
       try {
-        listener.wait(10000);
+        latch.await(10, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         Log.e(TAG, "fillCache(): exception", e);
       }

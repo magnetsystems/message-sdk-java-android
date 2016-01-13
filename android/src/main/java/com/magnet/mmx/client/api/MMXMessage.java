@@ -14,12 +14,18 @@
  */
 package com.magnet.mmx.client.api;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.google.gson.reflect.TypeToken;
 import com.magnet.max.android.Attachment;
+import com.magnet.max.android.util.EqualityUtil;
+import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.MagnetUtils;
+import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.util.GsonData;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,7 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * If the message targets to a channel, it will be used for group chat or forum
  * discussions.
  */
-public class MMXMessage {
+public class MMXMessage implements Parcelable {
   private static final String TAG = MMXMessage.class.getSimpleName();
 
   public static final String CONTENT_ATTACHMENTS = "_attachments";
@@ -696,6 +702,40 @@ public class MMXMessage {
     return reply.send(listener);
   }
 
+  @Override public int hashCode() {
+    return new HashCodeBuilder().hash(mId).hash(mType).hash(mSender).hash(mRecipients)
+        .hash(mChannel).hash(mContent).hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!EqualityUtil.quickCheck(this, obj)) {
+      return false;
+    }
+
+    MMXMessage theOther = (MMXMessage) obj;
+
+    return StringUtil.isStringValueEqual(mId, theOther.getId()) &&
+        StringUtil.isStringValueEqual(mType, theOther.getType()) &&
+        null != mChannel ? mChannel.equals(theOther.getChannel()) : null == theOther.getChannel() &&
+        null != mSender ? mSender.equals(theOther.getSender()) : null == theOther.getSender() &&
+        null != mRecipients ? mRecipients.equals(theOther.getRecipients()) : null == theOther.getRecipients() &&
+        null != mContent ? mContent.equals(theOther.getContent()) : null == theOther.getContent();
+  }
+
+  @Override
+  public String toString() {
+    return new StringBuilder().append("{")
+        .append("id = ").append(mId).append(", ")
+        .append("type = ").append(mType).append(", ")
+        .append("sender = ").append(mSender).append(", ")
+        .append("channel = ").append(mChannel).append(", ")
+        .append("recipients = ").append(StringUtil.toString(mRecipients)).append(", ")
+        .append("content = ").append(StringUtil.toString(mContent))
+        .append("}")
+        .toString();
+  }
+
   /**
    * Build a reply message.
    *
@@ -1002,4 +1042,50 @@ public class MMXMessage {
 
     return null;
   }
+
+  //----------------Parcelable Methods----------------
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeString(this.mId);
+    dest.writeString(this.mType);
+    dest.writeLong(mTimestamp != null ? mTimestamp.getTime() : -1);
+    dest.writeParcelable(this.mSender, flags);
+    dest.writeParcelable(this.mChannel, 0);
+    dest.writeParcelableArray(ParcelableHelper.setToArray(this.mRecipients), flags);
+    dest.writeBundle(ParcelableHelper.stringMapToBundle(this.mContent));
+    dest.writeString(this.mReceiptId);
+    dest.writeList(this.mAttachments);
+  }
+
+  protected MMXMessage(Parcel in) {
+    this.mId = in.readString();
+    this.mType = in.readString();
+    long tmpMTimestamp = in.readLong();
+    this.mTimestamp = tmpMTimestamp == -1 ? null : new Date(tmpMTimestamp);
+    this.mSender = in.readParcelable(User.class.getClassLoader());
+    this.mChannel = in.readParcelable(MMXChannel.class.getClassLoader());
+    User[] tmpRecipients = (User[]) in.readParcelableArray(User.class.getClassLoader());
+    if(null != tmpRecipients) {
+      this.mRecipients = new HashSet<>(Arrays.asList(tmpRecipients));
+    }
+    this.mContent = ParcelableHelper.stringMapfromBundle(in.readBundle());
+    this.mReceiptId = in.readString();
+    this.mAttachments = new ArrayList<Attachment>();
+    in.readTypedList(this.mAttachments, Attachment.CREATOR);
+  }
+
+  public static final Parcelable.Creator<MMXMessage> CREATOR =
+      new Parcelable.Creator<MMXMessage>() {
+        public MMXMessage createFromParcel(Parcel source) {
+          return new MMXMessage(source);
+        }
+
+        public MMXMessage[] newArray(int size) {
+          return new MMXMessage[size];
+        }
+      };
 }

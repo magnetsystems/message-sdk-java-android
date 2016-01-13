@@ -153,6 +153,7 @@ public class MMXTask<T> implements Runnable {
     try {
       setResult(doRun(mClient));
     } catch (Throwable ex) {
+      Log.e(TAG, "run(): ", ex);
       setException(ex);
     }
   }
