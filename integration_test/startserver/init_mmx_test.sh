@@ -17,7 +17,7 @@
 
 curdir=`pwd`
 
-MMX_SERVER_NAME="mmx-server-2.3.0-b-1"
+MMX_SERVER_NAME="mmx-server-2.3.0-b-3"
 
 seeddata_sql="$curdir/../test-conf/seed_testdata.sql"
 cleanup_sql="$curdir/../test-conf/clean_testdata.sql"
