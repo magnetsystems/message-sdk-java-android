@@ -389,9 +389,11 @@ public class MMXConnection implements ConnectionListener {
     try {
       mCon.connect();
     } catch (SmackException.ConnectionException e) {
+      Log.e(TAG, "Unable to connect to " + host + ":" + port, e);
       throw new ConnectionException(
           "Unable to connect to " + host + ":" + port, e);
     } catch (Throwable e) {
+      Log.e(TAG, "Unable to connect to " + host + ":" + port, e);
       throw new MMXException(e.getMessage(), e);
     }
   }
