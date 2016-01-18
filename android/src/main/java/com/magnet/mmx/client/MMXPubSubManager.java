@@ -86,7 +86,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws TopicNotFoundException
    * @throws MMXException
    */
-  public String subscribe(MMXTopic topic, boolean thisDeviceOnly) 
+  public String subscribe(MMXTopic topic, boolean thisDeviceOnly)
       throws TopicNotFoundException, MMXException {
     checkDestroyed();
     return mPubSubManager.subscribe(topic, thisDeviceOnly);
@@ -120,7 +120,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws TopicNotFoundException
    * @throws MMXException
    */
-  public MMXStatus addTags(MMXTopic topic, List<String> tags) 
+  public MMXStatus addTags(MMXTopic topic, List<String> tags)
       throws TopicNotFoundException, MMXException {
     checkDestroyed();
     return mPubSubManager.addTags(topic, tags);
@@ -137,7 +137,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws TopicNotFoundException
    * @throws MMXException
    */
-  public MMXStatus removeTags(MMXTopic topic, List<String> tags) 
+  public MMXStatus removeTags(MMXTopic topic, List<String> tags)
       throws TopicNotFoundException, MMXException {
     checkDestroyed();
     return mPubSubManager.removeTags(topic, tags);
@@ -153,7 +153,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws TopicExistsException
    * @throws MMXException
    */
-  public MMXTopic createTopic(MMXTopic topic, MMXTopicOptions options) 
+  public MMXTopic createTopic(MMXTopic topic, MMXTopicOptions options)
       throws TopicExistsException, MMXException {
     checkDestroyed();
     return mPubSubManager.createTopic(topic, options);
@@ -167,7 +167,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public MMXStatus deleteTopic(MMXTopic topic) 
+  public MMXStatus deleteTopic(MMXTopic topic)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     checkDestroyed();
     return mPubSubManager.deleteTopic(topic);
@@ -181,7 +181,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws TopicNotFoundException
    * @throws MMXException
    */
-  public TopicAction.TopicTags getAllTags(MMXTopic topic) 
+  public TopicAction.TopicTags getAllTags(MMXTopic topic)
           throws TopicNotFoundException, MMXException {
     checkDestroyed();
     return mPubSubManager.getAllTags(topic);
@@ -235,7 +235,7 @@ public final class MMXPubSubManager extends MMXManager {
     checkDestroyed();
     return mPubSubManager.getItemsByIds(topic, itemIds);
   }
-  
+
   /**
    * Delete the items published by the current user.
    * @param topic a topic object
@@ -249,7 +249,7 @@ public final class MMXPubSubManager extends MMXManager {
     checkDestroyed();
     return mPubSubManager.retract(topic, itemIds);
   }
-  
+
   /**
    * @hide
    * Publish an item with a publish ID.  This is for internal use.
@@ -264,7 +264,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @throws MMXException
    */
   String publishToTopic(String id, String realTopic, String topic,
-                        MMXPayload payload) 
+                        MMXPayload payload)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     checkDestroyed();
     return mPubSubManager.publishToTopic(id, realTopic, topic, payload);
@@ -272,7 +272,7 @@ public final class MMXPubSubManager extends MMXManager {
 
   /**
    * Publish a payload to a topic. The topic must be existing and be created
-   * with {@link com.magnet.mmx.protocol.TopicAction.PublisherType#anyone} or 
+   * with {@link com.magnet.mmx.protocol.TopicAction.PublisherType#anyone} or
    * {@link com.magnet.mmx.protocol.TopicAction.PublisherType#subscribers} for
    * non-owner; otherwise, TopicPermissionException will be thrown.
    *
@@ -359,7 +359,7 @@ public final class MMXPubSubManager extends MMXManager {
    * @param attributes single or multi-values search attributes
    * @param offset the offset of rows to be returned.
    * @param limit null for the server default, or a max number of rows to be returned
-   * @param listType scope of the search 
+   * @param listType scope of the search
    * @return the search result
    * @throws MMXException
    */
@@ -387,18 +387,18 @@ public final class MMXPubSubManager extends MMXManager {
 
   /**
    * Get topic detail information by topic name.
-   * 
+   *
    * @param topic a topic name
    * @return the detail topic information
    * @throws TopicNotFoundException
    * @throws MMXException
    */
-  public MMXTopicInfo getTopic(MMXTopic topic) 
+  public MMXTopicInfo getTopic(MMXTopic topic)
             throws TopicNotFoundException, MMXException {
     checkDestroyed();
     return mPubSubManager.getTopic(topic);
   }
-  
+
   /**
    * Get multiple topic detail information by topic names.  If a topic name
    * is not found, a null entry in the result list will be returned.
@@ -410,9 +410,9 @@ public final class MMXPubSubManager extends MMXManager {
     checkDestroyed();
     return mPubSubManager.getTopics(topics);
   }
-  
+
   /**
-   * Get the configurable options of a topic.  The returned options can be 
+   * Get the configurable options of a topic.  The returned options can be
    * updated by calling {@link #updateOptions(MMXTopic, com.magnet.mmx.protocol.MMXTopicOptions)}.
    *
    * @param topic a topic name
@@ -487,7 +487,7 @@ public final class MMXPubSubManager extends MMXManager {
    *
    * @return a map with message id as the key and MMXTopic as the value
    * @see #cancelMessage(String)
-   */ 
+   */
   public Map<String, MMXTopic> getPendingItems() {
     checkDestroyed();
     Map<String, MMXQueue.Item> items = getMMXClient().getQueue()
@@ -555,7 +555,7 @@ public final class MMXPubSubManager extends MMXManager {
   }
   /**
    * Get the subscribers to a topic.
-   * 
+   *
    * @param topic a topic name
    * @param offset offset of subscribers to be returned
    * @param limit maximum number of subscribers to be returned
@@ -566,7 +566,29 @@ public final class MMXPubSubManager extends MMXManager {
     checkDestroyed();
     return mPubSubManager.getSubscribers(topic, offset, limit);
   }
-  
+
+  /**
+   * Get the date-time of the last published item received.
+   * @return
+   */
+  public Date getLastDelivery() {
+    checkDestroyed();
+    return mPubSubManager.getLastDelivery();
+  }
+
+  /**
+   * Request the last published items from <code>since</code> with a maximum
+   * number of items.
+   * @param since A starting date/time.
+   * @param limit -1 for unlimited, or any positive number.
+   * @return
+   * @throws MMXException
+   */
+  public MMXStatus requestLastPublishedItems(Date since, int limit) throws MMXException {
+    checkDestroyed();
+    return mPubSubManager.requestLastPublishedItems(limit, since);
+  }
+
   @Override
   void onConnectionChanged() {
     mPubSubManager = PubSubManager.getInstance(getMMXClient().getMMXConnection());

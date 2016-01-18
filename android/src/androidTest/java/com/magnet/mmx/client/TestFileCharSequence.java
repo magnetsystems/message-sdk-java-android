@@ -16,12 +16,8 @@
 package com.magnet.mmx.client;
 
 import android.test.InstrumentationTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
-
-import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.util.DisposableTextFile;
 import com.magnet.mmx.util.FileCharSequence;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;

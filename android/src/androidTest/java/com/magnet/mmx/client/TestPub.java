@@ -15,13 +15,10 @@
 
 package com.magnet.mmx.client;
 
-import android.test.suitebuilder.annotation.Suppress;
-import java.util.List;
-
 import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
-
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
@@ -30,6 +27,7 @@ import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.MMXid;
+import java.util.List;
 
 //FIXME : those test cases need rewriting for 2.0
 @Suppress

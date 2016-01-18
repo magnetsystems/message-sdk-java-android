@@ -95,7 +95,7 @@ public class MMXConnection implements ConnectionListener {
   private MMXConnectionListener mConListener;
   private MMXSettings mSettings;
   private MMXMessageListener mMsgListener;
-  private MMXQueue mQueue;
+  private final MMXQueue mQueue;
   private QueueExecutor mExecutor;
   private AnonyAccount mAnonyAcct;
   private String mPubSubServiceName;
@@ -945,6 +945,11 @@ public class MMXConnection implements ConnectionListener {
 
     // Do explicit message flow control for login.
     try {
+      if (mCon == null) {
+        // TODO: how mCon was reset to null?
+        Log.w(TAG, "authenticated(): mCon was null; did resource bind fail?");
+        mCon = (MagnetXMPPConnection) con;
+      }
       setPriority(getPriority());
     } catch (MMXException e) {
       Log.e(TAG, "Unable to send presence with priority", e);
@@ -976,7 +981,7 @@ public class MMXConnection implements ConnectionListener {
     // published items may have been delivered to other devices before; how
     // smart is the PubSub implementation?  Should it be a settings per topic
     // or per subscription in the server?
-    int maxItems = mSettings.getInt(MMXSettings.PROP_MAX_LAST_PUB_ITEMS, 1);
+    int maxItems = mSettings.getInt(MMXSettings.PROP_MAX_LAST_PUB_ITEMS, 0);
     if (maxItems != 0) {
       try {
         Date lastDeliveryTime = PubSubManager.getInstance(this)

@@ -14,9 +14,20 @@
  */
 package com.magnet.mmx.client.api;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.util.EqualityUtil;
+import com.magnet.max.android.util.HashCodeBuilder;
+import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.internal.channel.ChannelLookupKey;
+import com.magnet.mmx.client.internal.channel.ChannelService;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,7 +87,7 @@ import retrofit.Response;
  * <li>{@link #inviteUsers(Set, String, OnFinishedListener)}</li>
  * </ul>
  */
-public class MMXChannel {
+public class MMXChannel implements Parcelable {
   private static final String TAG = MMXChannel.class.getSimpleName();
   private static final int DEFAULT_LIMIT = 5000;  //this is enforced by the server
 
@@ -104,7 +115,7 @@ public class MMXChannel {
       this.type = type;
     }
 
-    private static PublishPermission fromPublisherType(TopicAction.PublisherType type) {
+    public static PublishPermission fromPublisherType(TopicAction.PublisherType type) {
       switch (type) {
         case anyone:
           return ANYONE;
@@ -122,15 +133,18 @@ public class MMXChannel {
    * Failure codes for the MMXChannel class.
    */
   public static class FailureCode extends MMX.FailureCode {
+    public static final FailureCode CHANNEL_NOT_AUTHORIZED = new FailureCode(401, "CHANNEL_NOT_AUTHROIZED");
     public static final FailureCode CHANNEL_EXISTS = new FailureCode(409, "CHANNEL_EXISTS");
-    public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
     public static final FailureCode CHANNEL_FORBIDDEN = new FailureCode(403, "CHANNEL_FORBIDDEN");
     public static final FailureCode CHANNEL_NOT_FOUND = new FailureCode(404, "CHANNEL_NOT_FOUND");
-    public static final FailureCode CHANNEL_NOT_AUTHORIZED = new FailureCode(401, "CHANNEL_NOT_AUTHROIZED");
-    public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(404, "SUBSCRIPTION_NOT_FOUND");
+    public static final FailureCode INVALID_INVITEE = new FailureCode(405, "INVALID_INVITEE");
     public static final FailureCode SUBSCRIPTION_INVALID_ID = new FailureCode(406, "SUBSCRIPTION_INVALID_ID");
-    public static final FailureCode INVALID_INVITEE = new FailureCode(403, "INVALID_INVITEE");
-    public static final FailureCode ATTACHMENT_FAILURE = new FailureCode(414, "ATTACHMENT_FAILURE");
+    public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(407, "SUBSCRIPTION_NOT_FOUND");
+    public static final FailureCode SUBSCRIPTION_ADD_FAILURE = new FailureCode(408, "SUBSCRIPTION_ADD_FAILURE");
+    public static final FailureCode SUBSCRIPTION_REMOVE_FAILURE = new FailureCode(409, "SUBSCRIPTION_REMOVE_FAILURE");
+    public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
+    public static final FailureCode ATTACHMENT_FAILURE = new FailureCode(430, "ATTACHMENT_FAILURE");
+    public static final FailureCode GENERIC_FAILURE = new FailureCode(500, "GENERIC_FAILURE");
 
     FailureCode(int value, String description) {
       super(value, description);
@@ -177,7 +191,7 @@ public class MMXChannel {
    * The builder for a MMXChannel object
    *
    */
-  static final class Builder {
+  static public final class Builder {
     private MMXChannel mChannel;
 
     public Builder() {
@@ -212,7 +226,7 @@ public class MMXChannel {
      * @param ownerId the owner userId
      * @return this Builder object
      */
-    Builder ownerId(String ownerId) {
+    public Builder ownerId(String ownerId) {
       mChannel.ownerId(ownerId);
       return this;
     }
@@ -234,7 +248,7 @@ public class MMXChannel {
      * @param lastTimeActive the last active time
      * @return this Builder object
      */
-    Builder lastTimeActive(Date lastTimeActive) {
+    public Builder lastTimeActive(Date lastTimeActive) {
       mChannel.lastTimeActive(lastTimeActive);
       return this;
     }
@@ -245,7 +259,7 @@ public class MMXChannel {
      * @param subscribed the subscribed flag
      * @return this Builder object
      */
-    Builder subscribed(Boolean subscribed) {
+    public Builder subscribed(Boolean subscribed) {
       mChannel.subscribed(subscribed);
       return this;
     }
@@ -261,7 +275,7 @@ public class MMXChannel {
       return this;
     }
 
-    Builder publishPermission(PublishPermission publishPermission) {
+    public Builder publishPermission(PublishPermission publishPermission) {
       mChannel.setPublishPermission(publishPermission);
       return this;
     }
@@ -272,7 +286,7 @@ public class MMXChannel {
      * @param creationDate the creation date
      * @return this Builder object
      */
-    Builder creationDate(Date creationDate) {
+    public Builder creationDate(Date creationDate) {
       mChannel.creationDate(creationDate);
       return this;
     }
@@ -900,6 +914,63 @@ public class MMXChannel {
         }).executeInBackground();
   }
 
+  ///**
+  // * Create a channel with predefined subscribers.  Upon successful completion, the current user
+  // * automatically subscribes to the channel.
+  // * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+  // * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+  // *
+  // * @param name the name of the channel
+  // * @param summary the channel summary
+  // * @param isPublic whether or not this channel is public
+  // * @param publishPermission who can publish to this topic
+  // * @param subscribers the user id of subscribers
+  // * @param listener the listener for the newly created channel
+  // */
+  //public static void create(final String name, final String summary,
+  //    final boolean isPublic, final PublishPermission publishPermission,
+  //    final Set<User> subscribers,
+  //    final OnFinishedListener<MMXChannel> listener) {
+  //  Set<String> userIds = new HashSet<>();
+  //  if(null == subscribers || subscribers.isEmpty()) {
+  //    for(User u : subscribers) {
+  //      userIds.add(u.getUserIdentifier());
+  //    }
+  //  }
+  //  final String ownerId = User.getCurrentUserId();
+  //  getChannelService().createChannel(
+  //      new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), userIds),
+  //      new Callback<Void>() {
+  //        @Override public void onResponse(Response<Void> response) {
+  //          if(response.isSuccess()) {
+  //            Date currentDate = new Date();
+  //            MMXChannel channel = new MMXChannel.Builder()
+  //                .name(name)
+  //                .summary(summary)
+  //                .ownerId(ownerId)
+  //                .setPublic(isPublic)
+  //                .publishPermission(publishPermission)
+  //                .creationDate(currentDate)
+  //                .subscribed(true)
+  //                .lastTimeActive(currentDate)
+  //                .build();
+  //            listener.onSuccess(channel);
+  //          } else {
+  //            handleError(response.code(), new Exception(response.message()));
+  //          }
+  //        }
+  //
+  //        @Override public void onFailure(Throwable throwable) {
+  //          handleError(null, throwable);
+  //        }
+  //
+  //        private void handleError(Integer errorCode, Throwable throwable) {
+  //          Log.e(TAG, "Failed to create channel ", throwable);
+  //          listener.onFailure(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+  //        }
+  //      }).executeInBackground();
+  //}
+
   /**
    * Delete this channel.  Possible failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND}
    * for no such channel, {@link FailureCode#CHANNEL_FORBIDDEN} for
@@ -957,6 +1028,11 @@ public class MMXChannel {
    * @param listener the listener for the subscription id
    */
   public void subscribe(final OnFinishedListener<String> listener) {
+    //TODO : if already subscribed
+    //if(isSubscribed()) {
+    //
+    //}
+
     MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public String doRun(MMXClient mmxClient) throws Throwable {
@@ -1095,14 +1171,152 @@ public class MMXChannel {
     invite.send(listener);
   }
 
-    /**
-     * Retrieves all the subscribers for this channel.  Possible failure codes are:
-     * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-     * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
-     * @param limit the maximum number of subscribers to return
-     * @param offset the offset of subscribers to return
-     * @param listener the listener for the subscribers
-     */
+  /**
+   * Add subscribers to the channel.
+   * Only channel owner has the permission for private channel.
+   * Channel owner and subscribers have the permission for public channel.
+   * The listener returns the user ids which fail to be added to the channel
+   * @param newSubscribers
+   * @param listener
+   */
+  public void addSubscribers(final Set<User> newSubscribers, final OnFinishedListener<List<String>> listener) {
+    if(checkIfAllowedToAddSubscriber(listener)) {
+      Set<String> userIds = userSetToIds(newSubscribers, listener);
+      if (null != userIds) {
+        getChannelService().addSubscriberToChannel(mName,
+            new ChannelService.ChannelSubscribeRequest(!mPublic, userIds), new Callback<ChannelService.ChannelSubscribeResponse>() {
+              @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
+                if (response.isSuccess()) {
+                  if (null != listener) {
+                    listener.onSuccess(getInvalidSubscribes(response.body()));
+                  }
+                } else {
+                  handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, new Exception(response.message()), listener);
+                }
+              }
+
+              @Override public void onFailure(Throwable throwable) {
+                handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, throwable, listener);
+              }
+            }).executeInBackground();
+      }
+    }
+  }
+
+  /**
+   * Remove subscribers from the channel.
+   * Only channel owner has the permission for this operation.
+   * The listener returns the user ids which fail to be removed from the channel
+   * @param subscribersToBeRemoved
+   * @param listener
+   */
+  public void removeSubscribers(final Set<User> subscribersToBeRemoved, final OnFinishedListener<List<String>> listener) {
+    if(checkIfAllowedToRemoveSubscriber(listener)){
+      Set<String> userIds = userSetToIds(subscribersToBeRemoved, listener);
+      if (null != userIds) {
+        getChannelService().removeSubscriberFromChannel(mName,
+            new ChannelService.ChannelSubscribeRequest(!mPublic, userIds), new Callback<ChannelService.ChannelSubscribeResponse>() {
+              @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
+                if (response.isSuccess()) {
+                  if (null != listener) {
+                    listener.onSuccess(getInvalidSubscribes(response.body()));
+                  }
+                } else {
+                  handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, new Exception(response.message()), listener);
+                }
+              }
+
+              @Override public void onFailure(Throwable throwable) {
+                handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, throwable, listener);
+              }
+            }).executeInBackground();
+      }
+    }
+  }
+
+  private static Set<String> userSetToIds(Set<User> users, final OnFinishedListener<List<String>> listener) {
+    if(null == users || users.isEmpty()) {
+      if(null != listener) {
+        listener.onSuccess(Collections.EMPTY_LIST);
+      }
+      return null;
+    }
+
+    Set<String> userIds = new HashSet<>();
+    for(User u : users) {
+      userIds.add(u.getUserIdentifier());
+    }
+
+    return userIds;
+  }
+
+  private List<String> getInvalidSubscribes(ChannelService.ChannelSubscribeResponse subscribeResponse) {
+    List<String> result = null;
+    if(null != subscribeResponse && null != subscribeResponse.getSubscribeResponse() &&
+        !subscribeResponse.getSubscribeResponse().isEmpty()) {
+      result = new ArrayList<>(subscribeResponse.getSubscribeResponse().size());
+      for(Map.Entry<String, ChannelService.ChannelSubscribeResponse.SubscribeResult> e : subscribeResponse.getSubscribeResponse().entrySet()) {
+        if(!e.getValue().isSuccess()) {
+          result.add(e.getKey());
+        }
+      }
+    } else {
+      result = Collections.EMPTY_LIST;
+    }
+
+    return result;
+  }
+
+  private void handleSubscribeError(FailureCode failureCode, Throwable throwable, OnFinishedListener<List<String>> listener) {
+    Log.e(TAG, "Failed to manage subscriber " + failureCode.getDescription(), throwable);
+    if(null != listener) {
+      listener.onFailure(failureCode, throwable);
+    }
+  }
+
+  private boolean checkIfAllowedToAddSubscriber(OnFinishedListener<List<String>> listener) {
+    // Currently only owner is allowed
+    boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
+    if(mPublic && !mSubscribed) {
+      String errorMessage = "Only owner and subscriber is allowed to add subscribers for public channel";
+      Log.e(TAG, errorMessage);
+      if(null != listener) {
+        listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      }
+      return false;
+    } else if(!mPublic && !isOwner) {
+      String errorMessage = "Only owner is allowed to add subscribers for private channel";
+      Log.e(TAG, errorMessage);
+      if(null != listener) {
+        listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  private boolean checkIfAllowedToRemoveSubscriber(OnFinishedListener<List<String>> listener) {
+    // Currently only owner is allowed
+    boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
+    if(!isOwner) {
+      String errorMessage = "Only owner is allowed to remove subscribers for channel";
+      Log.e(TAG, errorMessage);
+      listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Retrieves all the subscribers for this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
+   * @param limit the maximum number of subscribers to return
+   * @param offset the offset of subscribers to return
+   * @param listener the listener for the subscribers
+   */
   public void getAllSubscribers(final Integer limit, final Integer offset, final OnFinishedListener<ListResult<User>> listener) {
     MMXTask<MMXResult<List<UserInfo>>> task =
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -1416,6 +1630,112 @@ public class MMXChannel {
     };
     task.execute();
   }
+
+  /**
+   * Find channels that include given subscriber(s). If there is no channel found,
+   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
+   *
+   * @param subscribers the subscribers
+   * @param matchType
+   * @param listener the listener for the query results
+   */
+  public static void findChannelsBySubscribers(final Set<User> subscribers, ChannelMatchType matchType,
+      final OnFinishedListener<ListResult<MMXChannel>> listener) {
+    Set<String> userIds = userSetToIds(subscribers, null);
+    if(null != userIds) {
+      getChannelService().queryChannelsBySubscribers(
+          new ChannelService.ChannelBySubscriberRequest(userIds, matchType),
+          new Callback<ChannelService.ChannelQueryResponse>() {
+            @Override public void onResponse(Response<ChannelService.ChannelQueryResponse> response) {
+              if(response.isSuccess() && response.body().isSuccess()) {
+                List<MMXChannel> items = null;
+                if(null != response.body().getChannels() && null != listener) {
+                  items = new ArrayList<MMXChannel>(response.body().getChannels().size());
+                  for(ChannelService.ChannelInfoResponse ci : response.body().getChannels()) {
+                    items.add(ci.toMMXChannel());
+                  }
+                } else {
+                  items = Collections.EMPTY_LIST;
+                }
+
+                if(null != listener) {
+                  listener.onSuccess(new ListResult<MMXChannel>(items.size(), items));
+                }
+              } else {
+                handleError(new Exception(response.message()), listener);
+              }
+            }
+
+            @Override public void onFailure(Throwable throwable) {
+              handleError(throwable, listener);
+            }
+
+            private void handleError(Throwable throwable, OnFinishedListener listener) {
+              Log.e(TAG, "Failed to queryChannelsBySubscribers due to " + throwable.getMessage());
+              if(null != listener) {
+                listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+              }
+            }
+          }).executeInBackground();
+    } else {
+      throw new IllegalArgumentException("Subscribers is empty");
+    }
+  }
+
+  /**
+   * Get summary for channels
+   * @param channels
+   * @param numOfMessages
+   * @param numberOfSubscribers
+   * @param listener
+   */
+  public static void getChannelSummary(Set<MMXChannel> channels, Integer numOfMessages, Integer numberOfSubscribers, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
+    if(null == channels || channels.isEmpty()) {
+      if(null != listener) {
+        listener.onSuccess(Collections.EMPTY_LIST);
+      }
+    } else {
+      List<ChannelLookupKey> keys = new ArrayList<>(channels.size());
+      for(MMXChannel c : channels) {
+        keys.add(new ChannelLookupKey(c.getName(), c.isPublic(), c.getOwnerId()));
+      }
+      getChannelService().getChannelSummary(new ChannelSummaryRequest.Builder().channelIds(keys).numOfMessages(numOfMessages).numOfSubcribers(numberOfSubscribers).build(),
+          new Callback<List<ChannelSummaryResponse>>() {
+        @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
+          if(response.isSuccess()) {
+            if(null != listener) {
+              listener.onSuccess(response.body());
+            }
+          } else {
+            handleError(new ApiError(response.message(), response.code()), listener);
+          }
+        }
+
+        @Override public void onFailure(Throwable throwable) {
+          handleError(throwable, listener);
+        }
+
+        private void handleError(Throwable error, OnFinishedListener listener) {
+          Log.e(TAG, "Failed to getChannelSummary", error);
+          if(null != listener) {
+            listener.onFailure(FailureCode.GENERIC_FAILURE, error);
+          }
+        }
+      }).executeInBackground();
+    }
+  }
+
+  //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
+  //  getChannelService().getChannelSummary(Arrays.asList(channelId), options, new Callback<List<ChannelSummary>>() {
+  //    @Override public void onResponse(Response<List<ChannelSummary>> response) {
+  //      listener.onSuccess(response.body().get(0));
+  //    }
+  //
+  //    @Override public void onFailure(Throwable throwable) {
+  //
+  //    }
+  //  }).executeInBackground();
+  //}
 
   /**
    * This method only populates the topic name and the public flag in all cases.
@@ -1858,4 +2178,85 @@ public class MMXChannel {
       return response;
     }
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!EqualityUtil.quickCheck(this, obj)) {
+      return false;
+    }
+
+    MMXChannel theOther = (MMXChannel) obj;
+
+    return StringUtil.isStringValueEqual(mName, theOther.getName()) &&
+        StringUtil.isStringValueEqual(mSummary, theOther.getSummary()) &&
+        StringUtil.isStringValueEqual(mOwnerId, theOther.getOwnerId()) &&
+        mPublic == theOther.isPublic() &&
+        mPublishPermission == theOther.getPublishPermission() &&
+        StringUtil.isStringValueEqual(mName, theOther.getName()) &&
+        (null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
+  }
+
+  @Override
+  public int hashCode() {
+    return new HashCodeBuilder().hash(mName).hash(mSummary).hash(mOwnerId).hash(mPublic)
+        .hash(mPublishPermission).hash(mCreationDate).hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return new StringBuilder().append("{")
+        .append("name = ").append(mName).append(", ")
+        .append("ownerId = ").append(mOwnerId).append(", ")
+        .append("isPublic = ").append(mPublic).append(", ")
+        .append("publishPermission = ").append(mPublishPermission).append(", ")
+        .append("summary = ").append(mSummary).append(", ")
+        .append("isSubscribed = ").append(mSubscribed)
+        .append("}")
+        .toString();
+  }
+
+  //----------------Parcelable Methods----------------
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeString(this.mName);
+    dest.writeString(this.mSummary);
+    dest.writeString(this.mOwnerId);
+    dest.writeValue(this.mNumberOfMessages);
+    dest.writeLong(mLastTimeActive != null ? mLastTimeActive.getTime() : -1);
+    dest.writeByte(mPublic ? (byte) 1 : (byte) 0);
+    dest.writeInt(this.mPublishPermission == null ? -1 : this.mPublishPermission.ordinal());
+    dest.writeValue(this.mSubscribed);
+    dest.writeLong(mCreationDate != null ? mCreationDate.getTime() : -1);
+  }
+
+  protected MMXChannel(Parcel in) {
+    this.mName = in.readString();
+    this.mSummary = in.readString();
+    this.mOwnerId = in.readString();
+    this.mNumberOfMessages = (Integer) in.readValue(Integer.class.getClassLoader());
+    long tmpMLastTimeActive = in.readLong();
+    this.mLastTimeActive = tmpMLastTimeActive == -1 ? null : new Date(tmpMLastTimeActive);
+    this.mPublic = in.readByte() != 0;
+    int tmpMPublishPermission = in.readInt();
+    this.mPublishPermission =
+        tmpMPublishPermission == -1 ? null : PublishPermission.values()[tmpMPublishPermission];
+    this.mSubscribed = (Boolean) in.readValue(Boolean.class.getClassLoader());
+    long tmpMCreationDate = in.readLong();
+    this.mCreationDate = tmpMCreationDate == -1 ? null : new Date(tmpMCreationDate);
+  }
+
+  public static final Parcelable.Creator<MMXChannel> CREATOR =
+      new Parcelable.Creator<MMXChannel>() {
+        public MMXChannel createFromParcel(Parcel source) {
+          return new MMXChannel(source);
+        }
+
+        public MMXChannel[] newArray(int size) {
+          return new MMXChannel[size];
+        }
+      };
 }
