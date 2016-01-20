@@ -822,6 +822,7 @@ public final class MMXClient {
         }
       } catch (Exception e) {
         Log.e(TAG, "ConnectionRunnable:  Connection failed.  Exception caught.", e);
+        Log.e(TAG, "ConnectionRunnable:  Connection failed.  Smack Exception caught.", e.getCause());
         disconnect();
         notifyConnectionEvent(ConnectionEvent.CONNECTION_FAILED);
       }
