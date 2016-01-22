@@ -18,6 +18,7 @@
 curdir=`pwd`
 
 MMX_SERVER_NAME="mmx-server-2.3.1-SNAPSHOT"
+MMS_SERVER_DIR="$HOME/.magnet/server"
 
 seeddata_sql="$curdir/../test-conf/seed_testdata.sql"
 cleanup_sql="$curdir/../test-conf/clean_testdata.sql"
@@ -80,7 +81,7 @@ copy_external() {
     echo "Copying MMX server zip from external build, "
     copy_command="cp $external_build_dir/${MMX_SERVER_NAME}.zip ."
     eval "$copy_command"
-    echo "Unzipping copied file..."
+    echo "Unzipping copied MMX file..."
     eval "unzip ${MMX_SERVER_NAME}.zip"
 }
 
@@ -92,6 +93,12 @@ start_local() {
 start_external() {
     copy_external
     start
+}
+
+check_dbsetup() {
+  $mysql_command $1 <<EOF
+select count(*) from mmxApp;
+EOF
 }
 
 start() {
@@ -109,7 +116,6 @@ start() {
 
     # stop server
     stop
-    sleep 5
 
     # start MMX
     pushd $bin_dir
@@ -119,26 +125,43 @@ start() {
     echo "$start_command"
     eval "$start_command"
 
-    # sleep a bit to wait for it to finish initializing; default is 60
-    WAITTIME=${WAITTIME:-60}
-    sleepAndEcho ${WAITTIME}
+    # wait until all tables were created.
+    echo "Waiting for DB $MMX_DB initialized..."
+    until [[ `check_dbsetup $MMX_DB` ]]; do
+      /bin/echo -n .
+      sleep 5
+    done
 
-    # seed test data
-    echo "Seeding test data..."
-    seed_data="$mysql_command $MMX_DB < $seeddata_sql"
-    echo "$seed_data"
-    eval "$seed_data"
-    if eval "$@"; then
-    # restart the server to pick up new test data from db into server memory cache, such case pubsub nodes
-        eval "./mmx-server.sh restart"
-        echo "MMX server started successfully"
-    fi
+#    # seed test data
+#    echo "Seeding test data..."
+#    seed_data="$mysql_command $MMX_DB < $seeddata_sql"
+#    echo "$seed_data"
+#    eval "$seed_data"
+#    if eval "$@"; then
+#    # restart the server to pick up new test data from db into server memory cache, such case pubsub nodes
+#        eval "./mmx-server.sh restart"
+#        echo "MMX server started successfully"
+#    fi
+#    # sleep some more to wait for server to finish initializing
+#    sleepAndEcho 20
     popd
-    # sleep some more to wait for server to finish initializing
-    sleepAndEcho 20
+
+    # start MMS
+    echo "Starting MMS..."
+    mms_start_command="bin/start.sh &"
+    pushd $MMS_SERVER_DIR
+    echo "$mms_start_command"
+    eval "$mms_start_command"
+    popd
 }
 
 stop() {
+    pushd $MMS_SERVER_DIR
+    mms_stop_command="bin/stop.sh"
+    echo "Stopping MMS..."
+    eval "$mms_stop_command"
+    popd
+
     pushd $bin_dir
     stop_command="./mmx-server.sh stop"
     echo "Stopping MMX..."
