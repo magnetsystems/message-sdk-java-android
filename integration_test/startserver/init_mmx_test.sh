@@ -17,7 +17,7 @@
 
 curdir=`pwd`
 
-MMX_SERVER_NAME="mmx-server-2.3.1-SNAPSHOT"
+MMX_SERVER_NAME="mmx-server-2.3.2-b-1"
 MMS_SERVER_DIR="$HOME/.magnet/server"
 
 seeddata_sql="$curdir/../test-conf/seed_testdata.sql"
