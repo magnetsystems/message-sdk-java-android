@@ -65,7 +65,7 @@ public class TestMessaging {
     public void test1() throws IOException, MMXException {
 
 
-        Map<Integer, MMXClient> clients = new HashMap<Integer, MMXClient>();
+        Map<Integer, MMXClient> clients = new HashMap<>();
 
         String deviceIdPrefix = "device-";
         String userDisplayNamePrexix = "nick-";
@@ -117,7 +117,7 @@ public class TestMessaging {
                     int indexTo = getRandomInt(1, NUMBER_OF_USERS);
                     String userIdTo = developerContext.getUserId(String.valueOf(indexTo));
                     String mmxUserIdTo = userIdTo + "%" + appId;
-                    System.out.println("Sending " + index + " --> " + indexTo);
+//                    System.out.println("Sending " + index + " --> " + indexTo);
 
                     MMXid[] to = {new MMXid(mmxUserIdTo, deviceIdTo, userDisplayNameTo)};
                     MMXPayload payload = new MMXPayload("Hello.");
@@ -178,38 +178,38 @@ public class TestMessaging {
 
         @Override
         public void onConnectionEstablished() {
-            System.out.println("onConnectionEstablished");
+//            System.out.println("onConnectionEstablished");
         }
 
         @Override
         public void onReconnectingIn(int interval) {
-            System.out.println("onReconnectingIn: " + interval);
+//            System.out.println("onReconnectingIn: " + interval);
         }
 
         @Override
         public void onConnectionClosed() {
-            System.out.println("onConnectionClosed");
+//            System.out.println("onConnectionClosed");
         }
 
         @Override
         public void onConnectionFailed(Exception cause) {
-            System.out.println("onConnectionFailed: " + cause.getMessage());
+//            System.out.println("onConnectionFailed: " + cause.getMessage());
             cause.printStackTrace();
         }
 
         @Override
         public void onAuthenticated(MMXid user) {
-            System.out.println("onAuthenticated: " + user);
+//            System.out.println("onAuthenticated: " + user);
         }
 
         @Override
         public void onAuthFailed(MMXid user) {
-            System.out.println("onAuthFailed: " + user);
+//            System.out.println("onAuthFailed: " + user);
         }
 
         @Override
         public void onAccountCreated(MMXid user) {
-            System.out.println("onAccountCreated: " + user);
+//            System.out.println("onAccountCreated: " + user);
         }
     }
 
@@ -218,11 +218,11 @@ public class TestMessaging {
         @Override
         public void onMessageReceived(MMXMessage message, String receiptId) {
             try {
-                MMXPayload payload = message.getPayload();
-                long elapsed = -1;
-                if (payload != null && payload.getSentTime() != null) {
-                    elapsed = System.currentTimeMillis() - payload.getSentTime().getTime();
-                }
+//                MMXPayload payload = message.getPayload();
+//                long elapsed = -1;
+//                if (payload != null && payload.getSentTime() != null) {
+//                    elapsed = System.currentTimeMillis() - payload.getSentTime().getTime();
+//                }
                 //            if (mDisplayName) {
                 //                accountGet(message.getFrom().getUserId());
                 //            }
@@ -231,7 +231,7 @@ public class TestMessaging {
                 //                        ", size=" + payload.getDataSize() + ", elapsed=" + elapsed);
                 ////                System.out.println(Utils.subSequenceHeadTail(payload.getDataAsText(), 1024));
                 //            } else {
-                System.out.println("onMessageReceived: " + message + ", receiptId=" + receiptId + ", elapsed=" + elapsed);
+//                System.out.println("onMessageReceived: " + message + ", receiptId=" + receiptId + ", elapsed=" + elapsed);
                 String keyCounts = message.getTo().getDeviceId();
                 counts.increment(keyCounts + "@received");
 
@@ -245,24 +245,22 @@ public class TestMessaging {
 
         @Override
         public void onMessageDelivered(MMXid recipient, String msgId) {
-            System.out.println("onMessageDelivered: to=" + recipient + ", msgId=" + msgId);
+//            System.out.println("onMessageDelivered: to=" + recipient + ", msgId=" + msgId);
         }
 
         @Override
         public void onMessageSent(String msgId) {
-            System.out.println("onMessageSent: msgId=" + msgId);
+//            System.out.println("onMessageSent: msgId=" + msgId);
         }
 
         @Override
         public void onMessageSubmitted(String msgId) {
-
-            System.out.println("onMessageSent: msgId=" + msgId);
+//            System.out.println("onMessageSent: msgId=" + msgId);
         }
 
         @Override
         public void onMessageAccepted(List<MMXid> list, String msgId) {
-
-            System.out.println("onMessageSent: msgId=" + msgId);
+//            System.out.println("onMessageSent: msgId=" + msgId);
         }
 
         @Override
@@ -272,21 +270,21 @@ public class TestMessaging {
 
         @Override
         public void onInvitationReceived(Invitation invitation) {
-            System.out.println("onInvitationReceived: " + invitation);
+//            System.out.println("onInvitationReceived: " + invitation);
         }
 
         @Override
         public void onAuthReceived(AuthData auth) {
-            System.out.println("onAuthReceived: apikey=" + auth.getApiKey() +
-                    ", authToken=" + auth.getAuthToken() + ", user=" + auth.getUserId() +
-                    ", pwd=" + auth.getPassword());
+//            System.out.println("onAuthReceived: apikey=" + auth.getApiKey() +
+//                    ", authToken=" + auth.getAuthToken() + ", user=" + auth.getUserId() +
+//                    ", pwd=" + auth.getPassword());
         }
 
         @Override
         public void onItemReceived(MMXMessage msg, MMXTopic topic) {
 
-            System.out.println("onItemReceived: topic=" + topic + ", itemId=" + msg.getId() +
-                    ", payload=" + msg.getPayload() + ", msg=" + msg);
+//            System.out.println("onItemReceived: topic=" + topic + ", itemId=" + msg.getId() +
+//                    ", payload=" + msg.getPayload() + ", msg=" + msg);
 
 
             //        try {
@@ -304,16 +302,16 @@ public class TestMessaging {
         public void onErrorMessageReceived(MMXErrorMessage message) {
             if (message.isMMXError()) {
                 MMXError error = message.getMMXError();
-                System.out.println("onErrorMessageReceived: msgId=" + message.getId() +
+                System.err.println("onErrorMessageReceived: msgId=" + message.getId() +
                         ", MMXError=" + error);
             }
             else if (message.isXMPPError()) {
                 XMPPError error = message.getXMPPError();
-                System.out.println("onErrorMessageReceived: msgId=" + message.getId() +
+                System.err.println("onErrorMessageReceived: msgId=" + message.getId() +
                         ", XMPPError=" + error);
             }
             else if (message.isCustomError()) {
-                System.out.println("onErrorMessageReceived: CustomError[" + message.getCustomError() + "]=" + message);
+                System.err.println("onErrorMessageReceived: CustomError[" + message.getCustomError() + "]=" + message);
             }
         }
     }

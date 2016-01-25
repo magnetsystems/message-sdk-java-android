@@ -9,7 +9,7 @@ import java.util.Map;
  */
 public class Counts {
 
-    private Map<String, Integer> counts = new HashMap<String, Integer>();
+    private Map<String, Integer> counts = new HashMap<>();
 
     private synchronized void addAndStore(String key, int value) {
 

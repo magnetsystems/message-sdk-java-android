@@ -30,8 +30,8 @@ public class DeveloperContext {
 //    private String appToken = null;
 
     //USERS
-    private Map<String, User> users = new HashMap<String, User>();
-    private Map<String, String> userTokens = new HashMap<String, String>();
+    private Map<String, User> users = new HashMap<>();
+    private Map<String, String> userTokens = new HashMap<>();
 
 
     private DeveloperServiceHelper developerServiceHelper;
