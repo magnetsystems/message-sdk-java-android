@@ -32,11 +32,18 @@ import com.magnet.mmx.client.common.Log;
  */
 public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
                                         MMXPersistable {
+
+  /**
+   * Auto Registering Device is needed for V1 support
+   * Default value = false (DISABLED).
+   */
+  public static final String ENABLE_AUTO_REGISTER_DEVICE = "false";
+
   private final static String TAG = "MMXSettings";
   protected String mName;
   protected Properties mProps = new Properties();
   protected MMXContext mContext;
-  
+
   /**
    * Constructor for the connection settings using a file.
    * @param context The context with the application data directory.

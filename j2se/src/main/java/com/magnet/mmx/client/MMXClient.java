@@ -81,7 +81,9 @@ public class MMXClient implements IMMXClient {
       if (mConListener != null) {
         mConListener.onAuthenticated(user);
       }
-      registerDeviceWithServer();
+      if (mSettings.getBoolean(MMXSettings.ENABLE_AUTO_REGISTER_DEVICE, false)) {
+        registerDeviceWithServer();
+      }
     }
 
     @Override
