@@ -5,6 +5,9 @@
 
 package com.magnet.mmx.client.internal.channel;
 
+import com.magnet.mmx.client.api.ChannelDetail;
+import com.magnet.mmx.client.api.MMXChannel;
+
 public class ChannelSummaryResponse {
 
   private String channelName;
@@ -16,20 +19,20 @@ public class ChannelSummaryResponse {
   private Integer subscriberCount;
 
   
-  private java.util.List<UserInfo> subscribers;
+  private java.util.List<BasicUserInfo> subscribers;
 
   
-  private java.util.List<PubSubItemChannel> messages;
+  private java.util.List<PubSubItem> messages;
 
   public Integer getSubscriberCount() {
     return subscriberCount;
   }
 
-  public java.util.List<UserInfo> getSubscribers() {
+  public java.util.List<BasicUserInfo> getSubscribers() {
     return subscribers;
   }
 
-  public java.util.List<PubSubItemChannel> getMessages() {
+  public java.util.List<PubSubItem> getMessages() {
     return messages;
   }
 
@@ -43,6 +46,11 @@ public class ChannelSummaryResponse {
 
   public String getLastPublishedTime() {
     return lastPublishedTime;
+  }
+
+  public ChannelDetail toChannelDetail(MMXChannel channel) {
+    //return new ChannelDetail.Builder().channel(channel).messages(messages).subscribers()
+    return null;
   }
 
 }

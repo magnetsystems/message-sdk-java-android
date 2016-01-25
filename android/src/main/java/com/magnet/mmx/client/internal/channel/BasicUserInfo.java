@@ -5,9 +5,12 @@
 
 package com.magnet.mmx.client.internal.channel;
 
-public class UserInfo {
+import com.magnet.max.android.UserProfile;
+import com.magnet.mmx.util.GsonData;
 
-  
+public class BasicUserInfo {
+
+  private static final String USER_PROFILE_JSON = "{\"userIdentifier\":\"%s\", \"mDisplayName\":\"%s\"}";
   
   private String userId;
 
@@ -22,17 +25,22 @@ public class UserInfo {
     return displayName;
   }
 
+  public UserProfile toUserProfile() {
+    //TODO : better way to construct a UserProfile
+    String json = String.format(USER_PROFILE_JSON, userId, displayName);
+    return GsonData.getGson().fromJson(json, UserProfile.class);
+  }
 
   /**
   * Builder for UserInfo
   **/
   public static class UserInfoBuilder {
-    private UserInfo toBuild = new UserInfo();
+    private BasicUserInfo toBuild = new BasicUserInfo();
 
     public UserInfoBuilder() {
     }
 
-    public UserInfo build() {
+    public BasicUserInfo build() {
       return toBuild;
     }
 

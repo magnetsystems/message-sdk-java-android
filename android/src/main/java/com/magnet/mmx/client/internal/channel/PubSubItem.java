@@ -5,7 +5,7 @@
 
 package com.magnet.mmx.client.internal.channel;
 
-public class PubSubItemChannel {
+public class PubSubItem {
 
   
   
@@ -15,13 +15,13 @@ public class PubSubItemChannel {
   private String channelName;
 
   
-  private UserInfo publisherInfo;
+  //private UserInfo publisherInfo;
 
   
   private String itemId;
 
   
-  private PubSubPayload metaData;
+  private java.util.Map<String, String> metaData;
 
   
   private ItemPublisher publisher;
@@ -34,15 +34,15 @@ public class PubSubItemChannel {
     return channelName;
   }
 
-  public UserInfo getPublisherInfo() {
-    return publisherInfo;
-  }
+  //public UserInfo getPublisherInfo() {
+  //  return publisherInfo;
+  //}
 
   public String getItemId() {
     return itemId;
   }
 
-  public PubSubPayload getMetaData() {
+  public java.util.Map<String, String> getMetaData() {
     return metaData;
   }
 
@@ -50,46 +50,45 @@ public class PubSubItemChannel {
     return publisher;
   }
 
-
   /**
   * Builder for PubSubItemChannel
   **/
-  public static class PubSubItemChannelBuilder {
-    private PubSubItemChannel toBuild = new PubSubItemChannel();
+  public static class PubSubItemBuilder {
+    private PubSubItem toBuild = new PubSubItem();
 
-    public PubSubItemChannelBuilder() {
+    public PubSubItemBuilder() {
     }
 
-    public PubSubItemChannel build() {
+    public PubSubItem build() {
       return toBuild;
     }
 
-    public PubSubItemChannelBuilder content(java.util.Map<String, String> value) {
+    public PubSubItemBuilder content(java.util.Map<String, String> value) {
       toBuild.content = value;
       return this;
     }
 
-    public PubSubItemChannelBuilder channelName(String value) {
+    public PubSubItemBuilder channelName(String value) {
       toBuild.channelName = value;
       return this;
     }
 
-    public PubSubItemChannelBuilder publisherInfo(UserInfo value) {
-      toBuild.publisherInfo = value;
-      return this;
-    }
+    //public PubSubItemBuilder publisherInfo(UserInfo value) {
+    //  toBuild.publisherInfo = value;
+    //  return this;
+    //}
 
-    public PubSubItemChannelBuilder itemId(String value) {
+    public PubSubItemBuilder itemId(String value) {
       toBuild.itemId = value;
       return this;
     }
 
-    public PubSubItemChannelBuilder metaData(PubSubPayload value) {
+    public PubSubItemBuilder metaData(java.util.Map<String, String> value) {
       toBuild.metaData = value;
       return this;
     }
 
-    public PubSubItemChannelBuilder publisher(ItemPublisher value) {
+    public PubSubItemBuilder publisher(ItemPublisher value) {
       toBuild.publisher = value;
       return this;
     }
