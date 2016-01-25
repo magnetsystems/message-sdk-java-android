@@ -1,12 +1,12 @@
 package com.magnet.mmx.client.api;
 
+import android.util.LruCache;
 import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -27,12 +27,14 @@ final class UserCache {
   }
 
   private static final String TAG = UserCache.class.getSimpleName();
-  static final long DEFAULT_ACCEPTED_AGE = 5 * 60000; // five minutes
-  private final HashMap<String,CachedUser> mUserNameCache = new HashMap<String,CachedUser>();
-  private final HashMap<String,CachedUser> mUserIdCache = new HashMap<String,CachedUser>();
+  static final long DEFAULT_ACCEPTED_AGE = 8 * 60 * 60000; //8 hours
+  static final int DEFAULT_CACHE_ENTRIES = 128;
+  static final int DEFAULT_USER_RETRIEVE_TIMEOUT = 10;
+  private final LruCache<String, CachedUser> mUserCache;
   private static UserCache sInstance = null;
 
   private UserCache() {
+    mUserCache = new LruCache<>(DEFAULT_CACHE_ENTRIES);
   }
 
   static synchronized UserCache getInstance() {
@@ -43,17 +45,6 @@ final class UserCache {
   }
 
   /**
-   * Fills the cache with the specified usernames.  This is a blocking call and should not be
-   * called from the main thread.
-   *
-   * @param usernames the usernames to lookup
-   * @param acceptedAgeMillis the allowed age in milliseconds
-   */
-  void fillCacheByUsername(Set<String> usernames, long acceptedAgeMillis) {
-    fillCacheHelper(usernames, false, acceptedAgeMillis);
-  }
-
-  /**
    * Fills the cache with the specified userIds.  This is a blocking call and should not be
    * called from the main thread.
    *
@@ -61,57 +52,52 @@ final class UserCache {
    * @param acceptedAgeMillis the allowed age in milliseconds
    */
   void fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {
-    fillCacheHelper(userIds, true, acceptedAgeMillis);
+    fillCacheHelper(userIds, acceptedAgeMillis);
   }
 
-  void fillCacheHelper(Set<String> keys, final boolean isUserIds, long acceptedAgeMillis) {
+  void fillCacheHelper(Set<String> keys, long acceptedAgeMillis) {
     final ArrayList<String> retrieveList = new ArrayList<String>();
 
     synchronized (this) {
       for (String key : keys) {
-        CachedUser cachedUser = isUserIds ? mUserIdCache.get(key) : mUserNameCache.get(key);
-        if (cachedUser == null ||
-                (System.currentTimeMillis() - cachedUser.timestamp) > acceptedAgeMillis) {
-          Log.v(TAG, "fillCache(): retrieving user: " + key + ", isUserId=" +
-                  isUserIds +  ", cachedUser=" + cachedUser);
-          mUserNameCache.remove(key);
-          mUserIdCache.remove(key);
+        CachedUser cachedUser = mUserCache.get(key);
+        if (cachedUser == null) {
+          Log.v(TAG, "fillCache(): cache missed for user: " + key);
+          retrieveList.add(key);
+        } else if((System.currentTimeMillis() - cachedUser.timestamp) > acceptedAgeMillis) {
+          Log.v(TAG, "fillCache(): cache expired for user: " + key +  ", cachedUser=" + cachedUser);
+          mUserCache.remove(key);
           retrieveList.add(key);
         }
       }
     }
 
-    final CountDownLatch latch = new CountDownLatch(1);
-    final ApiCallback<List<User>> listener = new ApiCallback<List<User>>() {
-      public void success(List<User> users) {
-        Log.d(TAG, "fillCache(): retrieved users " + users.size());
-        long timestamp = System.currentTimeMillis();
-        synchronized (UserCache.this) {
+    if(!retrieveList.isEmpty()) {
+      final CountDownLatch latch = new CountDownLatch(1);
+      final ApiCallback<List<User>> listener = new ApiCallback<List<User>>() {
+        public void success(List<User> users) {
+          Log.d(TAG, "fillCache(): retrieved users " + users.size());
+          long timestamp = System.currentTimeMillis();
           for (User user : users) {
             CachedUser cachedUser = new CachedUser(user, timestamp);
-            mUserNameCache.put(user.getUserName().toLowerCase(), cachedUser);
-            mUserIdCache.put(user.getUserIdentifier().toLowerCase(), cachedUser);
+            mUserCache.put(user.getUserIdentifier().toLowerCase(), cachedUser);
           }
+          latch.countDown();
         }
-        latch.countDown();
-      }
 
-      public void failure(ApiError apiError) {
-        Log.d(TAG, "fillCache(): error retrieving users: " + apiError, apiError.getCause());
-        latch.countDown();
-      }
-    };
+        public void failure(ApiError apiError) {
+          Log.d(TAG, "fillCache(): error retrieving users: " + apiError, apiError.getCause());
+          latch.countDown();
+        }
+      };
 
-    if (isUserIds) {
       User.getUsersByUserIds(retrieveList, listener);
-    } else {
-      User.getUsersByUserNames(retrieveList, listener);
-    }
-    synchronized (listener) {
-      try {
-        latch.await(10, TimeUnit.SECONDS);
-      } catch (InterruptedException e) {
-        Log.e(TAG, "fillCache(): exception", e);
+      synchronized (listener) {
+        try {
+          latch.await(DEFAULT_USER_RETRIEVE_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          Log.e(TAG, "fillCache(): exception", e);
+        }
       }
     }
   }
@@ -119,19 +105,12 @@ final class UserCache {
   /**
    * Retrieve the user from the cache.
    *
-   * @param username the user to retrieve
+   * @param userId the user to retrieve
    * @return the user or null if user is not in the cache
    */
-  User getByUsername(String username) {
-    synchronized (this) {
-      CachedUser cachedUser = mUserNameCache.get(username.toLowerCase());
-      return cachedUser == null ? null : cachedUser.user;
-    }
-  }
-
   User getByUserId(String userId) {
     synchronized (this) {
-      CachedUser cachedUser = mUserIdCache.get(userId.toLowerCase());
+      CachedUser cachedUser = mUserCache.get(userId.toLowerCase());
       return cachedUser == null ? null : cachedUser.user;
     }
   }
