@@ -31,12 +31,12 @@ public class TestMessaging {
     private static final int NUMBER_OF_USERS = 5;
     private static final int NUMBER_OF_SIMPLE_MESSAGES = 50;
 
-//    private static final String MMS_URL = "http://localhost:8443";
-    private static final String MMS_URL = "http://ec2s-mms20.magnet.com:8443";
+    private static final String MMS_URL = "http://localhost:8443";
+//    private static final String MMS_URL = "http://ec2s-mms20.magnet.com:8443";
     private static final String DEV_USER = "developer";
     private static final String DEV_PWD = "developer";
-//    private static final String MMX_HOST = "localhost";
-    private static final String MMX_HOST = "ec2s-mmx20.magnet.com";
+    private static final String MMX_HOST = "localhost";
+//    private static final String MMX_HOST = "ec2s-mmx20.magnet.com";
     private static final int MMX_PORT = 5222;
 
     private static DeveloperContext developerContext = new DeveloperContext(MMS_URL, DEV_USER, DEV_PWD);
@@ -88,7 +88,7 @@ public class TestMessaging {
 
             mmxSettings.setString(MMXSettings.PROP_HOST, MMX_HOST);
             mmxSettings.setInt(MMXSettings.PROP_PORT, MMX_PORT);
-            mmxSettings.setBoolean(MMXSettings.PROP_ENABLE_TLS, true);
+            mmxSettings.setBoolean(MMXSettings.PROP_ENABLE_TLS, false);
 
             String mmxUserId = userId + "%" + appId;
 
