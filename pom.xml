@@ -31,7 +31,6 @@
   </build>
   <modules>
     <module>common</module>
-    <!--<module>integration_test_helper</module>-->
     <module>android</module>
     <module>j2se</module>
   </modules>
