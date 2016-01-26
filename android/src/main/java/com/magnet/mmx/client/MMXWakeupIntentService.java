@@ -138,11 +138,14 @@ public final class MMXWakeupIntentService extends IntentService {
           .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
           .addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
         PendingIntent.FLAG_UPDATE_CURRENT);
+    // If title is not specified, use the app name (compatible with iOS push notification)
+    String title = (payload.getTitle() == null) ?
+        this.getApplicationInfo().name : payload.getTitle();
     Notification.Builder noteBuilder = new Notification.Builder(this)
             .setContentIntent(intent)
             .setAutoCancel(true)
             .setWhen(System.currentTimeMillis())
-            .setContentTitle(payload.getTitle())
+            .setContentTitle(title)
             .setContentText(payload.getBody());
     if (payload.getSound() != null) {
       // TODO: cannot handle custom sound yet; use notification ring tone.
