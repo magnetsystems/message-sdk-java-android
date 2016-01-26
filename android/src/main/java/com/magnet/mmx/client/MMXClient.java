@@ -228,7 +228,11 @@ public final class MMXClient {
     /**
      * Registration with the wakeup service failed (GCM)
      */
-    WAKEUP_REGISTRATION_FAILED
+    WAKEUP_REGISTRATION_FAILED,
+    /**
+     * Device Registration failed
+     */
+    DEVICE_REGISTRATION_FAILURE,
   }
 
   /**
@@ -1271,7 +1275,7 @@ public final class MMXClient {
             public void failure(ApiError apiError) {
               Log.e(TAG, "registerDeviceWithServer(): Device registration failed: " + apiError);
               //if status is unsuccessful, disconnect
-              notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
+              notifyConnectionEvent(ConnectionEvent.DEVICE_REGISTRATION_FAILURE);
               disconnect();
             }
           });
