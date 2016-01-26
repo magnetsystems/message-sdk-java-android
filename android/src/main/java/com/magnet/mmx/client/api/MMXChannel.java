@@ -18,6 +18,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.UserProfile;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
@@ -25,6 +26,8 @@ import com.magnet.mmx.client.internal.channel.ChannelLookupKey;
 import com.magnet.mmx.client.internal.channel.ChannelService;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
+import com.magnet.mmx.client.internal.channel.PubSubItem;
+import com.magnet.mmx.client.internal.channel.BasicUserInfo;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1689,6 +1692,7 @@ public class MMXChannel implements Parcelable {
    * @param numberOfSubscribers
    * @param listener
    */
+  @Deprecated
   public static void getChannelSummary(Set<MMXChannel> channels, Integer numOfMessages, Integer numberOfSubscribers, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
     if(null == channels || channels.isEmpty()) {
       if(null != listener) {
@@ -1701,10 +1705,109 @@ public class MMXChannel implements Parcelable {
       }
       getChannelService().getChannelSummary(new ChannelSummaryRequest.Builder().channelIds(keys).numOfMessages(numOfMessages).numOfSubcribers(numberOfSubscribers).build(),
           new Callback<List<ChannelSummaryResponse>>() {
-        @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
+            @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
+              if(response.isSuccess()) {
+                if(null != listener) {
+                  listener.onSuccess(response.body());
+                }
+              } else {
+                handleError(new ApiError(response.message(), response.code()), listener);
+              }
+            }
+
+            @Override public void onFailure(Throwable throwable) {
+              handleError(throwable, listener);
+            }
+
+            private void handleError(Throwable error, OnFinishedListener listener) {
+              Log.e(TAG, "Failed to getChannelSummary", error);
+              if(null != listener) {
+                listener.onFailure(FailureCode.GENERIC_FAILURE, error);
+              }
+            }
+          }).executeInBackground();
+    }
+  }
+
+  /**
+   * Get detail for channels
+   * @param channels
+   * @param options
+   * @param listener
+   */
+  public static void getChannelDetail(final List<MMXChannel> channels, ChannelDetailOptions options, final OnFinishedListener<List<ChannelDetail>> listener) {
+    if(null == channels || channels.isEmpty()) {
+      if(null != listener) {
+        listener.onSuccess(Collections.EMPTY_LIST);
+      }
+    } else {
+
+      getChannelService().getChannelSummary(new ChannelSummaryRequest(channels, options),
+          new Callback<List<ChannelSummaryResponse>>() {
+        @Override public void onResponse(final Response<List<ChannelSummaryResponse>> response) {
           if(response.isSuccess()) {
             if(null != listener) {
-              listener.onSuccess(response.body());
+              // Do the conversion in background task
+              MMXTask<List<ChannelDetail>> task = new MMXTask<List<ChannelDetail>>(MMX.getMMXClient(), MMX.getHandler()) {
+                @Override
+                public List<ChannelDetail> doRun(MMXClient mmxClient) throws Throwable {
+                  List<ChannelSummaryResponse> summaryResponses = response.body();
+                  List<ChannelDetail> channelDetails = null;
+                  if(null != summaryResponses) {
+                    channelDetails = new ArrayList<ChannelDetail>(summaryResponses.size());
+                    for(int i = 0; i < summaryResponses.size(); i++) {
+                      ChannelSummaryResponse r = summaryResponses.get(i);
+
+                      //convert messages
+                      List<PubSubItem> pubsubItems = r.getMessages();
+                      List<MMXMessage> mmxMessages = null;
+                      if(null != pubsubItems) {
+                        mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
+                        for(PubSubItem item : pubsubItems) {
+                          mmxMessages.add(MMXMessage.fromPubSubItem(item));
+                        }
+                      }
+
+                      List<UserProfile> userProfiles = null;
+                      if(null != r.getSubscribers()) {
+                        userProfiles = new ArrayList<UserProfile>(r.getSubscribers().size());
+                        for(BasicUserInfo ui : r.getSubscribers()) {
+                          userProfiles.add(ui.toUserProfile());
+                        }
+                      }
+                      channelDetails.add(new ChannelDetail.Builder().channel(channels.get(i)).messages(mmxMessages)
+                          .subscribers(userProfiles).totalMessages(r.getPublishedItemCount())
+                          .totalSubscribers(r.getSubscriberCount()).build());
+                    }
+                  } else {
+                    channelDetails = Collections.EMPTY_LIST;
+                  }
+
+                  return channelDetails;
+                }
+
+                @Override
+                public void onResult(final List<ChannelDetail> result) {
+                    MMX.getCallbackHandler().post(new Runnable() {
+                      public void run() {
+                        listener.onSuccess(result);
+                      }
+                    });
+                }
+
+                @Override
+                public void onException(final Throwable exception) {
+                  if (listener != null) {
+                    MMX.getCallbackHandler().post(new Runnable() {
+                      public void run() {
+                        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.GENERIC_FAILURE, exception),
+                            exception);
+                      }
+                    });
+                  }
+                }
+              };
+              task.execute();
             }
           } else {
             handleError(new ApiError(response.message(), response.code()), listener);
@@ -1716,7 +1819,7 @@ public class MMXChannel implements Parcelable {
         }
 
         private void handleError(Throwable error, OnFinishedListener listener) {
-          Log.e(TAG, "Failed to getChannelSummary", error);
+          Log.e(TAG, "Failed to getChannelDetail", error);
           if(null != listener) {
             listener.onFailure(FailureCode.GENERIC_FAILURE, error);
           }
