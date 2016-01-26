@@ -1819,7 +1819,7 @@ public class MMXChannel implements Parcelable {
         }
 
         private void handleError(Throwable error, OnFinishedListener listener) {
-          Log.e(TAG, "Failed to getChannelSummary", error);
+          Log.e(TAG, "Failed to getChannelDetail", error);
           if(null != listener) {
             listener.onFailure(FailureCode.GENERIC_FAILURE, error);
           }
