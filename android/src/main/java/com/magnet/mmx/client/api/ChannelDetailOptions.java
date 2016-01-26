@@ -3,21 +3,34 @@
  */
 package com.magnet.mmx.client.api;
 
+/**
+ * Options to get @see ChannelDetial
+ */
 public class ChannelDetailOptions {
   public static final int DEFAULT_NUMBER_OF_MESSAGE = 5;
   public static final int DEFAULT_NUMBER_OF_SUBSCRIBER = 5;
 
   private Integer numOfMessages;
   private Integer numOfSubcribers;
-  private boolean wantOwnerInfo;
+  //private boolean wantOwnerInfo;
 
   private ChannelDetailOptions() {
   }
 
+  /**
+   * Number of messages to retrieve
+   * If not specifed, default is 5
+   * @return
+   */
   public Integer getNumOfMessages() {
     return numOfMessages;
   }
 
+  /**
+   * Number of subsribers to retrieve
+   * If not specifed, default is 5
+   * @return
+   */
   public Integer getNumOfSubcribers() {
     return numOfSubcribers;
   }
@@ -26,6 +39,9 @@ public class ChannelDetailOptions {
   //  return wantOwnerInfo;
   //}
 
+  /**
+   * Builder for @see ChannelDetailOptions
+   */
   public static class Builder {
     private ChannelDetailOptions options;
 

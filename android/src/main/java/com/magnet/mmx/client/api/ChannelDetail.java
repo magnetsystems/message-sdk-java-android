@@ -6,6 +6,9 @@ package com.magnet.mmx.client.api;
 import com.magnet.max.android.UserProfile;
 import java.util.List;
 
+/**
+ * The details of @see MMXChannel
+ */
 public class ChannelDetail {
   private MMXChannel channel;
   private List<UserProfile> subscribers;
@@ -14,14 +17,26 @@ public class ChannelDetail {
   private int totalMessages;
   //private UserProfile owner;
 
+  /**
+   * The channel
+   * @return
+   */
   public MMXChannel getChannel() {
     return channel;
   }
 
+  /**
+   * Subscribers of the channel requested in @see ChannelDetailOptions#getNumOfSubcribers
+   * @return
+   */
   public List<UserProfile> getSubscribers() {
     return subscribers;
   }
 
+  /**
+   * Messages of the channel requested in @see ChannelDetailOptions#getNumOfMessages
+   * @return
+   */
   public List<MMXMessage> getMessages() {
     return messages;
   }
@@ -30,14 +45,25 @@ public class ChannelDetail {
   //  return owner;
   //}
 
+  /**
+   * Total number of subscribers
+   * @return
+   */
   public int getTotalSubscribers() {
     return totalSubscribers;
   }
 
+  /**
+   * Total number of messages
+   * @return
+   */
   public int getTotalMessages() {
     return totalMessages;
   }
 
+  /**
+   * Builder for @see ChannelDetail
+   */
   public static class Builder {
     private final ChannelDetail channelDetail;
 

@@ -1732,6 +1732,7 @@ public class MMXChannel implements Parcelable {
   /**
    * Get detail for channels
    * @param channels
+   * @param options
    * @param listener
    */
   public static void getChannelDetail(final List<MMXChannel> channels, ChannelDetailOptions options, final OnFinishedListener<List<ChannelDetail>> listener) {
