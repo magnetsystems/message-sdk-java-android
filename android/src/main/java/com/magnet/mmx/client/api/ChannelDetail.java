@@ -3,13 +3,15 @@
  */
 package com.magnet.mmx.client.api;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.magnet.max.android.UserProfile;
 import java.util.List;
 
 /**
  * The details of @see MMXChannel
  */
-public class ChannelDetail {
+public class ChannelDetail implements Parcelable {
   private MMXChannel channel;
   private List<UserProfile> subscribers;
   private List<MMXMessage> messages;
@@ -105,4 +107,38 @@ public class ChannelDetail {
       return channelDetail;
     }
   }
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeParcelable(this.channel, 0);
+    dest.writeTypedList(subscribers);
+    dest.writeTypedList(messages);
+    dest.writeInt(this.totalSubscribers);
+    dest.writeInt(this.totalMessages);
+  }
+
+  public ChannelDetail() {
+  }
+
+  protected ChannelDetail(Parcel in) {
+    this.channel = in.readParcelable(MMXChannel.class.getClassLoader());
+    this.subscribers = in.createTypedArrayList(UserProfile.CREATOR);
+    this.messages = in.createTypedArrayList(MMXMessage.CREATOR);
+    this.totalSubscribers = in.readInt();
+    this.totalMessages = in.readInt();
+  }
+
+  public static final Parcelable.Creator<ChannelDetail> CREATOR =
+      new Parcelable.Creator<ChannelDetail>() {
+        public ChannelDetail createFromParcel(Parcel source) {
+          return new ChannelDetail(source);
+        }
+
+        public ChannelDetail[] newArray(int size) {
+          return new ChannelDetail[size];
+        }
+      };
 }
