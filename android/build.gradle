@@ -76,6 +76,7 @@ dependencies {
     }
 
     // For testing
+    androidTestCompile 'com.magnet.mmx:mms-integration-test-helper:2.3.1-SNAPSHOT'
     androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
     androidTestCompile 'com.android.support.test:runner:0.4.1'
     androidTestCompile 'junit:junit:4.12'

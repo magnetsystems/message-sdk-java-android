@@ -41,6 +41,12 @@
       <artifactId>mmx-smack-extensions</artifactId>
       <version>4.0.7p3</version>
     </dependency>
+    <dependency>
+      <groupId>com.magnet.mmx</groupId>
+      <artifactId>mms-integration-test-helper</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
     <build>
         <plugins>

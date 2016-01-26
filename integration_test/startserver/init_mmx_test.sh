@@ -1,5 +1,5 @@
 #!/bin/bash
-#   Copyright (c) 2015 Magnet Systems, Inc.
+#   Copyright (c) 2015-2016 Magnet Systems, Inc.  All Rights Reserved.
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,33 +15,64 @@
 #
 
 
+# get the value from "name=value" in a file
+getProperty() {
+  sed -n -e 's/^'$2'=\(.*\)/\1/p' $1
+}
+
 curdir=`pwd`
 
 MMX_SERVER_NAME="mmx-server-2.3.1-SNAPSHOT"
-MMS_SERVER_DIR="$HOME/.magnet/server"
+MAX_SERVER_NAME="max-server-2.3.1-SNAPSHOT"
 
-seeddata_sql="$curdir/../test-conf/seed_testdata.sql"
 cleanup_sql="$curdir/../test-conf/clean_testdata.sql"
+max_cleanup_sql="$curdir/../test-conf/max_clean_testdata.sql"
 
 sandbox_dir="$curdir/$MMX_SERVER_NAME"
 bin_dir="$sandbox_dir/bin"
 conf_dir="$sandbox_dir/conf"
+max_sandbox_dir="$curdir/$MAX_SERVER_NAME"
+max_bin_dir="$max_sandbox_dir/bin"
+max_conf_dir="$max_sandbox_dir/conf/default"
 
 external_build_dir=
 local_build_dir="$curdir/../../../message-server/tools/mmx-server-zip/target"
+max_external_build_dir=
+max_local_build_dir="$HOME/.magnet/server"
 
-if [ -z "$MMX_MYSQL_USR" ] ; then
-    MMX_MYSQL_USR=root
-    MMX_MYSQL_PWD=
-fi
+startup_properties=$curdir/../test-conf/startup.properties
+datasource_properties=$curdir/../test-conf/datasource_mysql.properties
 
-if [ -z "$MMX_DB" ] ; then
-    MMX_DB=mmxintegtest
-fi
+MMX_DB=`getProperty $startup_properties dbName`
+MMX_MYSQL_USR=`getProperty $startup_properties dbUser`
+MMX_MYSQL_PWD=`getProperty $startup_properties dbPassword`
+
+MAX_MYSQL_USR=`getProperty $datasource_properties javax.persistence.jdbc.user`
+MAX_MYSQL_PWD=`getProperty $datasource_properties javax.persistence.jdbc.password`
+
+#echo MMX_SERVER_NAME=$MMX_SERVER_NAME
+#echo MAX_SERVER_NAME=$MAX_SERVER_NAME
+#echo cleanup_sql=$cleanup_sql
+#echo max_cleanup_sql=$max_cleanup_sql
+#echo sandbox_dir=$sandbox_dir
+#echo max_sandbox_dir=$max_sandbox_dir
+#echo conf_dir=$conf_dir
+#echo max_conf_dir=$max_conf_dir
+#echo startup_properties=$startup_properties
+#echo datasource_properties=$datasource_properties
+#echo MMX_DB=$MMX_DB
+#echo MMX_MYSQL_USR=$MMX_MYSQL_USR
+#echo MMX_MYSQL_PWD=$MMX_MYSQL_PWD
+#echo MAX_MYSQL_USR=$MAX_MYSQL_USR
+#echo MAX_MYSQL_PWD=$MAX_MYSQL_PWD
 
 mysql_command="mysql -u $MMX_MYSQL_USR"
 if [ -n "$MMX_MYSQL_PWD" ] ; then
-    mysql_command="$mysql_command -p $MMX_MYSQL_PWD"
+  mysql_command="$mysql_command -p $MMX_MYSQL_PWD"
+fi
+max_mysql_command="mysql -u $MAX_MYSQL_USR"
+if [ -n "$MMX_MYSQL_PWD" ] ; then
+  max_mysql_command="$max_mysql_command -p $MAX_MYSQL_PWD"
 fi
 
 # sleep and prompt the wait time
@@ -65,6 +96,11 @@ cleanup() {
     echo "Deleting unzipped mmx-server bits..."
     delete_command="rm -rf $sandbox_dir *.zip"
     eval "$delete_command"
+
+    # Remove the MAX 
+    echo "Deleting max-server bits..."
+    delete_command="rm -rf $max_sandbox_dir"
+    eval "$delete_command"
 }
 
 copy_local() {
@@ -74,6 +110,11 @@ copy_local() {
     eval "$copy_command"
     echo "Unzipping copied file..."
     eval "unzip ${MMX_SERVER_NAME}.zip"
+
+    echo "Copying MAX server from local build"
+    test -d $max_sandbox_dir || mkdir -p $max_sandbox_dir
+    max_copy_command="(cd $max_local_build_dir; tar cf - . ) | (cd $max_sandbox_dir; tar xf - )"
+    eval "$max_copy_command"
 }
 
 copy_external() {
@@ -83,6 +124,11 @@ copy_external() {
     eval "$copy_command"
     echo "Unzipping copied MMX file..."
     eval "unzip ${MMX_SERVER_NAME}.zip"
+
+    echo "Copying MAX server from external build"
+    test -d $max_sandbox_dir || mkdir -p $max_sandbox_dir
+    max_copy_command="(cd $max_external_build_dir; tar cf - . ) | (cd $max_sandbox_dir; tar xf - )"
+    eval "$max_copy_command"
 }
 
 start_local() {
@@ -103,14 +149,24 @@ EOF
 
 start() {
     # copy test configuration
-    echo "Copying test startup.properties"
-    copy_command="cp $curdir/../test-conf/startup.properties $conf_dir"
+    echo "Copying MMX test startup.properties"
+    copy_command="cp $startup_properties $conf_dir"
+    echo "$copy_command"
+    eval "$copy_command"
+
+    echo "Copying MAX test datasource_mysql.properties"
+    copy_command="cp $datasource_properties $max_conf_dir"
     echo "$copy_command"
     eval "$copy_command"
 
     # cleanup existing data
     cleanup_db_command="$mysql_command < $cleanup_sql"
-    echo "Deleting existing test data..."
+    echo "Deleting existing MMX test data..."
+    echo "$cleanup_db_command"
+    eval "$cleanup_db_command"
+
+    cleanup_db_command="$max_mysql_command < $max_cleanup_sql"
+    echo "Deleting existing MAX test data..."
     echo "$cleanup_db_command"
     eval "$cleanup_db_command"
 
@@ -131,35 +187,22 @@ start() {
       /bin/echo -n .
       sleep 5
     done
-
-#    # seed test data
-#    echo "Seeding test data..."
-#    seed_data="$mysql_command $MMX_DB < $seeddata_sql"
-#    echo "$seed_data"
-#    eval "$seed_data"
-#    if eval "$@"; then
-#    # restart the server to pick up new test data from db into server memory cache, such case pubsub nodes
-#        eval "./mmx-server.sh restart"
-#        echo "MMX server started successfully"
-#    fi
-#    # sleep some more to wait for server to finish initializing
-#    sleepAndEcho 20
     popd
 
-    # start MMS
-    echo "Starting MMS..."
-    mms_start_command="bin/start.sh &"
-    pushd $MMS_SERVER_DIR
-    echo "$mms_start_command"
-    eval "$mms_start_command"
+    # start MAX
+    echo "Starting MAX..."
+    start_command="bin/start.sh &"
+    pushd $max_sandbox_dir
+    echo "$start_command"
+    eval "$start_command"
     popd
 }
 
 stop() {
-    pushd $MMS_SERVER_DIR
-    mms_stop_command="bin/stop.sh"
-    echo "Stopping MMS..."
-    eval "$mms_stop_command"
+    pushd $max_sandbox_dir
+    stop_command="bin/stop.sh"
+    echo "Stopping MAX..."
+    eval "$stop_command"
     popd
 
     pushd $bin_dir
