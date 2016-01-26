@@ -18,11 +18,13 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import com.google.gson.reflect.TypeToken;
 import com.magnet.max.android.Attachment;
+import com.magnet.max.android.rest.marshalling.Iso860DateConverter;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.MagnetUtils;
 import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.util.GsonData;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -890,6 +892,48 @@ public class MMXMessage implements Parcelable {
             .sender(sender).id(message.getId())
             .timestamp(message.getPayload().getSentTime()).content(content)
             .build();
+  }
+
+  static MMXMessage fromPubSubItem(PubSubItem pubSubItem) {
+    UserCache userCache = UserCache.getInstance();
+    HashSet<String> usersToRetrieve = new HashSet<String>();
+    usersToRetrieve.add(pubSubItem.getPublisher().getUserId());
+
+    //fill the cache
+    userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+
+    HashSet<User> recipients = new HashSet<User>();
+    //populate the values
+    User sender = userCache.getByUserId(pubSubItem.getPublisher().getUserId());
+    if (sender == null) {
+      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender from cache:  " +
+          "sender=" + sender + ".  Message will be dropped.");
+      return null;
+    }
+
+    //populate the message content
+    HashMap<String, String> content = new HashMap<String, String>();
+    for (Map.Entry<String,String> entry : pubSubItem.getContent().entrySet()) {
+      if(!CONTENT_ATTACHMENTS.equals(entry.getKey())) {
+        content.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    MMXMessage.Builder newMessage = new MMXMessage.Builder();
+
+    // Extract attachments
+    String attachmentsStr = MagnetUtils.trimQuotes(pubSubItem.getContent().get(CONTENT_ATTACHMENTS));
+    if(StringUtil.isNotEmpty(attachmentsStr)) {
+      List<Attachment> attachments = GsonData.getGson().fromJson(attachmentsStr, new TypeToken<List<Attachment>>() {}.getType());
+      if(null != attachments && attachments.size() > 0) {
+        newMessage.attachments(attachments.toArray(new Attachment[0]));
+      }
+    }
+
+    return newMessage
+        .sender(sender).id(pubSubItem.getItemId())
+        .timestamp(Iso860DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
+        .build();
   }
 
   //For handling the onSuccess of send() messages when server ack is received
