@@ -866,6 +866,12 @@ public final class MMXClient {
       if (mIsDisconnecting.get()) {
         return;
       }
+
+      if (!isConnected()) {
+        Log.e(TAG, "disconnect(): not connected.");
+        return;
+      }
+
       mIsDisconnecting.set(true);
       mMessagingHandler.post(new Runnable() {
         public void run() {

@@ -270,7 +270,6 @@ public final class MMX {
   private static final String TAG = MMX.class.getSimpleName();
   private static final String SHARED_PREFS_NAME = MMX.class.getName();
   private static final String PREF_WAKEUP_INTENT_URI = "wakeupIntentUri";
-  private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
   private Context mContext = null;
   private MMXClient mClient = null;
   private User mCurrentUser = null;
@@ -280,6 +279,9 @@ public final class MMX {
   private static MMX sInstance = null;
   private static SharedPreferences sSharedPrefs = null;
   private static Handler sCallbackHandler = new Handler(Looper.getMainLooper());
+
+  // Avoid concurrent logging
+  private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
 
   /**
    * The listeners will be added in order (most recent at end)
@@ -478,7 +480,7 @@ public final class MMX {
       //This only happens if we are not connected.  suspend is not a problem since we are already disconnected
       if (enable) {
         throw new IllegalStateException("Cannot enable incoming messages because not currently " +
-                "connected.  Ensure that login() has been called.");
+                "connected.  Ensure that login() has been called.", ex);
       }
     }
   }
