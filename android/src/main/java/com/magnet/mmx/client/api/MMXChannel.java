@@ -313,8 +313,6 @@ public class MMXChannel implements Parcelable {
   private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
-  // Channel REST Service
-  private static ChannelService channelService;
 
   /**
    * Default constructor
@@ -1928,11 +1926,7 @@ public class MMXChannel implements Parcelable {
   }
 
   private static ChannelService getChannelService() {
-    if(null == channelService) {
-      channelService = MaxCore.create(ChannelService.class);
-    }
-
-    return channelService;
+    return MaxCore.create(ChannelService.class);
   }
 
   // ***************************
