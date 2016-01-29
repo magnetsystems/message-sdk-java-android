@@ -54,23 +54,24 @@ public class UserHelper {
       Log.d(TAG, "User " + username + " already registered, reuse it");
       result = REGISTERED_USERS.get(username);
     } else {
+      Log.d(TAG, "Registering new User " + username);
       UserRegistrationInfo userInfo = new UserRegistrationInfo.Builder().firstName(displayName)
           .userName(username)
           .password(password)
           .build();
 
-      final ExecMonitor<User, ApiError> userReg = new ExecMonitor<User, ApiError>();
+      final ExecMonitor<User, ApiError> userReg = new ExecMonitor<User, ApiError>("Register User");
       final AtomicBoolean userExist = new AtomicBoolean(false);
       //setup the listener for the registration call
       ApiCallback<User> listener = new ApiCallback<User>() {
         public void success(User user) {
-          Log.d(TAG, "onSuccess: result=" + user.getUserName());
+          Log.d(TAG, "register user onSuccess: result=" + user.getUserName());
           REGISTERED_USERS.put(username, user);
           userReg.invoked(user);
         }
 
         @Override public void failure(ApiError apiError) {
-          Log.e(TAG, "onFailure(): code=" + apiError, apiError.getCause());
+          Log.e(TAG, "register user onFailure(): code=" + apiError, apiError.getCause());
           if (reuseExistingUser && apiError.getKind() == 409) {
             userExist.set(true);
             userReg.invoked(null);
@@ -107,6 +108,10 @@ public class UserHelper {
   }
 
   public static void registerAndLogin(final String username, final String password) {
+    registerAndLogin(username, password, true);
+  }
+
+  public static void registerAndLogin(final String username, final String password, boolean reuseExistingUser) {
     User user = registerUser(username, username, password, null, true);
     login(username, password);
   }
@@ -128,7 +133,6 @@ public class UserHelper {
       @Override
       public void failure(ApiError apiError) {
         android.util.Log.e(TAG, "Failed to login due to : " + apiError.getMessage(), apiError.getCause());
-        fail("Failed to login due to : " + apiError.getMessage());
         errorRef.set(apiError);
         latch.countDown();
       }
@@ -201,6 +205,7 @@ public class UserHelper {
 
       @Override
       public void failure(ApiError apiError) {
+        errorRef.set(apiError);
         latch.countDown();
       }
     });
@@ -208,7 +213,7 @@ public class UserHelper {
     try {
       latch.await(TestConstants.TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
-      fail("User.login timeout");
+      fail("User.logout timeout");
     }
 
     if(null != errorRef.get()) {
