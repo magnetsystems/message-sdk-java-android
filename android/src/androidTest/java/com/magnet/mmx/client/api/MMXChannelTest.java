@@ -78,10 +78,11 @@ public class MMXChannelTest {
 
   @Test
   public void testGetAllSubscriptions() {
+    UserHelper.logout();
+
     String timestamp = String.valueOf(System.currentTimeMillis());
 
-    UserHelper.logout();
-    UserHelper.registerAndLogin(UserHelper.MMX_TEST_USER_PREFIX + timestamp, UserHelper.MMX_TEST_USER_PREFIX + timestamp);
+    UserHelper.registerAndLogin(UserHelper.MMX_TEST_USER_PREFIX + timestamp, UserHelper.MMX_TEST_USER_PREFIX + timestamp, false);
 
     String privateChannelName = "private-channel" + timestamp;
     String privateChannelSummary = privateChannelName + " Summary";
