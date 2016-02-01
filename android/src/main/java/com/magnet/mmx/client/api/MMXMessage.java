@@ -18,7 +18,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import com.google.gson.reflect.TypeToken;
 import com.magnet.max.android.Attachment;
-import com.magnet.max.android.rest.marshalling.Iso860DateConverter;
+import com.magnet.max.android.rest.marshalling.Iso8601DateConverter;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.MagnetUtils;
@@ -932,7 +932,7 @@ public class MMXMessage implements Parcelable {
 
     return newMessage
         .sender(sender).id(pubSubItem.getItemId())
-        .timestamp(Iso860DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
+        .timestamp(Iso8601DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
         .build();
   }
 
