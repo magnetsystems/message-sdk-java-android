@@ -349,23 +349,21 @@ public final class MMX {
 
     @Override
     public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
+      Log.w(TAG, "onConnectionEvent : " + connectionEvent + ", + mLoggingIn : " + mLoggingIn.get());
       switch (connectionEvent) {
         case AUTHENTICATION_FAILURE:
-          Log.w(TAG, "onConnectionEvent : AUTHENTICATION_FAILURE, + mLoggingIn : " + mLoggingIn.get());
           if (!mLoggingIn.get()) {
             MaxCore.userTokenInvalid(null, null);
             notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
           }
           break;
         case CONNECTED:
-          Log.w(TAG, "onConnectionEvent : CONNECTED, + mLoggingIn : " + mLoggingIn.get());
           if (!mLoggingIn.get()) {
             setCurrentUser(User.getCurrentUser());
             notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
           }
           break;
         case CONNECTION_FAILED:
-          Log.w(TAG, "onConnectionEvent : CONNECTION_FAILED, + mLoggingIn : " + mLoggingIn.get());
           if (!mLoggingIn.get()) {
             setCurrentUser(null);
             notifyLoginRequired(LoginReason.SERVICE_UNAVAILABLE);
@@ -1053,7 +1051,7 @@ public final class MMX {
       Log.d(TAG, "onUserTokenUpdate(): userId=" + userId +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
-      DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+      DeviceIdGenerator.setDeviceIdAccessor(getContext(), new DeviceIdAccessor() {
         public String getId(Context context) {
           return deviceId;
         }
@@ -1142,6 +1140,10 @@ public final class MMX {
       } else {
         Log.d(TAG, "logoutHelper(): not logged in");
       }
+    }
+
+    private Context getContext() {
+      return null != mContext ? mContext : MaxCore.getApplicationContext();
     }
   }
 
