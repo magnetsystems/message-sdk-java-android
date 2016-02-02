@@ -351,18 +351,21 @@ public final class MMX {
     public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
       switch (connectionEvent) {
         case AUTHENTICATION_FAILURE:
+          Log.w(TAG, "onConnectionEvent : AUTHENTICATION_FAILURE, + mLoggingIn : " + mLoggingIn.get());
           if (!mLoggingIn.get()) {
             MaxCore.userTokenInvalid(null, null);
             notifyLoginRequired(LoginReason.CREDENTIALS_EXPIRED);
           }
           break;
         case CONNECTED:
+          Log.w(TAG, "onConnectionEvent : CONNECTED, + mLoggingIn : " + mLoggingIn.get());
           if (!mLoggingIn.get()) {
             sInstance.mCurrentUser = User.getCurrentUser();
             notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
           }
           break;
         case CONNECTION_FAILED:
+          Log.w(TAG, "onConnectionEvent : CONNECTION_FAILED, + mLoggingIn : " + mLoggingIn.get());
           if (!mLoggingIn.get()) {
             sInstance.mCurrentUser = null;
             notifyLoginRequired(LoginReason.SERVICE_UNAVAILABLE);
