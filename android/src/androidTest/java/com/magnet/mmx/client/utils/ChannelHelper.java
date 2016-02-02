@@ -700,42 +700,6 @@ public class ChannelHelper {
     return null;
   }
 
-  public static void getChannelSummary(MMXChannel channel, final int expectedItemCount) {
-    final CountDownLatch latch = new CountDownLatch(1);
-    final AtomicReference<List<ChannelSummaryResponse>> resultRef = new AtomicReference<>();
-    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    MMXChannel.getChannelSummary(new HashSet<MMXChannel>(Arrays.asList(channel)),10, 10,  new MMXChannel.OnFinishedListener<List<ChannelSummaryResponse>>() {
-      @Override
-      public void onSuccess(List<ChannelSummaryResponse> result) {
-        resultRef.set(result);
-        latch.countDown();
-      }
-
-      @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught in MMXChannel.getChannelSummary : " + code, ex);
-        errorRef.set(ex);
-      }
-    });
-
-    try {
-      latch.await(TestConstants.TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      fail("MMXChannel.findPublicChannelsByName timed out");
-    }
-
-    if(null != errorRef.get()) {
-      fail("MMXChannel.findPublicChannelsByName failed due to " + errorRef.get().getMessage());
-    } else {
-      assertThat(resultRef.get()).isNotNull();
-      List<ChannelSummaryResponse> result = resultRef.get();
-      //assertThat(result.totalCount).isEqualTo(expectedChannelCount);
-      //if (result.items.size() > 0) {
-      //  assertThat(result.items.get(0).getNumberOfMessages()).isEqualTo(expectedItemCount);
-      //}
-    }
-  }
-
   public static List<ChannelDetail> getChannelDetail(MMXChannel channel) {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<List<ChannelDetail>> resultRef = new AtomicReference<>();

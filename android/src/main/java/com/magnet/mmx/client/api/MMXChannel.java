@@ -18,27 +18,11 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.User;
 import com.magnet.max.android.UserProfile;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
-import com.magnet.mmx.client.internal.channel.ChannelLookupKey;
-import com.magnet.mmx.client.internal.channel.ChannelService;
-import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
-import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
-import com.magnet.mmx.client.internal.channel.PubSubItem;
-import com.magnet.mmx.client.internal.channel.BasicUserInfo;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import com.magnet.max.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;
@@ -51,6 +35,11 @@ import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
 import com.magnet.mmx.client.common.MMXUserTopic;
+import com.magnet.mmx.client.internal.channel.BasicUserInfo;
+import com.magnet.mmx.client.internal.channel.ChannelService;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
+import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
@@ -61,6 +50,15 @@ import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.TimeUtil;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import retrofit.Callback;
 import retrofit.Response;
 
@@ -1680,50 +1678,6 @@ public class MMXChannel implements Parcelable {
           }).executeInBackground();
     } else {
       throw new IllegalArgumentException("Subscribers is empty");
-    }
-  }
-
-  /**
-   * Get summary for channels
-   * @param channels
-   * @param numOfMessages
-   * @param numberOfSubscribers
-   * @param listener
-   */
-  @Deprecated
-  public static void getChannelSummary(Set<MMXChannel> channels, Integer numOfMessages, Integer numberOfSubscribers, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
-    if(null == channels || channels.isEmpty()) {
-      if(null != listener) {
-        listener.onSuccess(Collections.EMPTY_LIST);
-      }
-    } else {
-      List<ChannelLookupKey> keys = new ArrayList<>(channels.size());
-      for(MMXChannel c : channels) {
-        keys.add(new ChannelLookupKey(c.getName(), c.isPublic(), c.getOwnerId()));
-      }
-      getChannelService().getChannelSummary(new ChannelSummaryRequest.Builder().channelIds(keys).numOfMessages(numOfMessages).numOfSubcribers(numberOfSubscribers).build(),
-          new Callback<List<ChannelSummaryResponse>>() {
-            @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
-              if(response.isSuccess()) {
-                if(null != listener) {
-                  listener.onSuccess(response.body());
-                }
-              } else {
-                handleError(new ApiError(response.message(), response.code()), listener);
-              }
-            }
-
-            @Override public void onFailure(Throwable throwable) {
-              handleError(throwable, listener);
-            }
-
-            private void handleError(Throwable error, OnFinishedListener listener) {
-              Log.e(TAG, "Failed to getChannelSummary", error);
-              if(null != listener) {
-                listener.onFailure(FailureCode.GENERIC_FAILURE, error);
-              }
-            }
-          }).executeInBackground();
     }
   }
 
