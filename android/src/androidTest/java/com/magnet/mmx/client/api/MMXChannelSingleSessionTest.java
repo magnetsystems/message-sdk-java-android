@@ -157,7 +157,6 @@ public class MMXChannelSingleSessionTest {
     ChannelHelper.fetch(channel, 1);
 
     // Channel detail
-    ChannelHelper.getChannelSummary(channel, 1);
     List<ChannelDetail> channelDetails = ChannelHelper.getChannelDetail(channel);
     assertThat(channelDetails).hasSize(1);
     ChannelDetail channelDetail = channelDetails.get(0);
