@@ -39,6 +39,12 @@ public class ChannelDetailOptions {
   //  return wantOwnerInfo;
   //}
 
+  @Override
+  public String toString() {
+    return new StringBuilder().append("{").append("numOfMessages=").append(numOfMessages)
+        .append(", numOfSubcribers=").append(numOfSubcribers).append("}").toString();
+  }
+
   /**
    * Builder for @see ChannelDetailOptions
    */
