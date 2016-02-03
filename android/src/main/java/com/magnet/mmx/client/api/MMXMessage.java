@@ -67,6 +67,7 @@ public class MMXMessage implements Parcelable {
   public static class FailureCode extends MMX.FailureCode {
     public static final FailureCode INVALID_RECIPIENT = new FailureCode(404, "INVALID_RECIPIENT");
     public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
+    public static final FailureCode NO_RECEIPT_ID = new FailureCode(430, "NO_RECEIPT_ID");
     
     FailureCode(int value, String description) {
       super(value, description);
@@ -772,8 +773,14 @@ public class MMXMessage implements Parcelable {
    */
   public final void acknowledge(final OnFinishedListener<Void> listener) {
     if (mReceiptId == null) {
-      throw new IllegalArgumentException("Cannot acknowledge() this message: " + mId);
+      //throw new IllegalArgumentException("Cannot acknowledge() this message: " + mId);
+      if(null != listener) {
+        listener.onFailure(FailureCode.NO_RECEIPT_ID, new IllegalArgumentException("Cannot acknowledge() this message: " + mId));
+      }
+
+      return;
     }
+
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
