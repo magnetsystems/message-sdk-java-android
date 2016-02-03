@@ -59,6 +59,11 @@ public class ChannelSummaryRequest {
     return numOfSubcribers;
   }
 
+  @Override
+  public String toString() {
+    return  new StringBuilder().append("{").append("numOfMessages=").append(numOfMessages)
+        .append(", numOfSubcribers=").append(numOfSubcribers).append("}").toString();
+  }
 
   /**
   * Builder for ChannelSummaryRequest
