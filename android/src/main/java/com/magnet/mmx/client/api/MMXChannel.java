@@ -1790,26 +1790,32 @@ public class MMXChannel implements Parcelable {
    */
   public void setIcon(File imageFile, final ApiCallback<Boolean> listener) {
     if (null != imageFile) {
-      Attachment attachment = new Attachment(imageFile,
-          Attachment.getMimeType(imageFile.getName(), Attachment.MIME_TYPE_IMAGE));
-      attachment.addMetaData(Attachment.META_FILE_ID, mName);
-      attachment.upload(new Attachment.UploadListener() {
-        @Override public void onStart(Attachment attachment) {
+      if(StringUtil.isStringValueEqual(mOwnerId, User.getCurrentUserId())) {
+        Attachment attachment = new Attachment(imageFile,
+            Attachment.getMimeType(imageFile.getName(), Attachment.MIME_TYPE_IMAGE));
+        attachment.addMetaData(Attachment.META_FILE_ID, mName);
+        attachment.upload(new Attachment.UploadListener() {
+          @Override public void onStart(Attachment attachment) {
 
-        }
-
-        @Override public void onComplete(Attachment attachment) {
-          if(null != listener) {
-            listener.success(true);
           }
-        }
 
-        @Override public void onError(Attachment attachment, Throwable error) {
-          if(null != listener) {
-            listener.failure(new ApiError(error));
+          @Override public void onComplete(Attachment attachment) {
+            if (null != listener) {
+              listener.success(true);
+            }
           }
+
+          @Override public void onError(Attachment attachment, Throwable error) {
+            if (null != listener) {
+              listener.failure(new ApiError(error));
+            }
+          }
+        });
+      } else {
+        if(null != listener) {
+          listener.failure(new ApiError("Only channel owner can set icon"));
         }
-      });
+      }
     }
   }
 
