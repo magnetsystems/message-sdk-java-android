@@ -1788,7 +1788,7 @@ public class MMXChannel implements Parcelable {
    * @param imageFile
    * @param listener
    */
-  public void setIcon(File imageFile, final ApiCallback<Boolean> listener) {
+  public void setIcon(File imageFile, final ApiCallback<String> listener) {
     if (null != imageFile) {
       if(StringUtil.isStringValueEqual(mOwnerId, User.getCurrentUserId())) {
         Attachment attachment = new Attachment(imageFile,
@@ -1801,7 +1801,7 @@ public class MMXChannel implements Parcelable {
 
           @Override public void onComplete(Attachment attachment) {
             if (null != listener) {
-              listener.success(true);
+              listener.success(getIconUrl());
             }
           }
 
