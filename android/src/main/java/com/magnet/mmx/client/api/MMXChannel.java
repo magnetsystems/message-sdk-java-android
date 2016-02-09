@@ -1816,6 +1816,10 @@ public class MMXChannel implements Parcelable {
           listener.failure(new ApiError("Only channel owner can set icon"));
         }
       }
+    } else {
+      if(null != listener) {
+        listener.failure(new ApiError("image should not be null"));
+      }
     }
   }
 
