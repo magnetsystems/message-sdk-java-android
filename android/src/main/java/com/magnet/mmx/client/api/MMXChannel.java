@@ -16,7 +16,9 @@ package com.magnet.mmx.client.api;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
+import com.magnet.max.android.Attachment;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.UserProfile;
@@ -50,6 +52,7 @@ import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.TimeUtil;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1778,6 +1781,44 @@ public class MMXChannel implements Parcelable {
         }
       }).executeInBackground();
     }
+  }
+
+  /**
+   * Set a icon for the channel
+   * @param imageFile
+   * @param listener
+   */
+  public void setIcon(File imageFile, final ApiCallback<Boolean> listener) {
+    if (null != imageFile) {
+      Attachment attachment = new Attachment(imageFile,
+          Attachment.getMimeType(imageFile.getName(), Attachment.MIME_TYPE_IMAGE));
+      attachment.addMetaData(Attachment.META_FILE_ID, mName);
+      attachment.upload(new Attachment.UploadListener() {
+        @Override public void onStart(Attachment attachment) {
+
+        }
+
+        @Override public void onComplete(Attachment attachment) {
+          if(null != listener) {
+            listener.success(true);
+          }
+        }
+
+        @Override public void onError(Attachment attachment, Throwable error) {
+          if(null != listener) {
+            listener.failure(new ApiError(error));
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Get the url of the icon
+   * @return
+   */
+  public String getIconUrl() {
+    return Attachment.createDownloadUrl(mName, mOwnerId);
   }
 
   //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
