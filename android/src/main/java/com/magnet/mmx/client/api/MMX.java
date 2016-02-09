@@ -1097,7 +1097,7 @@ public final class MMX {
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "loginHelper(): failure=" + code, ex);
             ApiError error = new ApiError("Unable to login: " +
-                code, ApiError.API_ERROR_UNEXPECTED, ex);
+                code, ApiError.API_ERROR_UNDEFINED, ex);
             if(null != callback) {
               callback.failure(error);
             } else if (mCallback != null) {
