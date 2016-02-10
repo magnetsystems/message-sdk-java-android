@@ -1790,11 +1790,11 @@ public class MMXChannel implements Parcelable {
    * @param mimeType
    * @param listener
    */
-  public void setAvatar(Bitmap imageBitmap, String mimeType, final ApiCallback<String> listener) {
+  public void setIcon(Bitmap imageBitmap, String mimeType, final ApiCallback<String> listener) {
     if (null != mimeType) {
       if(StringUtil.isStringValueEqual(mOwnerId, User.getCurrentUserId())) {
         Attachment attachment = new Attachment(mimeType,StringUtil.isNotEmpty(mimeType) ? mimeType : Attachment.getMimeType(null, Attachment.MIME_TYPE_IMAGE));
-        attachment.addMetaData(Attachment.META_FILE_ID, mName);
+        attachment.addMetaData(Attachment.META_FILE_ID, getFullChannelName());
         attachment.upload(new Attachment.UploadListener() {
           @Override public void onStart(Attachment attachment) {
 
@@ -1829,7 +1829,11 @@ public class MMXChannel implements Parcelable {
    * @return
    */
   public String getIconUrl() {
-    return Attachment.createDownloadUrl(mName, mOwnerId);
+    return Attachment.createDownloadUrl(getFullChannelName(), mOwnerId);
+  }
+
+  private String getFullChannelName() {
+    return mPublic ? mName : (mOwnerId + "_" + mName);
   }
 
   //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
