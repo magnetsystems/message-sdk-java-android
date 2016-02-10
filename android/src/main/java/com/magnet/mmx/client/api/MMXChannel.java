@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client.api;
 
+import android.graphics.Bitmap;
 import android.os.Parcel;
 import android.os.Parcelable;
 import com.magnet.max.android.ApiCallback;
@@ -1785,14 +1786,14 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Set a icon for the channel
-   * @param imageFile
+   * @param imageBitmap
+   * @param mimeType
    * @param listener
    */
-  public void setIcon(File imageFile, final ApiCallback<String> listener) {
-    if (null != imageFile) {
+  public void setAvatar(Bitmap imageBitmap, String mimeType, final ApiCallback<String> listener) {
+    if (null != mimeType) {
       if(StringUtil.isStringValueEqual(mOwnerId, User.getCurrentUserId())) {
-        Attachment attachment = new Attachment(imageFile,
-            Attachment.getMimeType(imageFile.getName(), Attachment.MIME_TYPE_IMAGE));
+        Attachment attachment = new Attachment(mimeType,StringUtil.isNotEmpty(mimeType) ? mimeType : Attachment.getMimeType(null, Attachment.MIME_TYPE_IMAGE));
         attachment.addMetaData(Attachment.META_FILE_ID, mName);
         attachment.upload(new Attachment.UploadListener() {
           @Override public void onStart(Attachment attachment) {
