@@ -15,7 +15,6 @@
 
 package com.magnet.mmx.client;
 
-import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
 import com.magnet.mmx.client.common.MMXException;
@@ -25,39 +24,26 @@ import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXid;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 //FIXME : those test cases need rewriting for 2.0
 @Suppress
-public class TestSub extends InstrumentationTestCase {
+public class TestSub extends MMXInstrumentationTestCase {
 
   private static final String TAG = TestSub.class.getSimpleName();
-  private MMXClient mmxClient;
-  private AtomicBoolean mConnected = new AtomicBoolean(false);
-  private static final String USER2 = "pubsub_test2";
+  private static final String APP_NAME = "MyPubSubApp";
+  private static final String MMS_URL = "http://localhost:8443";
+  private static final String USER2_SUFFIX = "pubsub_test2";
+  private static final String DEVICE2_ID = "computer-2";
 
   private static final String topic_name = "testpub1";
   private boolean messageReceived = false;
 
   @Override
   public void setUp() {
-    connect(USER2);
-  }
-
-  private void connect(String user) {
-    mmxClient = MMXClient.getInstance(this.getInstrumentation().getTargetContext(),
-            new ClientTestConfigImpl(this.getInstrumentation().getTargetContext()));
-    MMXClient.ConnectionOptions options = new MMXClient.ConnectionOptions().setAutoCreate(true);
-    mmxClient.connectWithCredentials(user, "test".getBytes(), new AbstractMMXListener() {
+    connect(APP_NAME, MMS_URL, USER2_SUFFIX, DEVICE2_ID, new AbstractMMXListener() {
       @Override
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         super.onConnectionEvent(client, event);
-        if (event == MMXClient.ConnectionEvent.CONNECTED) {
-          synchronized(mConnected) {
-            mConnected.set(true);
-            mConnected.notify();
-          }
-        }
       }
 
       @Override
@@ -67,22 +53,14 @@ public class TestSub extends InstrumentationTestCase {
 
       @Override
       public void handleMessageDelivered(MMXClient mmxClient, MMXid recipient, String messageId) {
-
       }
 
       @Override
       public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, MMXMessage mmxMessage) {
-
       }
-    }, options);
-    synchronized(mConnected) {
-      try {
-        mConnected.wait(5000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    });
   }
+
   public void testBasicSubscribe() throws MMXException {
     MMXPubSubManager pubManager = mmxClient.getPubSubManager();
     MMXTopic topic = new MMXGlobalTopic(topic_name);
@@ -113,7 +91,7 @@ public class TestSub extends InstrumentationTestCase {
           int count = 0;
           while (count < 30) {
             try {
-              Thread.currentThread().sleep(100);
+              Thread.sleep(100);
               count++;
             } catch (InterruptedException e) {
               e.printStackTrace();
@@ -129,7 +107,7 @@ public class TestSub extends InstrumentationTestCase {
       synchronized (waitThread) {
         while (!done[0]) {
           Log.d(TAG, "waiting for thread");
-          Thread.currentThread().sleep(100);
+          Thread.sleep(100);
         }
       }
       mmxClient.disconnect();

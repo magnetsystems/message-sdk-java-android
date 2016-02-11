@@ -26,12 +26,20 @@ import com.magnet.mmx.client.common.Log;
 /**
  * The connection settings for Java client with a persistent storage.  This
  * implementation uses a Properties file to load and store the settings.  The
- * MMX client library does not persist any settings, but the MMX Java SDK 
+ * MMX client library does not persist any settings, but the MMX Java SDK
  * provides persistent storage for ease of use.  Developers are free to override
  * the settings persister.
  */
 public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
                                         MMXPersistable {
+
+  public static final String PROP_APPNAME = "appName";
+  public static final String PROP_MMSBASEURL = "mmsBaseUrl";
+  public static final String PROP_MMSDEVUSER = "mmsDevUser";
+  public static final String PROP_MMSDEVPASSWD = "mmsDevPasswd";
+  public static final String PROP_MMSUSERID = "mmsUserId";
+//  public static final String PROP_MMSOAUTHCLIENTID = "mmsOauthClientId";
+//  public static final String PROP_MMSOAUTHSECRET = "mmsOauthSecret";
 
   /**
    * Auto Registering Device is needed for V1 support
@@ -53,7 +61,7 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
     mContext = context;
     mName = name;
   }
-  
+
   /**
    * Get the file name of the settings.
    * @return
@@ -61,7 +69,15 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
   public String getName() {
     return mName;
   }
-  
+
+  /**
+   * Copy the entire settings from <code>src</code> to this.
+   * @param src
+   */
+  public void copyAll(MMXSettings src) {
+    mProps.putAll(src.mProps);
+  }
+
   /**
    * Get an integer property.
    * @param name One of the predefined property name.
@@ -70,11 +86,12 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
   @Override
   public int getInt(String name, int defVal) {
     String val = mProps.getProperty(name);
-    if (val == null)
+    if (val == null) {
       return defVal;
+    }
     return Integer.parseInt(val);
   }
-  
+
   /**
    * Set an integer property.
    * @param name One of the predefined property name.
@@ -94,7 +111,7 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
   public String getString(String name, String defVal) {
     return mProps.getProperty(name, defVal);
   }
-  
+
   /**
    * Set a string property.
    * @param name One of the predefined property names.
@@ -102,10 +119,11 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
    */
   @Override
   public void setString(String name, String value) {
-    if (value == null)
+    if (value == null) {
       mProps.remove(name);
-    else
+    } else {
       mProps.setProperty(name, value);
+    }
   }
 
   /**
@@ -116,13 +134,15 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
   @Override
   public boolean getBoolean(String name, boolean defVal) {
     String val = mProps.getProperty(name);
-    if (val == null)
+    if (val == null) {
       return defVal;
-    if ("true".equalsIgnoreCase(val) || "1".equals(val) || "yes".equalsIgnoreCase(val))
-        return true;
+    }
+    if ("true".equalsIgnoreCase(val) || "1".equals(val) || "yes".equalsIgnoreCase(val)) {
+      return true;
+    }
     return false;
   }
-  
+
   /**
    * Set the boolean property.
    * @param name One of the pre-defined property names.
@@ -132,7 +152,7 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
   public void setBoolean(String name, boolean value) {
     mProps.setProperty(name, value ? "true" : "false");
   }
-  
+
   /**
    * Clone this object.
    * @return The clone object.
@@ -144,7 +164,7 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
     settings.mContext = mContext;
     return settings;
   }
-  
+
   /**
    * Check if the file exists.
    * @return true if the setting files exists; otherwise false.
@@ -154,7 +174,7 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
     File file = new File(mContext.getFilePath(mName));
     return file.exists();
   }
-  
+
   /**
    * Load the settings from the file.
    * @return true if loaded successfully; otherwise false.

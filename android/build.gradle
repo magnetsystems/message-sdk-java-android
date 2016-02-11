@@ -62,8 +62,6 @@ sourceSets {
 dependencies {
 //    compile fileTree(dir: 'libs', include: ['*.jar'])       // use a local build from libs
 
-//    compile 'com.google.code.gson:gson:2.3'
-
     compile 'com.magnet.mmx:mmx-common-api:2.3.1-SNAPSHOT'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
@@ -76,10 +74,12 @@ dependencies {
     }
 
     // For testing
+//    androidTestCompile 'com.magnet.max.test:integration-test:2.3.1-SNAPSHOT'
     androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
     androidTestCompile 'com.android.support.test:runner:0.4.1'
     androidTestCompile 'junit:junit:4.12'
 }
+
 
 android {
     compileSdkVersion 23
@@ -94,8 +94,8 @@ android {
 
     buildTypes {
         debug {
-   	    testCoverageEnabled true
-	       }
+   	      testCoverageEnabled true
+	      }
     }
 
     sourceSets {

@@ -15,10 +15,9 @@
  */
 package com.magnet.mmx.client;
 
-import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
+
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
@@ -39,15 +38,14 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
-//FIXME : those test cases need rewriting for 2.0
-@Suppress
-public class TestPubSub extends InstrumentationTestCase {
+public class TestPubSub extends MMXInstrumentationTestCase {
 
   private static final String TAG = TestPubSub.class.getSimpleName();
-  private MMXClient mmxClient;
-  private boolean isConnected = false;
-  private static final String TESTER = "pubsub_tester@host";
+  private static final String MMS_URL = "http://localhost:8443";
+  private static final String USER_SUFFIX = "u1";
+  private static final String DEVICE_ID = "computer-1";
 
   private static final String topicName0 = "MyTopic0";
   private static final String topicName1 = "MyTopic1";
@@ -59,24 +57,12 @@ public class TestPubSub extends InstrumentationTestCase {
 
   private boolean itemReceived = false;
 
-
   @Override
   public void setUp() {
-    connect(TESTER);
-  }
-
-  private void connect(String user) {
-    mmxClient = MMXClient.getInstance(this.getInstrumentation().getTargetContext(),
-            new ClientTestConfigImpl(this.getInstrumentation().getTargetContext()));
-    isConnected = false;
-    MMXClient.ConnectionOptions options = new MMXClient.ConnectionOptions().setAutoCreate(true);
-    mmxClient.connectWithCredentials(user, "test".getBytes(), new AbstractMMXListener() {
+    connect(UUID.randomUUID().toString(), MMS_URL, USER_SUFFIX, DEVICE_ID, new AbstractMMXListener() {
       @Override
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         super.onConnectionEvent(client, event);
-        if (event == MMXClient.ConnectionEvent.CONNECTED) {
-          isConnected = true;
-        }
       }
 
       @Override
@@ -91,18 +77,7 @@ public class TestPubSub extends InstrumentationTestCase {
       public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, MMXMessage mmxMessage) {
         itemReceived = true;
       }
-    }, options);
-    try {
-      for (int i=0; i<50; i++) {
-        Thread.sleep(100);
-        if (isConnected) {
-          break;
-        }
-      }
-
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    });
   }
 
   @SmallTest
@@ -228,7 +203,7 @@ public class TestPubSub extends InstrumentationTestCase {
     // Test getting topic info
     MMXTopicInfo mcInfo = pubManager.getTopic(mcTopic);
     assertNotNull(mcInfo);
-    assertEquals(TESTER, mcInfo.getCreator().getUserId());
+    assertEquals(userId, mcInfo.getCreator().getUserId());
     MMXTopicInfo lcInfo = pubManager.getTopic(lcTopic);
     assertNotNull(lcInfo);
     assertTrue(mcInfo.getTopic().equals(lcInfo.getTopic()));
