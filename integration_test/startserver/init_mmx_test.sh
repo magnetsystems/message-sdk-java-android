@@ -22,8 +22,8 @@ getProperty() {
 
 curdir=`pwd`
 
-MMX_SERVER_NAME="mmx-server-2.5.0-SNAPSHOT"
-MAX_SERVER_NAME="max-server-2.5.0-SNAPSHOT"
+MMX_SERVER_NAME="mmx-server-2.5.0-b-1"
+MAX_SERVER_NAME="max-server-2.5.0-b-1"
 
 cleanup_sql="$curdir/../test-conf/clean_testdata.sql"
 max_cleanup_sql="$curdir/../test-conf/max_clean_testdata.sql"
