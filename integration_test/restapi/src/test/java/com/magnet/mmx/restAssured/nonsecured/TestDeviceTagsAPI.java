@@ -19,6 +19,7 @@ import com.jayway.restassured.RestAssured;
 import com.magnet.mmx.protocol.TagListHolder;
 import com.magnet.mmx.restAssured.utils.TestUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -30,9 +31,14 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 
+/**
+ * Device Tags tests are suppressed because MMS does not support this feature.
+ *
+ */
 public class TestDeviceTagsAPI {
   private static final Logger LOGGER = Logger.getLogger(TestDeviceTagsAPI.class.getName());
 
+  @Ignore
   @Before
   public void setUp() {
     RestAssured.baseURI = TestUtils.HTTPBaseUrl;
@@ -40,6 +46,7 @@ public class TestDeviceTagsAPI {
     RestAssured.basePath = "/mmxmgmt/api/v1/";
   }
 
+  @Ignore
   @Test
   public void test01Add_Get_DeleteDeviceTag() {
     TagListHolder holder = new TagListHolder();

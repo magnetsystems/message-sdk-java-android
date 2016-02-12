@@ -68,11 +68,12 @@ genLocalProps() {
   esac
 }
 
-while getopts "rae:w:" o; do
+while getopts "srae:w:" o; do
   case "${o}" in
   "a") TESTANDROID="android";;
   "e") export EXTERNAL_BUILD_DIR=${OPTARG};;
   "r") TESTREST="rest";;
+  "s") STARTSERVER_ONLY="y";;
   "w") export WAITTIME=${OPTARG};;
   *)   usage;;
   esac
@@ -90,15 +91,24 @@ stop_server() {
   popd
 }
 
-# bootstrap and start then server
-pushd "$curdir/startserver"
-if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then
-  start_command="./init_mmx_test.sh start $EXTERNAL_BUILD_DIR"
-else
-  start_command="./init_mmx_test.sh start local"
+start_server() {
+  # bootstrap and start the server
+  pushd "$curdir/startserver"
+  if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then
+    start_command="./init_mmx_test.sh start $EXTERNAL_BUILD_DIR"
+  else
+    start_command="./init_mmx_test.sh start local"
+  fi
+  eval "$start_command"
+  popd
+}
+
+
+start_server
+if [[ -n "${STARTSERVER_ONLY}" ]]; then
+  echo "MMX server is bootstrapped and started"
+  exit 0;
 fi
-eval "$start_command"
-popd
 
 # Run REST API
 if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then

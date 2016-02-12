@@ -17,7 +17,7 @@ package com.magnet.mmx.restAssured.nonsecured;
 import com.google.gson.GsonBuilder;
 import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.response.Response;
-import com.magnet.mmx.protocol.AppCreateRequest;
+import com.magnet.mmx.protocol.AppInfo;
 import com.magnet.mmx.restAssured.utils.TestUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,7 +42,7 @@ public class TestAppManagementAPI {
 
     @Test
     public void test01AppCreateGetAndDelete() {
-      AppCreateRequest request = new AppCreateRequest();
+      AppInfo request = new AppInfo();
       String name = "Hello World";
       String ownerEmail = "tester@magnet.com";
       String guestSecret = "supersecret";
@@ -51,6 +51,7 @@ public class TestAppManagementAPI {
       request.setName(name);
       request.setOwnerEmail(ownerEmail);
       request.setOwnerId(TestUtils.appOwner);
+      request.setServerUserId(TestUtils.serveruser);
       GsonBuilder builder = new GsonBuilder();
       String payload = builder.create().toJson(request);
 
@@ -99,7 +100,7 @@ public class TestAppManagementAPI {
 
   @Test
   public void test01AppCreateWithBadGoogleAPIKey() {
-    AppCreateRequest request = new AppCreateRequest();
+    AppInfo request = new AppInfo();
     String name = "Hello World";
     String ownerEmail = "tester@magnet.com";
     String guestSecret = "supersecret";
@@ -109,6 +110,7 @@ public class TestAppManagementAPI {
     request.setName(name);
     request.setOwnerEmail(ownerEmail);
     request.setOwnerId(TestUtils.appOwner);
+    request.setServerUserId(TestUtils.serveruser);
     request.setGoogleApiKey(googleAPIKey);
     GsonBuilder builder = new GsonBuilder();
     String payload = builder.create().toJson(request);
@@ -132,7 +134,7 @@ public class TestAppManagementAPI {
 
   @Test
   public void test02AppCreateAndGetConfigurationAndDelete() {
-    AppCreateRequest request = new AppCreateRequest();
+    AppInfo request = new AppInfo();
     String name = "Configuration Test";
     String ownerEmail = "tester@magnet.com";
     String guestSecret = "supersecret";
