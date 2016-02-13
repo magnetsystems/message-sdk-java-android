@@ -15,6 +15,7 @@
 
 package com.magnet.mmx.client;
 
+import android.test.suitebuilder.annotation.Suppress;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
@@ -28,6 +29,7 @@ import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.MMXid;
 import java.util.List;
 
+@Suppress
 public class TestPub extends MMXInstrumentationTestCase {
 
   private static final String TAG = TestPub.class.getSimpleName();
