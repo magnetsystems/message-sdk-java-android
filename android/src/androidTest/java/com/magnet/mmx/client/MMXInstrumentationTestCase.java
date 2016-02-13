@@ -14,8 +14,8 @@
  */
 package com.magnet.mmx.client;
 
-import com.magnet.max.test.client.MMSClient;
-import com.magnet.server.sdk.bean.User;
+//import com.magnet.max.test.client.MMSClient;
+//import com.magnet.server.sdk.bean.User;
 
 import android.test.InstrumentationTestCase;
 
@@ -27,6 +27,7 @@ class MMXInstrumentationTestCase extends InstrumentationTestCase {
 
   protected void connect(String appName, String mmsUrl, String userName,
                          String deviceId, AbstractMMXListener listener) {
+    /*
     try {
       MMSClient mmsClient = new MMSClient(mmsUrl, "developer", "developer");
       appId = mmsClient.createApp(appName, "Android Integration Test", "app-123");
@@ -58,6 +59,7 @@ class MMXInstrumentationTestCase extends InstrumentationTestCase {
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
+    */
   }
 
   protected MMXClient getMMXClient() {
