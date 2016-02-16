@@ -176,6 +176,8 @@ public class MMXChannelSingleSessionTest {
     assertThat(channelDetail.getSubscribers()).hasSize(2);
     for(UserProfile up : channelDetail.getSubscribers()) {
       if(up.getUserIdentifier().equals(User.getCurrentUserId())) {
+        assertThat(up.getFirstName()).isEqualTo(User.getCurrentUser().getFirstName());
+        assertThat(up.getLastName()).isEqualTo(User.getCurrentUser().getLastName());
         assertThat(up.getDisplayName()).isEqualTo(User.getCurrentUser().getDisplayName());
       } else {
         assertThat(up.getDisplayName()).isEqualTo(user2.getDisplayName());
