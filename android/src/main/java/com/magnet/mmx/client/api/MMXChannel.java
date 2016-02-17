@@ -1711,6 +1711,21 @@ public class MMXChannel implements Parcelable {
                   List<ChannelDetail> channelDetails = null;
                   if(null != summaryResponses) {
                     channelDetails = new ArrayList<ChannelDetail>(summaryResponses.size());
+
+                    //Pre-populate user cache using batch api
+                    Set<String> userIds = new HashSet<>();
+                    for(ChannelSummaryResponse cr : summaryResponses) {
+                      if(null != cr.getMessages()) {
+                        for (PubSubItem item : cr.getMessages()) {
+                          if (null != item.getPublisher() && StringUtil.isNotEmpty(
+                              item.getPublisher().getUserId())) {
+                            userIds.add(item.getPublisher().getUserId());
+                          }
+                        }
+                      }
+                    }
+                    UserCache.getInstance().fillCacheByUserId(userIds);
+
                     for(int i = 0; i < summaryResponses.size(); i++) {
                       ChannelSummaryResponse r = summaryResponses.get(i);
 
@@ -1718,7 +1733,6 @@ public class MMXChannel implements Parcelable {
                       List<PubSubItem> pubsubItems = r.getMessages();
                       List<MMXMessage> mmxMessages = null;
                       if(null != pubsubItems) {
-                        mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                         for(PubSubItem item : pubsubItems) {
                           mmxMessages.add(MMXMessage.fromPubSubItem(item));
                         }
