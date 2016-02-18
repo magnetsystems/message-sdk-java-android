@@ -1753,7 +1753,8 @@ public class MMXChannel implements Parcelable {
                       //FIXME : have to lookup because the order sometimes doesn't match in request/response
                       MMXChannel forChannel = null;
                       for(MMXChannel c : channels) {
-                        if(c.getOwnerId().equals(r.getUserId()) && c.getName().equals(r.getChannelName())) {
+                        if((null == r.getUserId() || c.getOwnerId().equals(r.getUserId()))
+                            && c.getName().equals(r.getChannelName())) {
                           forChannel = c;
                           break;
                         }
