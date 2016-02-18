@@ -49,6 +49,16 @@ final class UserCache {
    * called from the main thread.
    *
    * @param userIds the userIds to lookup
+   */
+  void fillCacheByUserId(Set<String> userIds) {
+    fillCacheHelper(userIds, DEFAULT_ACCEPTED_AGE);
+  }
+
+  /**
+   * Fills the cache with the specified userIds.  This is a blocking call and should not be
+   * called from the main thread.
+   *
+   * @param userIds the userIds to lookup
    * @param acceptedAgeMillis the allowed age in milliseconds
    */
   void fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {

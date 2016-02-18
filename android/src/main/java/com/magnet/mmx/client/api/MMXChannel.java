@@ -1711,6 +1711,21 @@ public class MMXChannel implements Parcelable {
                   List<ChannelDetail> channelDetails = null;
                   if(null != summaryResponses) {
                     channelDetails = new ArrayList<ChannelDetail>(summaryResponses.size());
+
+                    //Pre-populate user cache using batch api
+                    Set<String> userIds = new HashSet<>();
+                    for(ChannelSummaryResponse cr : summaryResponses) {
+                      if(null != cr.getMessages()) {
+                        for (PubSubItem item : cr.getMessages()) {
+                          if (null != item.getPublisher() && StringUtil.isNotEmpty(
+                              item.getPublisher().getUserId())) {
+                            userIds.add(item.getPublisher().getUserId());
+                          }
+                        }
+                      }
+                    }
+                    UserCache.getInstance().fillCacheByUserId(userIds);
+
                     for(int i = 0; i < summaryResponses.size(); i++) {
                       ChannelSummaryResponse r = summaryResponses.get(i);
 
@@ -1718,7 +1733,6 @@ public class MMXChannel implements Parcelable {
                       List<PubSubItem> pubsubItems = r.getMessages();
                       List<MMXMessage> mmxMessages = null;
                       if(null != pubsubItems) {
-                        mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                         for(PubSubItem item : pubsubItems) {
                           mmxMessages.add(MMXMessage.fromPubSubItem(item));
                         }
@@ -1731,9 +1745,25 @@ public class MMXChannel implements Parcelable {
                           userProfiles.add(ui.toUserProfile());
                         }
                       }
-                      channelDetails.add(new ChannelDetail.Builder().channel(channels.get(i)).messages(mmxMessages)
-                          .subscribers(userProfiles).totalMessages(r.getPublishedItemCount())
-                          .totalSubscribers(r.getSubscriberCount()).build());
+
+                      //FIXME : have to lookup because the order sometimes doesn't match in request/response
+                      MMXChannel forChannel = null;
+                      for(MMXChannel c : channels) {
+                        if(c.getOwnerId().equals(r.getUserId()) && c.getName().equals(r.getChannelName())) {
+                          forChannel = c;
+                          break;
+                        }
+                      }
+                      if(null != forChannel) {
+                        channelDetails.add(new ChannelDetail.Builder().channel(forChannel)
+                            .messages(mmxMessages)
+                            .subscribers(userProfiles)
+                            .totalMessages(r.getPublishedItemCount())
+                            .totalSubscribers(r.getSubscriberCount())
+                            .build());
+                      } else {
+                        Log.e(TAG, "Couldn't find channel detail for channel " + channels.get(i));
+                      }
                     }
                   } else {
                     channelDetails = Collections.EMPTY_LIST;
