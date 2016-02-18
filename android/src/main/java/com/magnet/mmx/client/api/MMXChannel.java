@@ -1727,6 +1727,10 @@ public class MMXChannel implements Parcelable {
                           }
                         }
                       }
+
+                      if(null != cr.getUserId()) {
+                        userIds.add(cr.getUserId());
+                      }
                     }
                     UserCache.getInstance().fillCacheByUserId(userIds);
 

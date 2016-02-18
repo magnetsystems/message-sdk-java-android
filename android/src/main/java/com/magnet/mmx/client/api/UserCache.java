@@ -28,7 +28,7 @@ final class UserCache {
 
   private static final String TAG = UserCache.class.getSimpleName();
   static final long DEFAULT_ACCEPTED_AGE = 8 * 60 * 60000; //8 hours
-  static final int DEFAULT_CACHE_ENTRIES = 128;
+  static final int DEFAULT_CACHE_ENTRIES = 300;
   static final int DEFAULT_USER_RETRIEVE_TIMEOUT = 10;
   private final LruCache<String, CachedUser> mUserCache;
   private static UserCache sInstance = null;
