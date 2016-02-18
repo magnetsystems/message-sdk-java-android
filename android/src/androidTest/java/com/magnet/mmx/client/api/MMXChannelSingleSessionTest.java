@@ -163,6 +163,7 @@ public class MMXChannelSingleSessionTest {
     assertThat(channelDetail.getChannel()).isEqualTo(channel);
     assertThat(channelDetail.getTotalMessages()).isEqualTo(1);
     assertThat(channelDetail.getTotalSubscribers()).isEqualTo(2);
+    assertThat(channelDetail.getOwner().getUserIdentifier()).isEqualTo(User.getCurrentUserId();
 
     MMXMessage receivedMessage1 = channelDetail.getMessages().get(0);
     Log.d(TAG, "message received : " + receivedMessage1);
