@@ -17,7 +17,7 @@ public class ChannelDetail implements Parcelable {
   private List<MMXMessage> messages;
   private int totalSubscribers;
   private int totalMessages;
-  //private UserProfile owner;
+  private UserProfile owner;
 
   /**
    * The channel
@@ -43,9 +43,9 @@ public class ChannelDetail implements Parcelable {
     return messages;
   }
 
-  //public UserProfile getOwner() {
-  //  return owner;
-  //}
+  public UserProfile getOwner() {
+    return owner;
+  }
 
   /**
    * Total number of subscribers
@@ -98,10 +98,10 @@ public class ChannelDetail implements Parcelable {
       return this;
     }
 
-    //public Builder owner(UserProfile owner) {
-    //  channelDetail.owner = owner;
-    //  return this;
-    //}
+    public Builder owner(UserProfile owner) {
+      channelDetail.owner = owner;
+      return this;
+    }
 
     public ChannelDetail build() {
       return channelDetail;
@@ -118,6 +118,7 @@ public class ChannelDetail implements Parcelable {
     dest.writeTypedList(messages);
     dest.writeInt(this.totalSubscribers);
     dest.writeInt(this.totalMessages);
+    dest.writeParcelable(this.owner, flags);
   }
 
   public ChannelDetail() {
@@ -129,6 +130,7 @@ public class ChannelDetail implements Parcelable {
     this.messages = in.createTypedArrayList(MMXMessage.CREATOR);
     this.totalSubscribers = in.readInt();
     this.totalMessages = in.readInt();
+    this.owner = in.readParcelable(UserProfile.class.getClassLoader());
   }
 
   public static final Parcelable.Creator<ChannelDetail> CREATOR =

@@ -1727,7 +1727,7 @@ public class MMXChannel implements Parcelable {
                           }
                         }
                       }
-
+                      //Owner
                       if(null != cr.getUserId()) {
                         userIds.add(cr.getUserId());
                       }
@@ -1769,6 +1769,7 @@ public class MMXChannel implements Parcelable {
                             .subscribers(userProfiles)
                             .totalMessages(r.getPublishedItemCount())
                             .totalSubscribers(r.getSubscriberCount())
+                            .owner(UserCache.getInstance().getByUserId(forChannel.getOwnerId()))
                             .build());
                       } else {
                         Log.e(TAG, "Couldn't find channel detail for channel " + channels.get(i));
