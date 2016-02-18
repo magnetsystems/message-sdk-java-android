@@ -1745,9 +1745,25 @@ public class MMXChannel implements Parcelable {
                           userProfiles.add(ui.toUserProfile());
                         }
                       }
-                      channelDetails.add(new ChannelDetail.Builder().channel(channels.get(i)).messages(mmxMessages)
-                          .subscribers(userProfiles).totalMessages(r.getPublishedItemCount())
-                          .totalSubscribers(r.getSubscriberCount()).build());
+
+                      //FIXME : have to lookup because the order sometimes doesn't match in request/response
+                      MMXChannel forChannel = null;
+                      for(MMXChannel c : channels) {
+                        if(c.getOwnerId().equals(r.getUserId()) && c.getName().equals(r.getChannelName())) {
+                          forChannel = c;
+                          break;
+                        }
+                      }
+                      if(null != forChannel) {
+                        channelDetails.add(new ChannelDetail.Builder().channel(forChannel)
+                            .messages(mmxMessages)
+                            .subscribers(userProfiles)
+                            .totalMessages(r.getPublishedItemCount())
+                            .totalSubscribers(r.getSubscriberCount())
+                            .build());
+                      } else {
+                        Log.e(TAG, "Couldn't find channel detail for channel " + channels.get(i));
+                      }
                     }
                   } else {
                     channelDetails = Collections.EMPTY_LIST;

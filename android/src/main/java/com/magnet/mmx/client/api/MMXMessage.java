@@ -477,7 +477,7 @@ public class MMXMessage implements Parcelable {
       final Throwable exception = new IllegalStateException("Cannot send message.  " +
               "There is no current user.  Please login() first.");
       if (listener == null) {
-        Log.w(TAG, "send() failed", exception);
+        Log.w(TAG, "publish() failed", exception);
       } else {
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
