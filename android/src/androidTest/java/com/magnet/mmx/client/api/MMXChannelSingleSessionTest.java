@@ -39,6 +39,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.fail;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -163,7 +164,8 @@ public class MMXChannelSingleSessionTest {
     assertThat(channelDetail.getChannel()).isEqualTo(channel);
     assertThat(channelDetail.getTotalMessages()).isEqualTo(1);
     assertThat(channelDetail.getTotalSubscribers()).isEqualTo(2);
-    assertThat(channelDetail.getOwner().getUserIdentifier()).isEqualTo(User.getCurrentUserId();
+    assertNotNull(channelDetail.getOwner());
+    assertThat(channelDetail.getOwner().getUserIdentifier()).isEqualTo(User.getCurrentUserId());
 
     MMXMessage receivedMessage1 = channelDetail.getMessages().get(0);
     Log.d(TAG, "message received : " + receivedMessage1);
