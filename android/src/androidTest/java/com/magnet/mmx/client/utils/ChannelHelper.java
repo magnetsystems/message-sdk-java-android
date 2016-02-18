@@ -703,7 +703,7 @@ public class ChannelHelper {
   public static List<ChannelDetail> getChannelDetail(MMXChannel channel) {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<List<ChannelDetail>> resultRef = new AtomicReference<>();
-    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
+    final AtomicReference<MMXChannel.FailureCode> errorRef = new AtomicReference<>();
     MMXChannel.getChannelDetail(Arrays.asList(channel),new ChannelDetailOptions.Builder().numOfMessages(10).numOfSubcribers(5).build(),  new MMXChannel.OnFinishedListener<List<ChannelDetail>>() {
       @Override
       public void onSuccess(List<ChannelDetail> result) {
@@ -714,18 +714,18 @@ public class ChannelHelper {
       @Override
       public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
         Log.e(TAG, "Exception caught in MMXChannel.getChannelDetail : " + code, ex);
-        errorRef.set(ex);
+        errorRef.set(code);
       }
     });
 
     try {
       latch.await(TestConstants.TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
-      fail("MMXChannel.findPublicChannelsByName timed out");
+      fail("MMXChannel.getChannelDetail timed out");
     }
 
     if(null != errorRef.get()) {
-      fail("MMXChannel.findPublicChannelsByName failed due to " + errorRef.get().getMessage());
+      fail("MMXChannel.getChannelDetail failed due to " + errorRef.get());
     } else {
       assertThat(resultRef.get()).isNotNull();
       List<ChannelDetail> result = resultRef.get();

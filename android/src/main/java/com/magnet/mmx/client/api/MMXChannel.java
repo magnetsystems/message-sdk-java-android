@@ -155,6 +155,10 @@ public class MMXChannel implements Parcelable {
       super(value, description);
     }
 
+    FailureCode(int value, String description, Throwable throwable) {
+      super(value, description, throwable);
+    }
+
     FailureCode(MMX.FailureCode code) { super(code); }
 
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
@@ -1731,7 +1735,7 @@ public class MMXChannel implements Parcelable {
 
                       //convert messages
                       List<PubSubItem> pubsubItems = r.getMessages();
-                      List<MMXMessage> mmxMessages = null;
+                      List<MMXMessage> mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                       if(null != pubsubItems) {
                         for(PubSubItem item : pubsubItems) {
                           mmxMessages.add(MMXMessage.fromPubSubItem(item));

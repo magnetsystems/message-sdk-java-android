@@ -14,6 +14,7 @@
  */
 package com.magnet.mmx.client.api;
 
+import com.magnet.mmx.client.common.MMXException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -95,17 +96,35 @@ public final class MMX {
      * A server error.
      */
     public static final FailureCode SERVER_ERROR = new FailureCode(500, "SERVER_ERROR");
-    private final int mValue;
-    private final String mDescription;
-    private String mToString;
+    protected final int mValue;
+    protected  String mDescription;
+    protected String mToString;
+    protected Throwable mThrowable;
 
     FailureCode(int value, String description) {
-      mValue = value;
-      mDescription = description;
+      this(value, description, null);
+    }
+
+    public FailureCode(int value, String description, Throwable throwable) {
+      this.mValue = value;
+      this.mThrowable = throwable;
+      if(null != description) {
+        mDescription = description;
+      }
+
+      if(null != throwable) {
+        if(null == mDescription) {
+          mDescription = throwable.getMessage();
+        }
+      }
     }
 
     FailureCode(FailureCode code) {
-      this(code.getValue(), code.getDescription());
+      this(code, null);
+    }
+
+    FailureCode(FailureCode code, Throwable throwable) {
+      this(code.getValue(), code.getDescription(), throwable);
     }
 
     /**
@@ -137,8 +156,9 @@ public final class MMX {
 
     public String toString() {
       if (mToString == null) {
-        mToString = this.getClass().getSimpleName() +
-                    '(' + mValue + ',' + mDescription + ')';
+        mToString =  new StringBuilder().append("FailureCode { ").append("code = ").append(mValue)
+              .append(", description = ").append(mDescription)
+              .append(", throwable = ").append(mThrowable).toString();
       }
       return mToString;
     }
