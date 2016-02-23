@@ -142,6 +142,7 @@ public class TestAppManagementAPI {
     request.setGuestSecret(guestSecret);
     request.setName(name);
     request.setOwnerEmail(ownerEmail);
+    request.setServerUserId(TestUtils.serveruser);
     request.setOwnerId(TestUtils.appOwner);
     GsonBuilder builder = new GsonBuilder();
     String payload = builder.create().toJson(request);

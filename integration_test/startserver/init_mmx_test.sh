@@ -160,8 +160,8 @@ start_external() {
 }
 
 check_dbsetup() {
-  $mysql_command $1 <<EOF
-select count(*) from mmxApp;
+  $mysql_command $1 2>/dev/null <<EOF
+select count(*) from mmxTopicRole;
 EOF
 }
 
@@ -205,6 +205,7 @@ start() {
       /bin/echo -n .
       sleep 5
     done
+    sleep 3
     popd
 
     # stop the servers again before seeding the data
