@@ -915,44 +915,51 @@ public class MMXMessage implements Parcelable {
   }
 
   static MMXMessage fromPubSubItem(PubSubItem pubSubItem) {
-    UserCache userCache = UserCache.getInstance();
-    HashSet<String> usersToRetrieve = new HashSet<String>();
-    usersToRetrieve.add(pubSubItem.getPublisher().getUserId());
+    if(null != pubSubItem && null != pubSubItem.getContent()) {
+      UserCache userCache = UserCache.getInstance();
+      HashSet<String> usersToRetrieve = new HashSet<String>();
+      usersToRetrieve.add(pubSubItem.getPublisher().getUserId());
 
-    //fill the cache
-    userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+      //fill the cache
+      userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
 
-    //populate the values
-    User sender = userCache.getByUserId(pubSubItem.getPublisher().getUserId());
-    if (sender == null) {
-      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender from cache:  " +
-          "sender=" + sender + ".  Message will be dropped.");
+      //populate the values
+      User sender = userCache.getByUserId(pubSubItem.getPublisher().getUserId());
+      if (sender == null) {
+        Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender from cache:  " +
+            "sender=" + sender + ".  Message will be dropped.");
+        return null;
+      }
+
+      //populate the message content
+      HashMap<String, String> content = new HashMap<String, String>();
+
+      for (Map.Entry<String, String> entry : pubSubItem.getContent().entrySet()) {
+        if (!CONTENT_ATTACHMENTS.equals(entry.getKey())) {
+          content.put(entry.getKey(), entry.getValue());
+        }
+      }
+
+
+      MMXMessage.Builder newMessage = new MMXMessage.Builder();
+
+      // Extract attachments
+      String attachmentsStr = MagnetUtils.trimQuotes(pubSubItem.getContent().get(CONTENT_ATTACHMENTS));
+      if(StringUtil.isNotEmpty(attachmentsStr)) {
+        List<Attachment> attachments = GsonData.getGson().fromJson(attachmentsStr, new TypeToken<List<Attachment>>() {}.getType());
+        if(null != attachments && attachments.size() > 0) {
+          newMessage.attachments(attachments.toArray(new Attachment[0]));
+        }
+      }
+
+      return newMessage
+          .sender(sender).id(pubSubItem.getItemId())
+          .timestamp(Iso8601DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
+          .build();
+    } else {
+      Log.w(TAG, "PubSubItem doesn't have content : " + pubSubItem);
       return null;
     }
-
-    //populate the message content
-    HashMap<String, String> content = new HashMap<String, String>();
-    for (Map.Entry<String,String> entry : pubSubItem.getContent().entrySet()) {
-      if(!CONTENT_ATTACHMENTS.equals(entry.getKey())) {
-        content.put(entry.getKey(), entry.getValue());
-      }
-    }
-
-    MMXMessage.Builder newMessage = new MMXMessage.Builder();
-
-    // Extract attachments
-    String attachmentsStr = MagnetUtils.trimQuotes(pubSubItem.getContent().get(CONTENT_ATTACHMENTS));
-    if(StringUtil.isNotEmpty(attachmentsStr)) {
-      List<Attachment> attachments = GsonData.getGson().fromJson(attachmentsStr, new TypeToken<List<Attachment>>() {}.getType());
-      if(null != attachments && attachments.size() > 0) {
-        newMessage.attachments(attachments.toArray(new Attachment[0]));
-      }
-    }
-
-    return newMessage
-        .sender(sender).id(pubSubItem.getItemId())
-        .timestamp(Iso8601DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
-        .build();
   }
 
   //For handling the onSuccess of send() messages when server ack is received

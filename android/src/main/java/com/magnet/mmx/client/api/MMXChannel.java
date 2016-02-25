@@ -1742,7 +1742,10 @@ public class MMXChannel implements Parcelable {
                       List<MMXMessage> mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                       if(null != pubsubItems) {
                         for(PubSubItem item : pubsubItems) {
-                          mmxMessages.add(MMXMessage.fromPubSubItem(item));
+                          MMXMessage message = MMXMessage.fromPubSubItem(item);
+                          if(null != message) {
+                            mmxMessages.add(message);
+                          }
                         }
                       }
 
