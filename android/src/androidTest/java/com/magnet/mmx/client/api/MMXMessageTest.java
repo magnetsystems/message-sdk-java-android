@@ -58,6 +58,46 @@ public class MMXMessageTest {
   }
 
   @Test
+  public void testNullContentMessage() {
+    testEmptyMessageHelper(null);
+  }
+
+  @Test
+  public void testEmptyMessage() {
+    testEmptyMessageHelper(new HashMap<String, String>());
+  }
+
+  private void testEmptyMessageHelper(HashMap<String,String> content) {
+    HashSet<User> recipients = new HashSet<User>();
+    recipients.add(UserHelper.getInvalidUser("foo"));
+    MMXMessage message = new MMXMessage.Builder()
+        .recipients(recipients)
+        .content(content)
+        .build();
+    final ExecMonitor<String,MMXMessage.FailureCode> failureMonitor = new ExecMonitor<String,MMXMessage.FailureCode>();
+    message.send(new MMXMessage.OnFinishedListener<String>() {
+      @Override
+      public void onSuccess(String result) {
+        failureMonitor.invoked(result);
+      }
+
+      @Override
+      public void onFailure(MMXMessage.FailureCode code, Throwable throwable) {
+        Log.e(TAG, "testEmptyMessageHelper.onFailure", throwable);
+        failureMonitor.failed(code);
+      }
+    });
+    ExecMonitor.Status status = failureMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    if (status == ExecMonitor.Status.INVOKED) {
+      fail("should have called onFailure()");
+    } else if (status == ExecMonitor.Status.FAILED) {
+      assertEquals(MMXMessage.FailureCode.CONTENT_EMPTY, failureMonitor.getFailedValue());
+    } else {
+      fail("message.send() timed out");
+    }
+  }
+
+  @Test
   public void testSendBeforeLogin() {
     HashSet<User> recipients = new HashSet<User>();
     recipients.add(UserHelper.getInvalidUser("foo"));
