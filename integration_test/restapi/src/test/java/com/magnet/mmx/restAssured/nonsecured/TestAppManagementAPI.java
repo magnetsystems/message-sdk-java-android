@@ -28,6 +28,9 @@ import static com.jayway.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
 
+/**
+ * App Management integration test.
+ */
 public class TestAppManagementAPI {
 
   private static final Logger LOGGER = Logger.getLogger(TestAppManagementAPI.class.getName());
@@ -99,7 +102,7 @@ public class TestAppManagementAPI {
     }
 
   @Test
-  public void test01AppCreateWithBadGoogleAPIKey() {
+  public void test02AppCreateWithBadGoogleAPIKey() {
     AppInfo request = new AppInfo();
     String name = "Hello World";
     String ownerEmail = "tester@magnet.com";
@@ -133,7 +136,7 @@ public class TestAppManagementAPI {
 
 
   @Test
-  public void test02AppCreateAndGetConfigurationAndDelete() {
+  public void test03AppCreateAndGetConfigurationAndDelete() {
     AppInfo request = new AppInfo();
     String name = "Configuration Test";
     String ownerEmail = "tester@magnet.com";

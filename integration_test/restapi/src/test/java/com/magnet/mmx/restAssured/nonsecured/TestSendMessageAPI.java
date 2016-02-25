@@ -24,6 +24,7 @@ import static com.jayway.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 
 public class TestSendMessageAPI extends TestCase {
+    @Override
     @Before
     public void setUp() {
         RestAssured.baseURI = TestUtils.HTTPBaseUrl;
@@ -54,7 +55,7 @@ public class TestSendMessageAPI extends TestCase {
                 body("count.unsent", equalTo(0)).
                 body("sentList.messageId", notNullValue()).
                 body("sentList.deviceId", hasItem(nullValue())).
-                body("sentList.recipientUsername", hasItem(TestUtils.USER_ID_1)).
+                body("sentList.recipientUserId", hasItem(TestUtils.USER_ID_1)).
         extract().asString();
 
         System.out.println(response);
@@ -82,7 +83,7 @@ public class TestSendMessageAPI extends TestCase {
                 body("count.unsent", equalTo(0)).
                 body("sentList.messageId", notNullValue()).
                 body("sentList.deviceId", hasItem(TestUtils.DEVICE_ID_1)).
-//                body("sentList.recipientUsername", hasItem("daniel")).
+//                body("sentList.recipientUserId", hasItem("daniel")).
                 extract().asString();
 
         System.out.println(response);
@@ -110,22 +111,39 @@ public class TestSendMessageAPI extends TestCase {
                 body("count.unsent", equalTo(0)).
                 body("sentList.messageId", notNullValue()).
                 body("sentList.deviceId", hasItem(nullValue())).
-                body("sentList.recipientUsername", hasItem(TestUtils.USER_ID_1)).
+                body("sentList.recipientUserId", hasItem(TestUtils.USER_ID_1)).
                 extract().path("sentList.messageId[0]");
         System.out.println(messageId);
 
-        String response =
-                given().
-                        log().all().
-                        contentType(TestUtils.JSON).
-                        headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
-                when().
-                        get("message/" + messageId).
-                then().
-                        statusCode(200).
-                        body(containsString(messageId)).
-                        extract().asString();
-        System.out.println(response);
+//        try {
+//          Thread.sleep(1000);
+//        } catch (InterruptedException e) {
+//          // Ignored
+//        }
+
+        try {
+          // Use the admin API to get the message status.
+          RestAssured.basePath = "";
+          RestAssured.port = 6060;
+
+          String response =
+                  given().
+                          log().all().
+                          authentication().preemptive().basic(TestUtils.user, TestUtils.pass).
+                          contentType(TestUtils.JSON).
+                          headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
+                  when().
+                          get("/mmxadmin/rest/v1/messages/" + messageId).
+                  then().
+                          statusCode(200).
+                          body(containsString(messageId)).
+                          extract().asString();
+
+          System.out.println(response);
+        } finally {
+          RestAssured.basePath = "/mmxmgmt/api/v1/";
+          RestAssured.port = 5220;
+        }
     }
 
   @Test
@@ -148,9 +166,9 @@ public class TestSendMessageAPI extends TestCase {
         body("count.sent", equalTo(0)).
         body("count.requested", equalTo(2)).
         body("count.unsent", equalTo(2)).
-        body("unsentList.recipientUsername", notNullValue()).
+        body("unsentList.recipientUserId", notNullValue()).
         body("unsentList.code", hasItems(48, 48)).
-        body("unsentList.message", hasItems("Username not found")).
+        body("unsentList.message", hasItems("User not found")).
         extract().asString();
 
     System.out.println(response);
@@ -185,7 +203,7 @@ public class TestSendMessageAPI extends TestCase {
         then().
         statusCode(400).
         body("code", equalTo(50)).
-        body("message", containsString("Supplied username list exceeds the maximum allowed. At the most 1000 names are permitted")).
+        body("message", containsString("Supplied user list exceeds the maximum allowed. At the most 1000 names are permitted")).
         extract().asString();
 
     System.out.println(response);
