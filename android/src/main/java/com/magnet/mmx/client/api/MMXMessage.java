@@ -68,6 +68,7 @@ public class MMXMessage implements Parcelable {
     public static final FailureCode INVALID_RECIPIENT = new FailureCode(404, "INVALID_RECIPIENT");
     public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
     public static final FailureCode NO_RECEIPT_ID = new FailureCode(430, "NO_RECEIPT_ID");
+    public static final FailureCode CONTENT_EMPTY = new FailureCode(414, "CONTENT_IS_EMPTY");
 
     FailureCode(int value, String description) {
       super(value, description);
@@ -561,17 +562,17 @@ public class MMXMessage implements Parcelable {
    * @param listener the listener for this method call
    */
   public String send(final OnFinishedListener<String> listener) {
-    if (MMX.getCurrentUser() == null) {
+    final boolean isContentEmpty = null == mContent || mContent.isEmpty();
+    if (MMX.getCurrentUser() == null || isContentEmpty) {
       //FIXME:  This needs to be done in MMXClient/MMXMessageManager.  Do it here for now.
-      final Throwable exception = new IllegalStateException("Cannot send message.  " +
+      final Throwable exception = isContentEmpty ? new IllegalArgumentException("content is empty") : new IllegalStateException("Cannot send message.  " +
               "There is no current user.  Please login() first.");
-      if (listener == null) {
-        Log.w(TAG, "send() failed", exception);
-      } else {
+      Log.w(TAG, "send() failed", exception);
+      if (listener != null) {
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
           public void run() {
-            listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.BAD_REQUEST, exception), exception);
+            listener.onFailure(isContentEmpty ? FailureCode.CONTENT_EMPTY : FailureCode.fromMMXFailureCode(MMX.FailureCode.BAD_REQUEST, exception), exception);
           }
         });
       }
