@@ -307,6 +307,9 @@ public class MMXChannel implements Parcelable {
      * @return the channel
      */
     public MMXChannel build() {
+      if(null == mChannel.getNumberOfMessages()) {
+        mChannel.numberOfMessages(0);
+      }
       return mChannel;
     }
   }
