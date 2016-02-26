@@ -148,6 +148,7 @@ public class MMXChannel implements Parcelable {
     public static final FailureCode SUBSCRIPTION_ADD_FAILURE = new FailureCode(408, "SUBSCRIPTION_ADD_FAILURE");
     public static final FailureCode SUBSCRIPTION_REMOVE_FAILURE = new FailureCode(409, "SUBSCRIPTION_REMOVE_FAILURE");
     public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
+    public static final FailureCode CONTENT_EMPTY = new FailureCode(414, "CONTENT_IS_EMPTY");
     public static final FailureCode ATTACHMENT_FAILURE = new FailureCode(430, "ATTACHMENT_FAILURE");
     public static final FailureCode GENERIC_FAILURE = new FailureCode(500, "GENERIC_FAILURE");
 
@@ -306,6 +307,9 @@ public class MMXChannel implements Parcelable {
      * @return the channel
      */
     public MMXChannel build() {
+      if(null == mChannel.getNumberOfMessages()) {
+        mChannel.numberOfMessages(0);
+      }
       return mChannel;
     }
   }
@@ -1125,11 +1129,21 @@ public class MMXChannel implements Parcelable {
    */
   public String publish(Map<String, String> messageContent,
       final OnFinishedListener<String> listener) {
-    MMXMessage message = new MMXMessage.Builder()
-            .channel(this)
-            .content(messageContent)
-            .build();
-    return message.publish(listener);
+    if(null != messageContent && !messageContent.isEmpty()) {
+      MMXMessage message = new MMXMessage.Builder().channel(this).content(messageContent).build();
+      return message.publish(listener);
+    } else {
+      if(null != listener) {
+        MMX.getCallbackHandler().post(new Runnable() {
+          @Override
+          public void run() {
+            listener.onFailure(FailureCode.CONTENT_EMPTY, null);
+          }
+        });
+      }
+
+      return null;
+    }
   }
 
   /**
@@ -1742,7 +1756,10 @@ public class MMXChannel implements Parcelable {
                       List<MMXMessage> mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                       if(null != pubsubItems) {
                         for(PubSubItem item : pubsubItems) {
-                          mmxMessages.add(MMXMessage.fromPubSubItem(item));
+                          MMXMessage message = MMXMessage.fromPubSubItem(item);
+                          if(null != message) {
+                            mmxMessages.add(message);
+                          }
                         }
                       }
 
