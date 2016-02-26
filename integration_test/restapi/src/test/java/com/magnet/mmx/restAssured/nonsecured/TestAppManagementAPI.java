@@ -1,4 +1,4 @@
-/*   Copyright (c) 2015 Magnet Systems, Inc.
+/*   Copyright (c) 2015-2016 Magnet Systems, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.response.Response;
 import com.magnet.mmx.protocol.AppInfo;
 import com.magnet.mmx.restAssured.utils.TestUtils;
+
+import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -29,12 +31,18 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
 
 /**
- * App Management integration test.
+ * App Management integration test.  It tests both original version API (apps)
+ * and newer version API (integration/apps); both API's use the same internal
+ * MMXAppManager to perform the operations.  Currently the request and response
+ * to these two API's are same.  But the plan is to deprecate the "apps" API and
+ * use token-based authentication for "integration/apps" API.
  */
 public class TestAppManagementAPI {
 
   private static final Logger LOGGER = Logger.getLogger(TestAppManagementAPI.class.getName());
   private static final String APP_RESOURCE = "/mmxadmin/rest/v1/apps";
+  private static final String INT_APP_RESOURCE = "/mmxadmin/rest/v1/integration/apps";
+
     @Before
     public void setUp() {
         RestAssured.baseURI = TestUtils.HTTPBaseUrl;
@@ -193,4 +201,98 @@ public class TestAppManagementAPI {
         statusCode(200);
   }
 
+  /**
+   * CRUD test using the .../mmxadmin/rest/v1/integration/apps URL (actually
+   * it is used by MMX 2.x)
+   */
+  @Test
+  public void test04AppCreateGetUpdateAndDelete() {
+    AppInfo appInfo = new AppInfo();
+    String name = "App CRUD Test";
+    String ownerEmail = "tester@magnet.com";
+    String guestSecret = "supersecret";
+    String googleAPIKey = "AIzaSyAdWMnq-33UuP4eoVhg9H3Qf2sRIGk0fZI";
+    String googleProjectId = "148651144468";
+
+    // Create app
+    appInfo.setGuestSecret(guestSecret);
+    appInfo.setName(name);
+    appInfo.setOwnerEmail(ownerEmail);
+    appInfo.setServerUserId(TestUtils.serveruser);
+    appInfo.setOwnerId(TestUtils.appOwner);
+    GsonBuilder builder = new GsonBuilder();
+    String payload = builder.create().toJson(appInfo);
+
+    Response responsePost =
+        given().log().all()
+          .authentication()
+              .preemptive().basic(TestUtils.user, TestUtils.pass)
+          .contentType(TestUtils.JSON)
+          .headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders))
+          .body(payload)
+        .when()
+          .post(INT_APP_RESOURCE);
+    LOGGER.info(responsePost.asString());
+
+    String appId = responsePost.then()
+          .statusCode(201)
+          .body("name", equalTo(name))
+          .body("googleAPIKey", CoreMatchers.nullValue())
+          .body("googleProjectId", CoreMatchers.nullValue())
+        .extract()
+          .path("appId");
+
+    // Update app
+    appInfo.setAppId(appId);
+    appInfo.setGoogleApiKey(googleAPIKey);
+    appInfo.setGoogleProjectId(googleProjectId);
+    payload = builder.create().toJson(appInfo);
+
+    Response responsePut =
+        given().log().all()
+          .authentication()
+              .preemptive().basic(TestUtils.user, TestUtils.pass)
+          .contentType(TestUtils.JSON)
+          .headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders))
+          .body(payload)
+        .when()
+          .put(INT_APP_RESOURCE);
+    LOGGER.info("updateResponse: " + responsePut.asString());
+
+    responsePut.then()
+        .statusCode(201)
+        .body("googleAPIKey", equalTo(googleAPIKey))
+        .body("googleProjectId", equalTo(googleProjectId));
+
+    // Get app
+    Response responseGet =
+        given().log().all()
+          .authentication().preemptive().basic(TestUtils.user, TestUtils.pass)
+          .contentType(TestUtils.JSON)
+          .headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders))
+        .when()
+          .get(INT_APP_RESOURCE + "/" + appId);
+
+    LOGGER.info("configurationGetResponse: " + responseGet.asString());
+
+    // TODO: shouldn't the status code be 200 instead of 201?
+    responseGet.then()
+        .statusCode(201)
+        .body("googleAPIKey", equalTo(googleAPIKey))
+        .body("googleProjectId", equalTo(googleProjectId));
+
+    // Delete app
+    Response responseDelete =
+        given().log().all()
+          .authentication()
+              .preemptive().basic(TestUtils.user, TestUtils.pass)
+          .contentType(TestUtils.JSON)
+          .headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders))
+        .when()
+          .delete(INT_APP_RESOURCE + "/" + appId);
+    LOGGER.info(responseDelete.asString());
+
+    responseDelete.then().
+        statusCode(200);
+  }
 }
