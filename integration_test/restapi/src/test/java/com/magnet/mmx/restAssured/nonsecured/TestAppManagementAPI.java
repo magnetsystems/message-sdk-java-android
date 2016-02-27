@@ -17,6 +17,7 @@ package com.magnet.mmx.restAssured.nonsecured;
 import com.google.gson.GsonBuilder;
 import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.response.Response;
+import com.magnet.mmx.protocol.AppEntity;
 import com.magnet.mmx.protocol.AppInfo;
 import com.magnet.mmx.restAssured.utils.TestUtils;
 
@@ -33,8 +34,9 @@ import static org.hamcrest.CoreMatchers.equalTo;
 /**
  * App Management integration test.  It tests both original version API (apps)
  * and newer version API (integration/apps); both API's use the same internal
- * MMXAppManager to perform the operations.  Currently the request and response
- * to these two API's are same.  But the plan is to deprecate the "apps" API and
+ * MMXAppManager to perform the operations.  Mostly the request and response
+ * to these two API's are same, except old update request is AppEntity and new
+ * update request is AppInfo.  But the plan is to deprecate the "apps" API and
  * use token-based authentication for "integration/apps" API.
  */
 public class TestAppManagementAPI {
@@ -133,7 +135,7 @@ public class TestAppManagementAPI {
             headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
             body(payload).
             when().
-            post("/mmxadmin/rest/v1/apps");
+            post(APP_RESOURCE);
     LOGGER.info(responsePost.asString());
 
     responsePost.then().
@@ -214,7 +216,7 @@ public class TestAppManagementAPI {
     String googleAPIKey = "AIzaSyAdWMnq-33UuP4eoVhg9H3Qf2sRIGk0fZI";
     String googleProjectId = "148651144468";
 
-    // Create app
+    // Create app with AppInfo as request and AppEntity as response
     appInfo.setGuestSecret(guestSecret);
     appInfo.setName(name);
     appInfo.setOwnerEmail(ownerEmail);
@@ -232,7 +234,7 @@ public class TestAppManagementAPI {
           .body(payload)
         .when()
           .post(INT_APP_RESOURCE);
-    LOGGER.info(responsePost.asString());
+    LOGGER.info("create App: "+responsePost.asString());
 
     String appId = responsePost.then()
           .statusCode(201)
@@ -242,7 +244,7 @@ public class TestAppManagementAPI {
         .extract()
           .path("appId");
 
-    // Update app
+    // Update app with AppInfo as request and AppEntity as response
     appInfo.setAppId(appId);
     appInfo.setGoogleApiKey(googleAPIKey);
     appInfo.setGoogleProjectId(googleProjectId);
@@ -257,14 +259,14 @@ public class TestAppManagementAPI {
           .body(payload)
         .when()
           .put(INT_APP_RESOURCE);
-    LOGGER.info("updateResponse: " + responsePut.asString());
+    LOGGER.info("update App: " + responsePut.asString());
 
     responsePut.then()
         .statusCode(201)
         .body("googleAPIKey", equalTo(googleAPIKey))
         .body("googleProjectId", equalTo(googleProjectId));
 
-    // Get app
+    // Get app with AppEntity as response
     Response responseGet =
         given().log().all()
           .authentication().preemptive().basic(TestUtils.user, TestUtils.pass)
@@ -273,7 +275,7 @@ public class TestAppManagementAPI {
         .when()
           .get(INT_APP_RESOURCE + "/" + appId);
 
-    LOGGER.info("configurationGetResponse: " + responseGet.asString());
+    LOGGER.info("get App: " + responseGet.asString());
 
     // TODO: shouldn't the status code be 200 instead of 201?
     responseGet.then()
@@ -290,7 +292,7 @@ public class TestAppManagementAPI {
           .headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders))
         .when()
           .delete(INT_APP_RESOURCE + "/" + appId);
-    LOGGER.info(responseDelete.asString());
+    LOGGER.info("delete App: " + responseDelete.asString());
 
     responseDelete.then().
         statusCode(200);

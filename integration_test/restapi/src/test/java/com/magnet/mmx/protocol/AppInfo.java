@@ -15,7 +15,7 @@
 package com.magnet.mmx.protocol;
 
 /**
- * App Info for creation.  It is copied from
+ * App Info for creation and update app requests.  It is copied from
  * com.magnet.mmx.server.plugin.mmxmgmt.servlet.AppInfo class.
  */
 public class AppInfo {
