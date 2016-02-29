@@ -115,35 +115,18 @@ public class TestSendMessageAPI extends TestCase {
                 extract().path("sentList.messageId[0]");
         System.out.println(messageId);
 
-//        try {
-//          Thread.sleep(1000);
-//        } catch (InterruptedException e) {
-//          // Ignored
-//        }
-
-        try {
-          // Use the admin API to get the message status.
-          RestAssured.basePath = "";
-          RestAssured.port = 6060;
-
-          String response =
-                  given().
-                          log().all().
-                          authentication().preemptive().basic(TestUtils.user, TestUtils.pass).
-                          contentType(TestUtils.JSON).
-                          headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
-                  when().
-                          get("/mmxadmin/rest/v1/messages/" + messageId).
-                  then().
-                          statusCode(200).
-                          body(containsString(messageId)).
-                          extract().asString();
-
-          System.out.println(response);
-        } finally {
-          RestAssured.basePath = "/mmxmgmt/api/v1/";
-          RestAssured.port = 5220;
-        }
+        String response =
+                given().
+                        log().all().
+                        contentType(TestUtils.JSON).
+                        headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
+                when().
+                        get("messages/" + messageId).
+                then().
+                        statusCode(200).
+                        body(containsString(messageId)).
+                        extract().asString();
+        System.out.println(response);
     }
 
   @Test
@@ -159,9 +142,9 @@ public class TestSendMessageAPI extends TestCase {
         contentType(TestUtils.JSON).
         headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
         body(payLoad).
-        when().
+      when().
         post("send_message").
-        then().
+      then().
         statusCode(200).
         body("count.sent", equalTo(0)).
         body("count.requested", equalTo(2)).
