@@ -18,11 +18,13 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import com.google.gson.reflect.TypeToken;
 import com.magnet.max.android.Attachment;
+import com.magnet.max.android.rest.marshalling.Iso8601DateConverter;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.MagnetUtils;
 import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.util.GsonData;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,7 +67,8 @@ public class MMXMessage implements Parcelable {
   public static class FailureCode extends MMX.FailureCode {
     public static final FailureCode INVALID_RECIPIENT = new FailureCode(404, "INVALID_RECIPIENT");
     public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
-    
+    public static final FailureCode NO_RECEIPT_ID = new FailureCode(430, "NO_RECEIPT_ID");
+
     FailureCode(int value, String description) {
       super(value, description);
     }
@@ -73,10 +76,11 @@ public class MMXMessage implements Parcelable {
     FailureCode(MMX.FailureCode code) { super(code); }
 
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      if (throwable != null)
+      if (throwable != null) {
         Log.d(TAG, "fromMMXFailureCode() ex="+throwable.getClass().getName());
-      else
+      } else {
         Log.d(TAG, "fromMMXFailureCode() ex=null");
+      }
       if (throwable instanceof MMXException) {
         return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
       } else {
@@ -98,6 +102,7 @@ public class MMXMessage implements Parcelable {
      *
      * @param result the result of the operation
      */
+    @Override
     public abstract void onSuccess(T result);
 
     /**
@@ -106,13 +111,14 @@ public class MMXMessage implements Parcelable {
      * @param code the failure code
      * @param throwable the throwable associated with this failure (may be null)
      */
+    @Override
     public abstract void onFailure(FailureCode code, Throwable throwable);
   }
   /**
    * The builder for the MMXMessage class
    */
   public static final class Builder {
-    private MMXMessage mMessage;
+    private final MMXMessage mMessage;
 
     public Builder() {
       mMessage = new MMXMessage();
@@ -244,32 +250,33 @@ public class MMXMessage implements Parcelable {
       return mMessage;
     }
   }
-  
+
   /**
    * The exception contains a list of recipient user ID's that a message
    * cannot be sent to.
    */
   public static class InvalidRecipientException extends MMXException {
-    private String mMsgId;
-    private Set<String> mUserIds = new HashSet<String>();
-    
+    private final String mMsgId;
+    private final Set<String> mUserIds = new HashSet<String>();
+
     public InvalidRecipientException(String msg, String messageId) {
       super(msg, StatusCode.NOT_FOUND);
       mMsgId = messageId;
     }
-    
+
     public String getMessageId() {
       return mMsgId;
     }
-    
+
     private void addUserId(String userId) {
       mUserIds.add(userId);
     }
-    
+
     public Set<String> getUserIds() {
       return mUserIds;
     }
-    
+
+    @Override
     public String toString() {
       return super.toString()+", msgId="+mMsgId+", uids="+mUserIds;
     }
@@ -283,7 +290,7 @@ public class MMXMessage implements Parcelable {
   private Set<User> mRecipients = new HashSet<User>();
   private Map<String, String> mContent = new HashMap<String, String>();
   private String mReceiptId;
-  private List<Attachment> mAttachments = new ArrayList<>();
+  private List<Attachment> mAttachments = new ArrayList<Attachment>();
 
   /**
    * Default constructor
@@ -473,6 +480,7 @@ public class MMXMessage implements Parcelable {
         Log.w(TAG, "send() failed", exception);
       } else {
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
                     MMX.FailureCode.BAD_REQUEST, exception), exception);
@@ -510,6 +518,7 @@ public class MMXMessage implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
                       MMXChannel.FailureCode.DEVICE_ERROR, exception), exception);
@@ -522,6 +531,7 @@ public class MMXMessage implements Parcelable {
       public void onResult(final String result) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -539,12 +549,12 @@ public class MMXMessage implements Parcelable {
    * recipients, the {@link OnFinishedListener#onSuccess(Object)} will be called
    * with the message id for the message to all valid recipients.  If there are
    * any invalid recipients in the message, a partial failure code
-   * {@link FailureCode#INVALID_RECIPIENT} in 
+   * {@link FailureCode#INVALID_RECIPIENT} in
    * {@link OnFinishedListener#onFailure(FailureCode, Throwable)} will be
    * invoked.  The message ID and a set of invalid recipients can be retrieved
    * from {@link User#getUsersByUserNames(List, ApiCallback)}. If this message is
    * addressed to a channel, the listener will be called with the id of the
-   * published message.  Common failure codes are 
+   * published message.  Common failure codes are
    * {@link FailureCode#CONTENT_TOO_LARGE}, {@link FailureCode#BAD_REQUEST}, or
    * FailureCode#DEVICE_ERROR.
    *
@@ -559,6 +569,7 @@ public class MMXMessage implements Parcelable {
         Log.w(TAG, "send() failed", exception);
       } else {
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.BAD_REQUEST, exception), exception);
           }
@@ -596,6 +607,7 @@ public class MMXMessage implements Parcelable {
         public void onException(final Throwable exception) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onFailure(FailureCode.fromMMXFailureCode(
                         FailureCode.DEVICE_ERROR, exception), exception);
@@ -608,6 +620,7 @@ public class MMXMessage implements Parcelable {
         public void onResult(final String result) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onSuccess(result);
               }
@@ -635,7 +648,7 @@ public class MMXMessage implements Parcelable {
           }
           if (listener != null) {
             synchronized (sMessageSendListeners) {
-              sMessageSendListeners.put(generatedMessageId, 
+              sMessageSendListeners.put(generatedMessageId,
                   new MessageListenerPair(listener, MMXMessage.this));
             }
           }
@@ -652,6 +665,7 @@ public class MMXMessage implements Parcelable {
         public void onException(final Throwable exception) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
               }
@@ -770,8 +784,14 @@ public class MMXMessage implements Parcelable {
    */
   public final void acknowledge(final OnFinishedListener<Void> listener) {
     if (mReceiptId == null) {
-      throw new IllegalArgumentException("Cannot acknowledge() this message: " + mId);
+      //throw new IllegalArgumentException("Cannot acknowledge() this message: " + mId);
+      if(null != listener) {
+        listener.onFailure(FailureCode.NO_RECEIPT_ID, new IllegalArgumentException("Cannot acknowledge() this message: " + mId));
+      }
+
+      return;
     }
+
     MMXTask<Void> task = new MMXTask<Void>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Void doRun(MMXClient mmxClient) throws Throwable {
@@ -783,6 +803,7 @@ public class MMXMessage implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -794,6 +815,7 @@ public class MMXMessage implements Parcelable {
       public void onResult(Void result) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(null);
             }
@@ -819,7 +841,7 @@ public class MMXMessage implements Parcelable {
       usersToRetrieve.add(message.getTo().getUserId());
     }
 
-    //idenfity all the users that need to be retrieved and populate the cache
+    //identify all the users that need to be retrieved and populate the cache
     MMXid[] otherRecipients = message.getReplyAll();
     if (otherRecipients != null) {
       //this is normal message.  getReplyAll() returns null for pubsub messages
@@ -876,7 +898,7 @@ public class MMXMessage implements Parcelable {
         newMessage.attachments(attachments.toArray(new Attachment[0]));
       }
     }
-    Log.d(TAG, "-----------message convertion, topic : " + topic + ", message : " + message);
+    Log.d(TAG, "-----------message conversion, topic : " + topic + ", message : " + message);
     if(null != topic) {
       Log.d(TAG, "It's a channel message");
       newMessage.channel(MMXChannel.fromMMXTopic(topic));
@@ -890,6 +912,47 @@ public class MMXMessage implements Parcelable {
             .sender(sender).id(message.getId())
             .timestamp(message.getPayload().getSentTime()).content(content)
             .build();
+  }
+
+  static MMXMessage fromPubSubItem(PubSubItem pubSubItem) {
+    UserCache userCache = UserCache.getInstance();
+    HashSet<String> usersToRetrieve = new HashSet<String>();
+    usersToRetrieve.add(pubSubItem.getPublisher().getUserId());
+
+    //fill the cache
+    userCache.fillCacheByUserId(usersToRetrieve, UserCache.DEFAULT_ACCEPTED_AGE); //five minutes old is ok
+
+    //populate the values
+    User sender = userCache.getByUserId(pubSubItem.getPublisher().getUserId());
+    if (sender == null) {
+      Log.e(TAG, "fromMMXMessage(): FAILURE: Unable to retrieve sender from cache:  " +
+          "sender=" + sender + ".  Message will be dropped.");
+      return null;
+    }
+
+    //populate the message content
+    HashMap<String, String> content = new HashMap<String, String>();
+    for (Map.Entry<String,String> entry : pubSubItem.getContent().entrySet()) {
+      if(!CONTENT_ATTACHMENTS.equals(entry.getKey())) {
+        content.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    MMXMessage.Builder newMessage = new MMXMessage.Builder();
+
+    // Extract attachments
+    String attachmentsStr = MagnetUtils.trimQuotes(pubSubItem.getContent().get(CONTENT_ATTACHMENTS));
+    if(StringUtil.isNotEmpty(attachmentsStr)) {
+      List<Attachment> attachments = GsonData.getGson().fromJson(attachmentsStr, new TypeToken<List<Attachment>>() {}.getType());
+      if(null != attachments && attachments.size() > 0) {
+        newMessage.attachments(attachments.toArray(new Attachment[0]));
+      }
+    }
+
+    return newMessage
+        .sender(sender).id(pubSubItem.getItemId())
+        .timestamp(Iso8601DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
+        .build();
   }
 
   //For handling the onSuccess of send() messages when server ack is received
@@ -914,7 +977,7 @@ public class MMXMessage implements Parcelable {
 //      }
 //    }
   }
-  
+
   static void handleMessageAccepted(List<MMXid> invalidRecipients, final String messageId) {
     Log.d(TAG, "handleMessageAccepted() invalid="+invalidRecipients+" msgId="+messageId);
     synchronized (sMessageSendListeners) {
@@ -922,6 +985,7 @@ public class MMXMessage implements Parcelable {
       if (listenerPair != null) {
         if (invalidRecipients == null || invalidRecipients.isEmpty()) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listenerPair.listener.onSuccess(messageId);
             }
@@ -933,6 +997,7 @@ public class MMXMessage implements Parcelable {
             ex.addUserId(xid.getUserId());
           }
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listenerPair.listener.onFailure(MMXMessage.FailureCode.INVALID_RECIPIENT, ex);
             }
@@ -941,12 +1006,13 @@ public class MMXMessage implements Parcelable {
       }
     }
   }
-  
+
   static MMXMessage getSendingMessage(String messageId) {
     synchronized (sMessageSendListeners) {
       MessageListenerPair listenerPair = sMessageSendListeners.get(messageId);
-      if (listenerPair == null)
+      if (listenerPair == null) {
         return null;
+      }
       return listenerPair.message;
     }
   }
@@ -981,7 +1047,7 @@ public class MMXMessage implements Parcelable {
       }
 
       final CountDownLatch uploadSignal = new CountDownLatch(1);
-      final AtomicReference<Throwable> uploadError = new AtomicReference<>();
+      final AtomicReference<Throwable> uploadError = new AtomicReference<Throwable>();
       attachment.upload(new Attachment.UploadListener() {
         @Override public void onStart(Attachment attachment) {
           if(null != progressListener) {
@@ -1070,7 +1136,7 @@ public class MMXMessage implements Parcelable {
     this.mChannel = in.readParcelable(MMXChannel.class.getClassLoader());
     User[] tmpRecipients = (User[]) in.readParcelableArray(User.class.getClassLoader());
     if(null != tmpRecipients) {
-      this.mRecipients = new HashSet<>(Arrays.asList(tmpRecipients));
+      this.mRecipients = new HashSet<User>(Arrays.asList(tmpRecipients));
     }
     this.mContent = ParcelableHelper.stringMapfromBundle(in.readBundle());
     this.mReceiptId = in.readString();
@@ -1080,10 +1146,12 @@ public class MMXMessage implements Parcelable {
 
   public static final Parcelable.Creator<MMXMessage> CREATOR =
       new Parcelable.Creator<MMXMessage>() {
+        @Override
         public MMXMessage createFromParcel(Parcel source) {
           return new MMXMessage(source);
         }
 
+        @Override
         public MMXMessage[] newArray(int size) {
           return new MMXMessage[size];
         }

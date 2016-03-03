@@ -16,7 +16,10 @@ package com.magnet.mmx.client.api;
 
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+import com.magnet.max.android.Attachment;
+import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
+import com.magnet.max.android.UserProfile;
 import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 import com.magnet.mmx.client.utils.ChannelHelper;
 import com.magnet.mmx.client.utils.ExecMonitor;
@@ -122,6 +125,7 @@ public class MMXChannelSingleSessionTest {
     helpTestChannelInvite(true);
   }
 
+  @Test
   public void testCreateChannelWithSubscribers() throws InterruptedException {
 
     String suffix = String.valueOf(System.currentTimeMillis());
@@ -146,8 +150,37 @@ public class MMXChannelSingleSessionTest {
     ChannelHelper.printCollection(subscribers, "subscribers after create");
     ChannelHelper.assertSubscribers(l1, subscribers);
 
-    ChannelHelper.publish(channel);
+    final Attachment
+        attachment1 = new Attachment(MaxCore.getApplicationContext().getResources().openRawResource(
+        com.magnet.mmx.test.R.raw.test_image), "image/jpeg");
+    MMXMessage message1 = ChannelHelper.publish(channel, attachment1);
     ChannelHelper.fetch(channel, 1);
+
+    // Channel detail
+    List<ChannelDetail> channelDetails = ChannelHelper.getChannelDetail(channel);
+    assertThat(channelDetails).hasSize(1);
+    ChannelDetail channelDetail = channelDetails.get(0);
+    assertThat(channelDetail.getChannel()).isEqualTo(channel);
+    assertThat(channelDetail.getTotalMessages()).isEqualTo(1);
+    assertThat(channelDetail.getTotalSubscribers()).isEqualTo(2);
+
+    MMXMessage receivedMessage1 = channelDetail.getMessages().get(0);
+    Log.d(TAG, "message received : " + receivedMessage1);
+    assertThat(receivedMessage1.getId()).isEqualTo(message1.getId());
+    assertThat(receivedMessage1.getAttachments()).hasSize(1);
+
+    Attachment receivedAttachment1 = receivedMessage1.getAttachments().get(0);
+    Log.d(TAG, "attchement received : " + receivedAttachment1);
+    assertThat(receivedAttachment1.getAttachmentId()).isEqualTo(attachment1.getAttachmentId());
+
+    assertThat(channelDetail.getSubscribers()).hasSize(2);
+    for(UserProfile up : channelDetail.getSubscribers()) {
+      if(up.getUserIdentifier().equals(User.getCurrentUserId())) {
+        assertThat(up.getDisplayName()).isEqualTo(User.getCurrentUser().getDisplayName());
+      } else {
+        assertThat(up.getDisplayName()).isEqualTo(user2.getDisplayName());
+      }
+    }
 
     //Add subscribers
     User user3 = UserHelper.registerUser(UserHelper.MMX_TEST_USER_3 + suffix, UserHelper.MMX_TEST_USER_3, UserHelper.MMX_TEST_USER_3, null, false);

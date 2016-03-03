@@ -20,7 +20,9 @@ WAITTIME=60
 trap "cd $curdir/startserver; ./init_mmx_test.sh stop; exit 1" SIGINT SIGTERM
 
 usage() {
-  echo "Usage: $0 [-w seconds-to-wait-for-server] [-a|android]" 1>&2
+  echo "Usage: $0 [-w seconds-to-wait-for-server] [-r] [-a|android]" 1>&2
+  echo "       -r for REST test" 1>&2
+  echo "       -a for Android test" 1>&2
   exit 1
 }
 
@@ -66,10 +68,11 @@ genLocalProps() {
   esac
 }
 
-while getopts "ae:w:" o; do
+while getopts "rae:w:" o; do
   case "${o}" in
   "a") TESTANDROID="android";;
   "e") export EXTERNAL_BUILD_DIR=${OPTARG};;
+  "r") TESTREST="rest";;
   "w") export WAITTIME=${OPTARG};;
   *)   usage;;
   esac
@@ -89,7 +92,7 @@ stop_server() {
 
 # bootstrap and start then server
 pushd "$curdir/startserver"
-if [ "$EXTERNAL_BUILD_DIR" != "" ]; then
+if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then
   start_command="./init_mmx_test.sh start $EXTERNAL_BUILD_DIR"
 else
   start_command="./init_mmx_test.sh start local"
@@ -98,26 +101,28 @@ eval "$start_command"
 popd
 
 # Run REST API
-if [ "$EXTERNAL_BUILD_DIR" != "" ]; then
+if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then
   echo "Running REST API functional tests for MMX external build..."
 else
   echo "Running REST API functional tests for MMX local build..."
 fi
 
 # Run REST API tests
-pushd "./restapi"
-./gradlew test
-status=$?
-popd
+if [[ "${TESTREST}" == "rest" ]]; then
+  pushd "./restapi"
+  ./gradlew test
+  status=$?
+  popd
 
-echo "REST API STATUS: $status"
-if [ "$status" != "0" ]; then
-  echo "FAILURE: REST API TEST FAILED"
-  stop_server
-  exit $status
+  echo "REST API STATUS: $status"
+  if [ "$status" != "0" ]; then
+    echo "FAILURE: REST API TEST FAILED"
+    stop_server
+    exit $status
+  fi
 fi
 
-if [ "${TESTANDROID}" = "android" ]; then
+if [[ "${TESTANDROID}" == "android" ]]; then
   # start Android unit tests
   echo "Running Android functional tests for MMX local build..."
 

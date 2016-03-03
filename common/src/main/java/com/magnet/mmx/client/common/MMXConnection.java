@@ -106,6 +106,8 @@ public class MMXConnection implements ConnectionListener {
   private String mUUID;
   private int mPriority;
   private long mSeq;
+  // To hold the priority temperarily when the connection is not available
+  private Integer mPriorityToBe;
 
   /**
    * Auto create the account if the account does not exist.
@@ -268,26 +270,18 @@ public class MMXConnection implements ConnectionListener {
    * @throws MMXException
    */
   public int setPriority(int priority) throws MMXException {
-    Presence presence;
-    if (priority == NOT_AVAILABLE) {
-      presence = new Presence(Presence.Type.unavailable);
-    } else if (priority >= 0 && priority <= 128) {
-      presence = new Presence(Presence.Type.available, "Online", priority,
-          Mode.available);
-    } else if (priority < 0 && priority >= -128) {
-      // Type.unavailable will make the connection invisible.
-      presence = new Presence(Presence.Type.available, "Blocking", priority,
-          Mode.dnd);
+    if(null != mCon && mCon.isConnected()) {
+      try {
+        mCon.sendPacket(priorityToPresense(priority));
+        int oldPriority = mPriority;
+        mPriority = priority;
+        return oldPriority;
+      } catch (Throwable e) {
+        throw new MMXException(e.getMessage(), e);
+      }
     } else {
-      throw new IllegalArgumentException("Priority must be >= -128 and <= 128");
-    }
-    try {
-      mCon.sendPacket(presence);
-      int oldPriority = mPriority;
-      mPriority = priority;
-      return oldPriority;
-    } catch (Throwable e) {
-      throw new MMXException(e.getMessage(), e);
+      mPriorityToBe = priority;
+      return priority;
     }
   }
 
@@ -388,6 +382,8 @@ public class MMXConnection implements ConnectionListener {
 
     try {
       mCon.connect();
+
+      setPendingPriority();
     } catch (SmackException.ConnectionException e) {
       Log.e(TAG, "Unable to connect to " + host + ":" + port, e);
       throw new ConnectionException(
@@ -431,6 +427,7 @@ public class MMXConnection implements ConnectionListener {
     }
     try {
       mCon.connect();
+      setPendingPriority();
       return true;
     } catch (Throwable e) {
       throw new MMXException("Unable to reconnect", e);
@@ -456,6 +453,36 @@ public class MMXConnection implements ConnectionListener {
         }
       }
       mCon = null;
+    }
+  }
+
+  private Presence priorityToPresense(int priority) {
+    Presence presence;
+    if (priority == NOT_AVAILABLE) {
+      presence = new Presence(Presence.Type.unavailable);
+    } else if (priority >= 0 && priority <= 128) {
+      presence = new Presence(Presence.Type.available, "Online", priority,
+          Mode.available);
+    } else if (priority < 0 && priority >= -128) {
+      // Type.unavailable will make the connection invisible.
+      presence = new Presence(Presence.Type.available, "Blocking", priority,
+          Mode.dnd);
+    } else {
+      throw new IllegalArgumentException("Priority must be >= -128 and <= 128");
+    }
+
+    return presence;
+  }
+
+  private void setPendingPriority() throws MMXException {
+    if(null != mCon && mCon.isConnected() && null != mPriorityToBe) {
+      try {
+        mCon.sendPacket(priorityToPresense(mPriorityToBe));
+        mPriority = mPriorityToBe;
+        mPriorityToBe = null;
+      } catch (Throwable e) {
+        throw new MMXException(e.getMessage(), e);
+      }
     }
   }
 

@@ -5,6 +5,11 @@
 
 package com.magnet.mmx.client.internal.channel;
 
+import com.magnet.mmx.client.api.ChannelDetailOptions;
+import com.magnet.mmx.client.api.MMXChannel;
+import java.util.ArrayList;
+import java.util.List;
+
 public class ChannelSummaryRequest {
 
   private Boolean includeOwnerInfo;
@@ -20,6 +25,19 @@ public class ChannelSummaryRequest {
 
   
   private Integer numOfSubcribers;
+
+  public ChannelSummaryRequest() {
+  }
+
+  public ChannelSummaryRequest(List<MMXChannel> channels, ChannelDetailOptions options) {
+    List<ChannelLookupKey> keys = new ArrayList<>(channels.size());
+    for(MMXChannel c : channels) {
+      keys.add(new ChannelLookupKey(c.getName(), c.isPublic(), c.getOwnerId()));
+    }
+    channelIds = keys;
+    numOfMessages = options.getNumOfMessages();
+    numOfSubcribers = options.getNumOfSubcribers();
+  }
 
   public Boolean getIncludeOwnerInfo() {
     return includeOwnerInfo;
@@ -41,6 +59,11 @@ public class ChannelSummaryRequest {
     return numOfSubcribers;
   }
 
+  @Override
+  public String toString() {
+    return  new StringBuilder().append("{").append("numOfMessages=").append(numOfMessages)
+        .append(", numOfSubcribers=").append(numOfSubcribers).append("}").toString();
+  }
 
   /**
   * Builder for ChannelSummaryRequest

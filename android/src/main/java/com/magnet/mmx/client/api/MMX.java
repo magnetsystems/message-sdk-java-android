@@ -270,7 +270,6 @@ public final class MMX {
   private static final String TAG = MMX.class.getSimpleName();
   private static final String SHARED_PREFS_NAME = MMX.class.getName();
   private static final String PREF_WAKEUP_INTENT_URI = "wakeupIntentUri";
-  private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
   private Context mContext = null;
   private MMXClient mClient = null;
   private User mCurrentUser = null;
@@ -280,6 +279,9 @@ public final class MMX {
   private static MMX sInstance = null;
   private static SharedPreferences sSharedPrefs = null;
   private static Handler sCallbackHandler = new Handler(Looper.getMainLooper());
+
+  // Avoid concurrent logging
+  private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
 
   /**
    * The listeners will be added in order (most recent at end)
@@ -347,6 +349,7 @@ public final class MMX {
 
     @Override
     public void onConnectionEvent(MMXClient mmxClient, MMXClient.ConnectionEvent connectionEvent) {
+      Log.w(TAG, "onConnectionEvent : " + connectionEvent + ", + mLoggingIn : " + mLoggingIn.get());
       switch (connectionEvent) {
         case AUTHENTICATION_FAILURE:
           if (!mLoggingIn.get()) {
@@ -356,13 +359,13 @@ public final class MMX {
           break;
         case CONNECTED:
           if (!mLoggingIn.get()) {
-            sInstance.mCurrentUser = User.getCurrentUser();
+            setCurrentUser(User.getCurrentUser());
             notifyLoginRequired(LoginReason.SERVICE_AVAILABLE);
           }
           break;
         case CONNECTION_FAILED:
           if (!mLoggingIn.get()) {
-            sInstance.mCurrentUser = null;
+            setCurrentUser(null);
             notifyLoginRequired(LoginReason.SERVICE_UNAVAILABLE);
           }
           break;
@@ -478,7 +481,7 @@ public final class MMX {
       //This only happens if we are not connected.  suspend is not a problem since we are already disconnected
       if (enable) {
         throw new IllegalStateException("Cannot enable incoming messages because not currently " +
-                "connected.  Ensure that login() has been called.");
+                "connected.  Ensure that login() has been called.", ex);
       }
     }
   }
@@ -538,7 +541,7 @@ public final class MMX {
             unregisterListener = true;
             break;
           case CONNECTED:
-            sInstance.mCurrentUser = User.getCurrentUser();
+            setCurrentUser(User.getCurrentUser());
             getCallbackHandler().post(new Runnable() {
               public void run() {
                 listener.onSuccess(null);
@@ -547,7 +550,7 @@ public final class MMX {
             unregisterListener = true;
             break;
           case CONNECTION_FAILED:
-            sInstance.mCurrentUser = null;
+            setCurrentUser(null);
             getCallbackHandler().post(new Runnable() {
               public void run() {
                 listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
@@ -582,7 +585,7 @@ public final class MMX {
 
       public void onErrorReceived(MMXClient client, MMXErrorMessage error) { }
     });
-    sInstance.mCurrentUser = null;
+    setCurrentUser(null);
     getMMXClient().connectWithCredentials(username, password, MMX.getGlobalListener(),
             new MMXClient.ConnectionOptions().setAutoCreate(false).setSuspendDelivery(true));
   }
@@ -632,7 +635,7 @@ public final class MMX {
 
       public void onErrorReceived(MMXClient client, MMXErrorMessage error) { }
     });
-    sInstance.mCurrentUser = null;
+    setCurrentUser(null);
     getMMXClient().disconnect();
   }
 
@@ -695,6 +698,11 @@ public final class MMX {
       EventListener[] result = new EventListener[sListeners.size()];
       return sListeners.toArray(result);
     }
+  }
+
+  private static void setCurrentUser(User user) {
+    Log.d(TAG, "setting current user to : " + user);
+    sInstance.mCurrentUser = user;
   }
 
   private static void notifyMessageSendError(final String msgId,
@@ -777,7 +785,9 @@ public final class MMX {
         for (int i=listeners.length;--i>=0;) {
           EventListener listener = listeners[i];
           try {
-            if (listener.onLoginRequired(reason)) {
+            boolean isLoginRequired = listener.onLoginRequired(reason);
+            Log.d(TAG, "notifyLoginRequired() for listener " + listener + " : " + isLoginRequired);
+            if (isLoginRequired) {
               //listener returning true means consume the message
               break;
             }
@@ -1045,7 +1055,7 @@ public final class MMX {
       Log.d(TAG, "onUserTokenUpdate(): userId=" + userId +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
-      DeviceIdGenerator.setDeviceIdAccessor(mContext, new DeviceIdAccessor() {
+      DeviceIdGenerator.setDeviceIdAccessor(getContext(), new DeviceIdAccessor() {
         public String getId(Context context) {
           return deviceId;
         }
@@ -1091,7 +1101,7 @@ public final class MMX {
           public void onFailure(MMX.FailureCode code, Throwable ex) {
             Log.e(TAG, "loginHelper(): failure=" + code, ex);
             ApiError error = new ApiError("Unable to login: " +
-                code, ApiError.API_ERROR_UNEXPECTED, ex);
+                code, ApiError.API_ERROR_UNDEFINED, ex);
             if(null != callback) {
               callback.failure(error);
             } else if (mCallback != null) {
@@ -1134,6 +1144,10 @@ public final class MMX {
       } else {
         Log.d(TAG, "logoutHelper(): not logged in");
       }
+    }
+
+    private Context getContext() {
+      return null != mContext ? mContext : MaxCore.getApplicationContext();
     }
   }
 

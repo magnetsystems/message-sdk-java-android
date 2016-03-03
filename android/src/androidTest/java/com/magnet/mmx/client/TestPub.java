@@ -1,4 +1,4 @@
-/*   Copyright (c) 2015 Magnet Systems, Inc.
+/*   Copyright (c) 2015-2016 Magnet Systems, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 
 package com.magnet.mmx.client;
 
-import android.test.InstrumentationTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.Suppress;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
+
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGlobalTopic;
 import com.magnet.mmx.client.common.MMXMessage;
@@ -29,14 +29,14 @@ import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.MMXid;
 import java.util.List;
 
-//FIXME : those test cases need rewriting for 2.0
 @Suppress
-public class TestPub extends InstrumentationTestCase {
+public class TestPub extends MMXInstrumentationTestCase {
 
   private static final String TAG = TestPub.class.getSimpleName();
-  private MMXClient mmxClient;
-  private boolean isConnected = false;
-  private static final String USER1 = "pubsub_test1";
+  private static final String APP_NAME = "MyPubSubApp";
+  private static final String MMS_URL = "http://localhost:8443";
+  private static final String USER1_SUFFIX = "pubsub_test1";
+  private static final String DEVICE1_ID = "computer-2";
 
   private static final String topic_name_transient = "testpubtransient";
   private static final String topic_name = "testpub1";
@@ -46,21 +46,10 @@ public class TestPub extends InstrumentationTestCase {
 
   @Override
   public void setUp() {
-    connect(USER1);
-  }
-
-  private void connect(String user) {
-    mmxClient = MMXClient.getInstance(this.getInstrumentation().getTargetContext(),
-            new ClientTestConfigImpl(this.getInstrumentation().getTargetContext()));
-    isConnected = false;
-    MMXClient.ConnectionOptions options = new MMXClient.ConnectionOptions().setAutoCreate(true);
-    mmxClient.connectWithCredentials(user, "test".getBytes(), new AbstractMMXListener() {
+    connect(APP_NAME, MMS_URL, USER1_SUFFIX, DEVICE1_ID, new AbstractMMXListener() {
       @Override
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
         super.onConnectionEvent(client, event);
-        if (event == MMXClient.ConnectionEvent.CONNECTED) {
-          isConnected = true;
-        }
       }
 
       @Override
@@ -70,25 +59,12 @@ public class TestPub extends InstrumentationTestCase {
 
       @Override
       public void handleMessageDelivered(MMXClient mmxClient, MMXid recipient, String messageId) {
-
       }
 
       @Override
       public void handlePubsubItemReceived(MMXClient mmxClient, MMXTopic mmxTopic, MMXMessage mmxMessage) {
-
       }
-    }, options);
-    try {
-      for (int i=0; i<50; i++) {
-        Thread.sleep(100);
-        if (isConnected) {
-          break;
-        }
-      }
-
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    });
   }
 
   @SmallTest
@@ -203,7 +179,7 @@ public class TestPub extends InstrumentationTestCase {
         options.setMaxItems(-1);
         pubManager.createTopic(new MMXGlobalTopic(topic_name_transient), options);
         assertTrue(true);
-        
+
         // now look it up
         boolean found = false;
         if (pubManager.getOptions(new MMXGlobalTopic(topic_name_transient)) != null) {

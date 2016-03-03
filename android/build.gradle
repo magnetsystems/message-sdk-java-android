@@ -35,7 +35,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "2.3.0"
+version = "2.5.0"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -62,24 +62,25 @@ sourceSets {
 dependencies {
 //    compile fileTree(dir: 'libs', include: ['*.jar'])       // use a local build from libs
 
-//    compile 'com.google.code.gson:gson:2.3'
-
-    compile 'com.magnet.mmx:mmx-common-api:2.3.0'
+    compile 'com.magnet.mmx:mmx-common-api:2.5.0'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    compile ('com.magnet.max.android:magnet-max-android-core:2.3.0@aar') {
+    compile ('com.magnet.max.android:magnet-max-android-core:2.5.0@aar') {
         transitive=true
     }
 
     // For testing
+//  // There is a dependency issue with integration-test jar; back out for now.
+//    androidTestCompile 'com.magnet.max.test:integration-test:2.5.0'
     androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
     androidTestCompile 'com.android.support.test:runner:0.4.1'
     androidTestCompile 'junit:junit:4.12'
 }
+
 
 android {
     compileSdkVersion 23
@@ -88,14 +89,14 @@ android {
     defaultConfig {
         minSdkVersion 16
         versionCode 1
-        versionName "2.3.0"
+        versionName "2.5.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         debug {
-   	    testCoverageEnabled true
-	       }
+   	      testCoverageEnabled true
+	      }
     }
 
     sourceSets {
@@ -177,6 +178,7 @@ task androidJavadocs(type: Javadoc) {
     include '**/max/android/config/MaxAndroidPropertiesConfig.java'
     include '**/max/android/config/MaxAndroidConfig.java'
     include '**/max/android/User.java'
+    include '**/max/android/UserProfile.java'
     include '**/max/android/Attachment.java'
     include '**/max/android/auth/model/UserRegistrationInfo.java'
     include '**/max/android/auth/model/UserRealm.java'

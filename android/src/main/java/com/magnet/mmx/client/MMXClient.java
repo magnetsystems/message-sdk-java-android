@@ -229,7 +229,11 @@ public final class MMXClient {
     /**
      * Registration with the wakeup service failed (GCM)
      */
-    WAKEUP_REGISTRATION_FAILED
+    WAKEUP_REGISTRATION_FAILED,
+    /**
+     * Device Registration failed
+     */
+    DEVICE_REGISTRATION_FAILURE,
   }
 
   /**
@@ -823,6 +827,7 @@ public final class MMXClient {
         }
       } catch (Exception e) {
         Log.e(TAG, "ConnectionRunnable:  Connection failed.  Exception caught.", e);
+        Log.e(TAG, "ConnectionRunnable:  Connection failed.  Smack Exception caught.", e.getCause());
         disconnect();
         notifyConnectionEvent(ConnectionEvent.CONNECTION_FAILED);
       }
@@ -862,6 +867,12 @@ public final class MMXClient {
       if (mIsDisconnecting.get()) {
         return;
       }
+
+      if (!isConnected()) {
+        Log.e(TAG, "disconnect(): not connected.");
+        return;
+      }
+
       mIsDisconnecting.set(true);
       mMessagingHandler.post(new Runnable() {
         public void run() {
@@ -1271,7 +1282,7 @@ public final class MMXClient {
             public void failure(ApiError apiError) {
               Log.e(TAG, "registerDeviceWithServer(): Device registration failed: " + apiError);
               //if status is unsuccessful, disconnect
-              notifyConnectionEvent(ConnectionEvent.AUTHENTICATION_FAILURE);
+              notifyConnectionEvent(ConnectionEvent.DEVICE_REGISTRATION_FAILURE);
               disconnect();
             }
           });

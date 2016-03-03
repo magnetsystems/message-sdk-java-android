@@ -14,28 +14,18 @@
  */
 package com.magnet.mmx.client.api;
 
+import android.graphics.Bitmap;
 import android.os.Parcel;
 import android.os.Parcelable;
+import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
+import com.magnet.max.android.Attachment;
 import com.magnet.max.android.MaxCore;
+import com.magnet.max.android.User;
+import com.magnet.max.android.UserProfile;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
-import com.magnet.mmx.client.internal.channel.ChannelLookupKey;
-import com.magnet.mmx.client.internal.channel.ChannelService;
-import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
-import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import com.magnet.max.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXPubSubManager;
 import com.magnet.mmx.client.MMXTask;
@@ -48,6 +38,11 @@ import com.magnet.mmx.client.common.MMXSubscription;
 import com.magnet.mmx.client.common.MMXTopicInfo;
 import com.magnet.mmx.client.common.MMXTopicSearchResult;
 import com.magnet.mmx.client.common.MMXUserTopic;
+import com.magnet.mmx.client.internal.channel.BasicUserInfo;
+import com.magnet.mmx.client.internal.channel.ChannelService;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
+import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
@@ -58,6 +53,16 @@ import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.TimeUtil;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import retrofit.Callback;
 import retrofit.Response;
 
@@ -310,8 +315,6 @@ public class MMXChannel implements Parcelable {
   private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
-  // Channel REST Service
-  private static ChannelService channelService;
 
   /**
    * Default constructor
@@ -1683,28 +1686,84 @@ public class MMXChannel implements Parcelable {
   }
 
   /**
-   * Get summary for channels
+   * Get detail for channels
    * @param channels
-   * @param numOfMessages
-   * @param numberOfSubscribers
+   * @param options
    * @param listener
    */
-  public static void getChannelSummary(Set<MMXChannel> channels, Integer numOfMessages, Integer numberOfSubscribers, final OnFinishedListener<List<ChannelSummaryResponse>> listener) {
+  public static void getChannelDetail(final List<MMXChannel> channels, ChannelDetailOptions options, final OnFinishedListener<List<ChannelDetail>> listener) {
     if(null == channels || channels.isEmpty()) {
       if(null != listener) {
         listener.onSuccess(Collections.EMPTY_LIST);
       }
     } else {
-      List<ChannelLookupKey> keys = new ArrayList<>(channels.size());
-      for(MMXChannel c : channels) {
-        keys.add(new ChannelLookupKey(c.getName(), c.isPublic(), c.getOwnerId()));
-      }
-      getChannelService().getChannelSummary(new ChannelSummaryRequest.Builder().channelIds(keys).numOfMessages(numOfMessages).numOfSubcribers(numberOfSubscribers).build(),
+
+      getChannelService().getChannelSummary(new ChannelSummaryRequest(channels, options),
           new Callback<List<ChannelSummaryResponse>>() {
-        @Override public void onResponse(Response<List<ChannelSummaryResponse>> response) {
+        @Override public void onResponse(final Response<List<ChannelSummaryResponse>> response) {
           if(response.isSuccess()) {
             if(null != listener) {
-              listener.onSuccess(response.body());
+              // Do the conversion in background task
+              MMXTask<List<ChannelDetail>> task = new MMXTask<List<ChannelDetail>>(MMX.getMMXClient(), MMX.getHandler()) {
+                @Override
+                public List<ChannelDetail> doRun(MMXClient mmxClient) throws Throwable {
+                  List<ChannelSummaryResponse> summaryResponses = response.body();
+                  List<ChannelDetail> channelDetails = null;
+                  if(null != summaryResponses) {
+                    channelDetails = new ArrayList<ChannelDetail>(summaryResponses.size());
+                    for(int i = 0; i < summaryResponses.size(); i++) {
+                      ChannelSummaryResponse r = summaryResponses.get(i);
+
+                      //convert messages
+                      List<PubSubItem> pubsubItems = r.getMessages();
+                      List<MMXMessage> mmxMessages = null;
+                      if(null != pubsubItems) {
+                        mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
+                        for(PubSubItem item : pubsubItems) {
+                          mmxMessages.add(MMXMessage.fromPubSubItem(item));
+                        }
+                      }
+
+                      List<UserProfile> userProfiles = null;
+                      if(null != r.getSubscribers()) {
+                        userProfiles = new ArrayList<UserProfile>(r.getSubscribers().size());
+                        for(BasicUserInfo ui : r.getSubscribers()) {
+                          userProfiles.add(ui.toUserProfile());
+                        }
+                      }
+                      channelDetails.add(new ChannelDetail.Builder().channel(channels.get(i)).messages(mmxMessages)
+                          .subscribers(userProfiles).totalMessages(r.getPublishedItemCount())
+                          .totalSubscribers(r.getSubscriberCount()).build());
+                    }
+                  } else {
+                    channelDetails = Collections.EMPTY_LIST;
+                  }
+
+                  return channelDetails;
+                }
+
+                @Override
+                public void onResult(final List<ChannelDetail> result) {
+                    MMX.getCallbackHandler().post(new Runnable() {
+                      public void run() {
+                        listener.onSuccess(result);
+                      }
+                    });
+                }
+
+                @Override
+                public void onException(final Throwable exception) {
+                  if (listener != null) {
+                    MMX.getCallbackHandler().post(new Runnable() {
+                      public void run() {
+                        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.GENERIC_FAILURE, exception),
+                            exception);
+                      }
+                    });
+                  }
+                }
+              };
+              task.execute();
             }
           } else {
             handleError(new ApiError(response.message(), response.code()), listener);
@@ -1716,13 +1775,65 @@ public class MMXChannel implements Parcelable {
         }
 
         private void handleError(Throwable error, OnFinishedListener listener) {
-          Log.e(TAG, "Failed to getChannelSummary", error);
+          Log.e(TAG, "Failed to getChannelDetail", error);
           if(null != listener) {
             listener.onFailure(FailureCode.GENERIC_FAILURE, error);
           }
         }
       }).executeInBackground();
     }
+  }
+
+  /**
+   * Set a icon for the channel
+   * @param imageBitmap
+   * @param mimeType
+   * @param listener
+   */
+  public void setIcon(Bitmap imageBitmap, String mimeType, final ApiCallback<String> listener) {
+    if (null != mimeType) {
+      if(StringUtil.isStringValueEqual(mOwnerId, User.getCurrentUserId())) {
+        Attachment attachment = new Attachment(mimeType,StringUtil.isNotEmpty(mimeType) ? mimeType : Attachment.getMimeType(null, Attachment.MIME_TYPE_IMAGE));
+        attachment.addMetaData(Attachment.META_FILE_ID, getFullChannelName());
+        attachment.upload(new Attachment.UploadListener() {
+          @Override public void onStart(Attachment attachment) {
+
+          }
+
+          @Override public void onComplete(Attachment attachment) {
+            if (null != listener) {
+              listener.success(getIconUrl());
+            }
+          }
+
+          @Override public void onError(Attachment attachment, Throwable error) {
+            if (null != listener) {
+              listener.failure(new ApiError(error));
+            }
+          }
+        });
+      } else {
+        if(null != listener) {
+          listener.failure(new ApiError("Only channel owner can set icon"));
+        }
+      }
+    } else {
+      if(null != listener) {
+        listener.failure(new ApiError("image should not be null"));
+      }
+    }
+  }
+
+  /**
+   * Get the url of the icon
+   * @return
+   */
+  public String getIconUrl() {
+    return Attachment.createDownloadUrl(getFullChannelName(), mOwnerId);
+  }
+
+  private String getFullChannelName() {
+    return mPublic ? mName : (mOwnerId + "_" + mName);
   }
 
   //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
@@ -1825,11 +1936,7 @@ public class MMXChannel implements Parcelable {
   }
 
   private static ChannelService getChannelService() {
-    if(null == channelService) {
-      channelService = MaxCore.create(ChannelService.class);
-    }
-
-    return channelService;
+    return MaxCore.create(ChannelService.class);
   }
 
   // ***************************

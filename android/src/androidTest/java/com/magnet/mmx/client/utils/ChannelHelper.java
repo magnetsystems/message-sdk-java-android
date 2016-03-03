@@ -6,12 +6,16 @@ package com.magnet.mmx.client.utils;
 import android.util.Log;
 import com.magnet.max.android.Attachment;
 import com.magnet.max.android.User;
+import com.magnet.mmx.client.api.ChannelDetail;
+import com.magnet.mmx.client.api.ChannelDetailOptions;
 import com.magnet.mmx.client.api.ChannelMatchType;
 import com.magnet.mmx.client.api.ListResult;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXChannel;
 import com.magnet.mmx.client.api.MMXMessage;
+import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -207,11 +211,11 @@ public class ChannelHelper {
       assertThat(obj.getReturnValue()).isEqualTo(expected);
   }
 
-  public static void publish(MMXChannel channel) {
-    publish(channel, null);
+  public static MMXMessage publish(MMXChannel channel) {
+    return publish(channel, null);
   }
 
-  public static void publish(MMXChannel channel, Attachment attachment) {
+  public static MMXMessage publish(MMXChannel channel, Attachment attachment) {
     //setup message listener to receive published message
     final StringBuffer barBuffer = new StringBuffer();
     final StringBuffer senderBuffer = new StringBuffer();
@@ -244,7 +248,12 @@ public class ChannelHelper {
     final StringBuffer pubId = new StringBuffer();
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
-    String id = channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
+    MMXMessage.Builder messageBuilder = new MMXMessage.Builder().channel(channel).content(content);
+    if(null != attachment) {
+      messageBuilder.attachments(attachment);
+    }
+    MMXMessage message = messageBuilder.build();
+    String id = channel.publish(message, new MMXChannel.OnFinishedListener<String>() {
       public void onSuccess(String result) {
         pubId.append(result);
         sendMessageLatch.countDown();
@@ -273,6 +282,8 @@ public class ChannelHelper {
       fail("receive published message timeout");
     }
     MMX.unregisterListener(messageListener);
+
+    return message;
   }
 
   public static void publishError(MMXChannel channel, final MMXChannel.FailureCode expected) {
@@ -684,6 +695,45 @@ public class ChannelHelper {
       } else {
         assertThat(resultRef.get() == null || resultRef.get().isEmpty()).isTrue();
       }
+    }
+
+    return null;
+  }
+
+  public static List<ChannelDetail> getChannelDetail(MMXChannel channel) {
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicReference<List<ChannelDetail>> resultRef = new AtomicReference<>();
+    final AtomicReference<Throwable> errorRef = new AtomicReference<>();
+    MMXChannel.getChannelDetail(Arrays.asList(channel),new ChannelDetailOptions.Builder().numOfMessages(10).numOfSubcribers(5).build(),  new MMXChannel.OnFinishedListener<List<ChannelDetail>>() {
+      @Override
+      public void onSuccess(List<ChannelDetail> result) {
+        resultRef.set(result);
+        latch.countDown();
+      }
+
+      @Override
+      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+        Log.e(TAG, "Exception caught in MMXChannel.getChannelDetail : " + code, ex);
+        errorRef.set(ex);
+      }
+    });
+
+    try {
+      latch.await(TestConstants.TIMEOUT_IN_SECOND, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      fail("MMXChannel.findPublicChannelsByName timed out");
+    }
+
+    if(null != errorRef.get()) {
+      fail("MMXChannel.findPublicChannelsByName failed due to " + errorRef.get().getMessage());
+    } else {
+      assertThat(resultRef.get()).isNotNull();
+      List<ChannelDetail> result = resultRef.get();
+      return result;
+      //assertThat(result.totalCount).isEqualTo(expectedChannelCount);
+      //if (result.items.size() > 0) {
+      //  assertThat(result.items.get(0).getNumberOfMessages()).isEqualTo(expectedItemCount);
+      //}
     }
 
     return null;

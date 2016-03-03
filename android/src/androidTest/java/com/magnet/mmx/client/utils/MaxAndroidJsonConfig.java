@@ -24,7 +24,7 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MaxAndroidJsonConfig implements MaxAndroidConfig {
+public class MaxAndroidJsonConfig extends MaxAndroidConfig {
   private ConfigJson configJson;
   private Map<String, String> configMap;
 
@@ -49,15 +49,6 @@ public class MaxAndroidJsonConfig implements MaxAndroidConfig {
 
   @Override public String getScope() {
     return configJson.getScope();
-  }
-
-  @Override public Map<String, String> getAllConfigs() {
-    if(null == configMap) {
-      configMap = new HashMap<>();
-      configMap.put("client_id", configJson.getClientId());
-      configMap.put("client_secret", configJson.getClientSecret());
-    }
-    return configMap;
   }
 
   private static class ConfigJson {
