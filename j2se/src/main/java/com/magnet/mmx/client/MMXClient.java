@@ -32,6 +32,7 @@ import com.magnet.mmx.protocol.GeoLoc;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.OSType;
+import org.jivesoftware.smackx.privacy.PrivacyListManager;
 
 /**
  * This class is the main entry point of the MMX Java client API.  It allows
@@ -451,5 +452,14 @@ public class MMXClient implements IMMXClient {
   @Override
   public DeviceManager getDeviceManager() throws MMXException {
     return DeviceManager.getInstance(mCon);
+  }
+
+  public PrivacyListManager getPrivacyListManager() throws MMXException {
+
+    return PrivacyListManager.getInstanceFor(mCon.getXMPPConnection());
+  }
+
+  public MMXSettings getmSettings() {
+    return mSettings;
   }
 }
