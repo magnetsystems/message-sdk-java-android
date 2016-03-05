@@ -47,6 +47,7 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicId;
 import com.magnet.mmx.protocol.MMXTopicOptions;
+import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.SendLastPublishedItems;
 import com.magnet.mmx.protocol.StatusCode;
@@ -124,11 +125,11 @@ public class PubSubManager {
   private final static String USER_TOPIC_NOT_ALLOWED = "User topic is not allowed";
   private final static boolean SHOW_USER_TOPICS = false;
   private final static boolean SHOW_USER_TOPIC_SUBSCRIPTIONS = true;
-  private MMXConnection mCon;
+  private final MMXConnection mCon;
   private MappedByteBuffer mBuffer;
-  private String mAppPrefix;
-  private String mAppTopic;
-  private String mMyTopic;
+  private final String mAppPrefix;
+  private final String mAppTopic;
+  private final String mMyTopic;
   private org.jivesoftware.smackx.pubsub.PubSubManager mPubSubMgr;
   private final static Creator sCreator = new Creator() {
     @Override
@@ -1405,6 +1406,43 @@ public class PubSubManager {
       TagUtil.validateTags(tags);
     } catch (IllegalArgumentException e) {
       throw new MMXException(e.getMessage(), StatusCode.BAD_REQUEST);
+    }
+  }
+
+  /**
+   * Get the privacy list for a topic.
+   * @param topic
+   * @return
+   * @throws MMXException
+   */
+  public List<MMXid> getPrivacyList(MMXTopic topic) throws MMXException {
+    if (topic instanceof MMXPersonalTopic) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+    }
+    String topicPath = TopicHelper.normalizePath(topic.getName());
+    String realTopic = (topic.getUserId() != null) ?
+            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
+    return PrivacyManager.getInstance(mCon).getPrivacyList(realTopic);
+  }
+
+  /**
+   * Set the privacy list for a topic.  If <code>xids</code> is empty, it will
+   * clear the privacy list.
+   * @param topic
+   * @param xids
+   * @throws MMXException
+   */
+  public void setPrivacyList(MMXTopic topic, List<MMXid> xids) throws MMXException {
+    if (topic instanceof MMXPersonalTopic) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+    }
+    String topicPath = TopicHelper.normalizePath(topic.getName());
+    String realTopic = (topic.getUserId() != null) ?
+            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
+    if (xids == null) {
+      PrivacyManager.getInstance(mCon).deletePrivacyList(realTopic);
+    } else {
+      PrivacyManager.getInstance(mCon).setPrivacyList(realTopic, xids);
     }
   }
 }

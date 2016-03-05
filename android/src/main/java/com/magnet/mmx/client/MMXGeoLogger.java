@@ -22,6 +22,7 @@ import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXPersonalTopic;
 import com.magnet.mmx.client.common.MMXUserTopic;
 import com.magnet.mmx.client.common.MessageManager;
+import com.magnet.mmx.client.common.PrivacyManager;
 import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.client.common.TopicNotFoundException;
 import com.magnet.mmx.protocol.GeoLoc;
@@ -45,22 +46,32 @@ public class MMXGeoLogger {
   public static String updateGeoLocation(final MMXClient client, GeoLoc geoLoc)
           throws MMXException {
     return com.magnet.mmx.client.common.MMXGeoLogger.updateGeoLocation(new IMMXClient() {
+      @Override
       public AccountManager getAccountManager() throws MMXException {
         throw new RuntimeException("Not yet implemented.");
       }
 
+      @Override
       public DeviceManager getDeviceManager() throws MMXException {
         throw new RuntimeException("Not yet implemented.");
       }
 
+      @Override
       public PubSubManager getPubSubManager() throws MMXException {
         return client.getPubSubManager().getInternalManager();
       }
 
+      @Override
       public MessageManager getMessageManager() throws MMXException {
         throw new RuntimeException("Not yet implemented.");
       }
-      
+
+      @Override
+      public PrivacyManager getPrivacyManager() throws MMXException {
+        throw new RuntimeException("Not yet implemented");
+      }
+
+      @Override
       public MMXid getClientId() throws MMXException {
         return client.getClientId();
       }

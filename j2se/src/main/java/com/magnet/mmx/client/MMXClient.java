@@ -25,6 +25,7 @@ import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGeoLogger;
 import com.magnet.mmx.client.common.MMXMessageListener;
 import com.magnet.mmx.client.common.MessageManager;
+import com.magnet.mmx.client.common.PrivacyManager;
 import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.DevReg;
@@ -454,8 +455,16 @@ public class MMXClient implements IMMXClient {
     return DeviceManager.getInstance(mCon);
   }
 
-  public PrivacyListManager getPrivacyListManager() throws MMXException {
+  /**
+   * Get the privacy manager.  The primary function is to manage the privacy
+   * list for blocking and unblocking of users.
+   */
+  @Override
+  public PrivacyManager getPrivacyManager() throws MMXException {
+    return PrivacyManager.getInstance(mCon);
+  }
 
+  public PrivacyListManager getPrivacyListManager() throws MMXException {
     return PrivacyListManager.getInstanceFor(mCon.getXMPPConnection());
   }
 
