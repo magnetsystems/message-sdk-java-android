@@ -23,6 +23,7 @@ import com.magnet.max.android.Attachment;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.UserProfile;
+import com.magnet.max.android.rest.marshalling.Iso8601DateConverter;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
@@ -1781,13 +1782,16 @@ public class MMXChannel implements Parcelable {
                         }
                       }
                       if(null != forChannel) {
-                        channelDetails.add(new ChannelDetail.Builder().channel(forChannel)
+                        ChannelDetail.Builder cb = new ChannelDetail.Builder().channel(forChannel)
                             .messages(mmxMessages)
                             .subscribers(userProfiles)
                             .totalMessages(r.getPublishedItemCount())
                             .totalSubscribers(r.getSubscriberCount())
-                            .owner(UserCache.getInstance().getByUserId(forChannel.getOwnerId()))
-                            .build());
+                            .owner(UserCache.getInstance().getByUserId(forChannel.getOwnerId()));
+                        if(StringUtil.isNotEmpty(r.getLastPublishedTime())) {
+                          cb.lastPublishedTime(Iso8601DateConverter.fromString(r.getLastPublishedTime()));
+                        }
+                        channelDetails.add(cb.build());
                       } else {
                         Log.e(TAG, "Couldn't find channel detail for channel " + channels.get(i));
                       }

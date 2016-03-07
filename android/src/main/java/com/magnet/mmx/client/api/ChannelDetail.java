@@ -109,6 +109,11 @@ public class ChannelDetail implements Parcelable {
       return this;
     }
 
+    public Builder lastPublishedTime(Date value) {
+      channelDetail.lastPublishedTime = value;
+      return this;
+    }
+
     public ChannelDetail build() {
       return channelDetail;
     }
