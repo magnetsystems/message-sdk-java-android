@@ -6,18 +6,20 @@ package com.magnet.mmx.client.api;
 import android.os.Parcel;
 import android.os.Parcelable;
 import com.magnet.max.android.UserProfile;
+import java.util.Date;
 import java.util.List;
 
 /**
  * The details of @see MMXChannel
  */
 public class ChannelDetail implements Parcelable {
-  private MMXChannel channel;
-  private List<UserProfile> subscribers;
-  private List<MMXMessage> messages;
-  private int totalSubscribers;
-  private int totalMessages;
-  private UserProfile owner;
+  protected MMXChannel channel;
+  protected List<UserProfile> subscribers;
+  protected List<MMXMessage> messages;
+  protected int totalSubscribers;
+  protected int totalMessages;
+  protected UserProfile owner;
+  protected Date lastPublishedTime;
 
   /**
    * The channel
@@ -63,6 +65,10 @@ public class ChannelDetail implements Parcelable {
     return totalMessages;
   }
 
+  public Date getLastPublishedTime() {
+    return lastPublishedTime;
+  }
+
   /**
    * Builder for @see ChannelDetail
    */
@@ -103,6 +109,11 @@ public class ChannelDetail implements Parcelable {
       return this;
     }
 
+    public Builder lastPublishedTime(Date value) {
+      channelDetail.lastPublishedTime = value;
+      return this;
+    }
+
     public ChannelDetail build() {
       return channelDetail;
     }
@@ -119,6 +130,7 @@ public class ChannelDetail implements Parcelable {
     dest.writeInt(this.totalSubscribers);
     dest.writeInt(this.totalMessages);
     dest.writeParcelable(this.owner, flags);
+    dest.writeLong(null != lastPublishedTime ? lastPublishedTime.getTime() : -1);
   }
 
   public ChannelDetail() {
@@ -131,6 +143,10 @@ public class ChannelDetail implements Parcelable {
     this.totalSubscribers = in.readInt();
     this.totalMessages = in.readInt();
     this.owner = in.readParcelable(UserProfile.class.getClassLoader());
+    long time = in.readLong();
+    if(-1 != time) {
+      this.lastPublishedTime = new Date(time);
+    }
   }
 
   public static final Parcelable.Creator<ChannelDetail> CREATOR =
