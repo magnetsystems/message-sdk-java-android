@@ -29,19 +29,7 @@ public class MMXUserPreferences {
    */
   public static void blockUsers(final Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
     if(checkUsers(users, listener) && checkStatus(listener)) {
-      new UserBlockingTask(listener) {
-        @Override
-        public Boolean doRun(MMXClient mmxClient) throws Throwable {
-          PrivacyManager privacyManager = PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection());
-          List<MMXid> existingList = privacyManager.getPrivacyList();
-          if(null == existingList) {
-            existingList = new ArrayList<MMXid>();
-          }
-          existingList.addAll(usersToMMXids(users));
-          privacyManager.setPrivacyList(existingList);
-          return Boolean.TRUE;
-        }
-      }.execute();
+      new UserBlockingTask(users, true, listener).execute();
     }
   }
 
@@ -52,18 +40,7 @@ public class MMXUserPreferences {
    */
   public static void unblockUsers(final Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
     if(checkUsers(users, listener) && checkStatus(listener)) {
-      new UserBlockingTask(listener) {
-        @Override
-        public Boolean doRun(MMXClient mmxClient) throws Throwable {
-          PrivacyManager privacyManager = PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection());
-          List<MMXid> existingList = privacyManager.getPrivacyList();
-          if(null != existingList) {
-            existingList.removeAll(usersToMMXids(users));
-          }
-          privacyManager.setPrivacyList(existingList);
-          return Boolean.TRUE;
-        }
-      }.execute();
+      new UserBlockingTask(users, false, listener).execute();
     }
   }
 
@@ -134,26 +111,40 @@ public class MMXUserPreferences {
   }
 
 
-  private static boolean checkStatus(MMX.OnFinishedListener listener) {
+  private static boolean checkStatus(final MMX.OnFinishedListener listener) {
+    MMX.FailureCode failureCode = null;
     if(null == User.getCurrentUser()) {
-      if(null != listener) {
-        listener.onFailure(MMX.FailureCode.USER_NOT_LOGIN, new IllegalStateException("User not login"));
-      }
-      return false;
+      failureCode = MMX.FailureCode.USER_NOT_LOGIN;
     } else if(!MMX.getMMXClient().isConnected()) {
+      failureCode = MMX.FailureCode.CONNECTION_NOT_AVAILABLE;
+    }
+
+    if(null != failureCode) {
       if(null != listener) {
-        listener.onFailure(MMX.FailureCode.CONNECTION_NOT_AVAILABLE, new IllegalStateException("Connection not available"));
+        final MMX.FailureCode failureCodeFinal = failureCode;
+        MMX.getCallbackHandler().post(new Runnable() {
+          @Override
+          public void run() {
+            listener.onFailure(failureCodeFinal, new IllegalStateException(failureCodeFinal.getDescription()));
+          }
+        });
       }
+
       return false;
     }
 
     return true;
   }
 
-  private static boolean checkUsers(Set<User> users, MMX.OnFinishedListener<Boolean> listener) {
+  private static boolean checkUsers(Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
     if(null == users || users.isEmpty()) {
       if(null != listener) {
-        listener.onSuccess(Boolean.TRUE);
+        MMX.getCallbackHandler().post(new Runnable() {
+          @Override
+          public void run() {
+            listener.onSuccess(Boolean.TRUE);
+          }
+        });
       }
 
       return false;
@@ -173,10 +164,37 @@ public class MMXUserPreferences {
 
   private static class UserBlockingTask extends MMXTask<Boolean> {
     private final MMX.OnFinishedListener<Boolean> listener;
+    private final boolean isAdding;
+    private final Set<User> users;
 
-    public UserBlockingTask(MMX.OnFinishedListener<Boolean> listener) {
+    public UserBlockingTask(Set<User> users, boolean isAdding, MMX.OnFinishedListener<Boolean> listener) {
       super(MMX.getMMXClient(), MMX.getHandler());
+      this.users = users;
       this.listener = listener;
+      this.isAdding = isAdding;
+    }
+
+    @Override
+    public Boolean doRun(MMXClient mmxClient) throws Throwable {
+      PrivacyManager privacyManager = PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection());
+      List<MMXid> existingList = privacyManager.getPrivacyList();
+      if(isAdding) {
+        if (null == existingList) {
+          existingList = new ArrayList<MMXid>();
+        }
+        existingList.addAll(usersToMMXids(users));
+      } else {
+        if(null != existingList) {
+          existingList.removeAll(usersToMMXids(users));
+        }
+      }
+      privacyManager.setPrivacyList(existingList);
+
+      if(isAdding) {
+        privacyManager.enablePrivacyList(true);
+      }
+
+      return Boolean.TRUE;
     }
 
     @Override
