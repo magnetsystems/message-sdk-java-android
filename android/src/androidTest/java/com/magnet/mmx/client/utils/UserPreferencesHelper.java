@@ -28,7 +28,7 @@ public class UserPreferencesHelper {
     });
 
     ExecMonitor.Status status = execMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    assertThat(status).isEqualsTo(ExecMonitor.Status.INVOKED);
+    assertThat(status).isEqualTo(ExecMonitor.Status.INVOKED);
     assertThat(execMonitor.getReturnValue()).isTrue();
   }
 
@@ -46,7 +46,7 @@ public class UserPreferencesHelper {
     });
 
     ExecMonitor.Status status = execMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    assertThat(status).isEqualsTo(ExecMonitor.Status.INVOKED);
+    assertThat(status).isEqualTo(ExecMonitor.Status.INVOKED);
     assertThat(execMonitor.getReturnValue()).isTrue();
   }
 
@@ -64,7 +64,7 @@ public class UserPreferencesHelper {
     });
 
     ExecMonitor.Status status = execMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    assertThat(status).isEqualsTo(ExecMonitor.Status.INVOKED);
+    assertThat(status).isEqualTo(ExecMonitor.Status.INVOKED);
     return execMonitor.getReturnValue();
   }
 }
