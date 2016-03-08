@@ -22,6 +22,11 @@ import java.util.concurrent.atomic.AtomicReference;
 public class MMXUserPreferences {
   private static final String TAG = "MMXUserPreferences";
 
+  /**
+   * Block users to prevent them from sending message to current user
+   * @param users
+   * @param listener
+   */
   public static void blockUsers(final Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
     if(checkUsers(users, listener) && checkStatus(listener)) {
       new UserBlockingTask(listener) {
@@ -34,6 +39,11 @@ public class MMXUserPreferences {
     }
   }
 
+  /**
+   * Unblock users to allow them to send message to current user
+   * @param users
+   * @param listener
+   */
   public static void unblockUsers(final Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
     if(checkUsers(users, listener) && checkStatus(listener)) {
       new UserBlockingTask(listener) {
@@ -51,6 +61,10 @@ public class MMXUserPreferences {
     }
   }
 
+  /**
+   * Get the list of users blocked by current user
+   * @param listener
+   */
   public static void getBlockedUsers(final MMX.OnFinishedListener<List<User>> listener) {
     if(checkStatus(listener)) {
       new MMXTask<List<User>>(MMX.getMMXClient(), MMX.getHandler()) {
