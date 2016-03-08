@@ -18,9 +18,13 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MMXUserPreferences {
   private static final String TAG = "MMXUserPreferences";
+
+  private static ReentrantLock sBlockListLock = new ReentrantLock();
+
 
   /**
    * Block users to prevent them from sending message to current user
@@ -176,22 +180,30 @@ public class MMXUserPreferences {
 
     @Override
     public Boolean doRun(MMXClient mmxClient) throws Throwable {
-      PrivacyManager privacyManager = PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection());
-      List<MMXid> existingList = privacyManager.getPrivacyList();
-      if(isAdding) {
-        if (null == existingList) {
-          existingList = new ArrayList<MMXid>();
-        }
-        existingList.addAll(usersToMMXids(users));
-      } else {
-        if(null != existingList) {
-          existingList.removeAll(usersToMMXids(users));
-        }
-      }
-      privacyManager.setPrivacyList(existingList);
+      if(sBlockListLock.tryLock() || sBlockListLock.tryLock(5L, TimeUnit.SECONDS)) {
+        try {
+          PrivacyManager privacyManager = PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection());
+          List<MMXid> existingList = privacyManager.getPrivacyList();
+          if (isAdding) {
+            if (null == existingList) {
+              existingList = new ArrayList<MMXid>();
+            }
+            existingList.addAll(usersToMMXids(users));
+          } else {
+            if (null != existingList) {
+              existingList.removeAll(usersToMMXids(users));
+            }
+          }
+          privacyManager.setPrivacyList(existingList);
 
-      if(isAdding) {
-        privacyManager.enablePrivacyList(true);
+          if (isAdding) {
+            privacyManager.enablePrivacyList(true);
+          }
+        } finally {
+          sBlockListLock.unlock();
+        }
+      } else {
+        Log.d(TAG, "Failed to obtain BlockList lock");
       }
 
       return Boolean.TRUE;
