@@ -9,6 +9,7 @@ import com.magnet.mmx.client.api.MMXUserPreferences;
 import com.magnet.mmx.client.common.Log;
 import java.util.HashSet;
 import java.util.List;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class UserPreferencesHelper {
   private static final String TAG = UserPreferencesHelper.class.getSimpleName();
