@@ -89,9 +89,19 @@ public final class MMX {
      */
     public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(20, "SERVER_AUTH_FAILED");
     /**
+     * Connect not available.
+     */
+    public static final FailureCode CONNECTION_NOT_AVAILABLE = new FailureCode(30, "CONNECTION_NOT_AVAILABLE");
+    /**
      * A bad request submitted to the server.
      */
     public static final FailureCode BAD_REQUEST = new FailureCode(400, "BAD_REQUEST");
+
+    /**
+     * User hasn't login
+     */
+    public static final MMX.FailureCode USER_NOT_LOGIN = new MMX.FailureCode(403, "USER_NOT_LOGIN");
+
     /**
      * A server error.
      */

@@ -439,7 +439,7 @@ public final class MMXClient {
     return mContext;
   }
 
-  MMXConnection getMMXConnection() { return mConnection; }
+  public MMXConnection getMMXConnection() { return mConnection; }
 
   SSLContext getSSLContextOverride() {
     ConnectionInfo connectionInfo = getConnectionInfo();
