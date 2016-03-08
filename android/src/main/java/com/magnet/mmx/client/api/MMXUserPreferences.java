@@ -32,7 +32,13 @@ public class MMXUserPreferences {
       new UserBlockingTask(listener) {
         @Override
         public Boolean doRun(MMXClient mmxClient) throws Throwable {
-          PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection()).setPrivacyList(usersToMMXids(users));
+          PrivacyManager privacyManager = PrivacyManager.getInstance(MMX.getMMXClient().getMMXConnection());
+          List<MMXid> existingList = privacyManager.getPrivacyList();
+          if(null == existingList) {
+            existingList = new ArrayList<MMXid>();
+          }
+          existingList.addAll(usersToMMXids(users));
+          privacyManager.setPrivacyList(existingList);
           return Boolean.TRUE;
         }
       }.execute();
