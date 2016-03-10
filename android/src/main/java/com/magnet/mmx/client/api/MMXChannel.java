@@ -1705,7 +1705,7 @@ public class MMXChannel implements Parcelable {
   }
 
   /**
-   * Get detail for channels
+   * Get details @{link ChannelDetail} for channels
    * @param channels
    * @param options
    * @param listener
