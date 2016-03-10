@@ -4,7 +4,7 @@
 package com.magnet.mmx.client.api;
 
 /**
- * Options to get @see ChannelDetial
+ * Options to get @see ChannelDetail
  */
 public class ChannelDetailOptions {
   public static final int DEFAULT_NUMBER_OF_MESSAGE = 5;
