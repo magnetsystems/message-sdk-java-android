@@ -2360,8 +2360,8 @@ public class MMXChannel implements Parcelable {
         StringUtil.isStringValueEqual(mOwnerId, theOther.getOwnerId()) &&
         mPublic == theOther.isPublic() &&
         mPublishPermission == theOther.getPublishPermission() &&
-        StringUtil.isStringValueEqual(mName, theOther.getName()) &&
-        (null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
+        StringUtil.isStringValueEqual(mName, theOther.getName());
+        //(null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
   }
 
   @Override
