@@ -26,17 +26,28 @@ import java.util.List;
 import java.util.Map;
 
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
+import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smack.packet.PacketExtension;
 import org.jivesoftware.smack.packet.XMPPError;
+import org.jivesoftware.smack.packet.XMPPError.Condition;
+import org.jivesoftware.smack.packet.IQ.Type;
+import org.jivesoftware.smack.provider.PacketExtensionProvider;
+import org.jivesoftware.smack.provider.ProviderManager;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.disco.packet.DiscoverItems;
+import org.jivesoftware.smackx.pubsub.Affiliation;
 import org.jivesoftware.smackx.pubsub.ConfigureForm;
 import org.jivesoftware.smackx.pubsub.FormType;
 import org.jivesoftware.smackx.pubsub.LeafNode;
 import org.jivesoftware.smackx.pubsub.Node;
+import org.jivesoftware.smackx.pubsub.NodeExtension;
 import org.jivesoftware.smackx.pubsub.PayloadItem;
+import org.jivesoftware.smackx.pubsub.PubSubElementType;
 import org.jivesoftware.smackx.pubsub.PublishModel;
 import org.jivesoftware.smackx.pubsub.Subscription;
+import org.jivesoftware.smackx.pubsub.packet.PubSub;
+import org.jivesoftware.smackx.pubsub.packet.PubSubNamespace;
 import org.jivesoftware.smackx.xdata.FormField;
 import org.xmlpull.v1.XmlPullParser;
 
@@ -1443,6 +1454,211 @@ public class PubSubManager {
       PrivacyManager.getInstance(mCon).deletePrivacyList(realTopic);
     } else {
       PrivacyManager.getInstance(mCon).setPrivacyList(realTopic, xids);
+    }
+  }
+
+  // Affiliation Management packet
+  private static class AffiliationPacket implements PacketExtension {
+    private final String mJid;
+    private final Affiliation.Type mType;
+
+    public AffiliationPacket(String jid, Affiliation.Type type) {
+      mJid = jid;
+      mType = type;
+    }
+
+    public String getJid() {
+      return mJid;
+    }
+
+    public Affiliation.Type getAffiliation() {
+      return mType;
+    }
+
+    @Override
+    public String getElementName() {
+      return "affiliation";
+    }
+
+    @Override
+    public String getNamespace() {
+      return null;
+    }
+
+    @Override
+    public CharSequence toXML() {
+      return '<' + getElementName() + " jid='" + mJid +
+                "' affiliation='" + mType.toString() + "' />";
+    }
+  }
+
+  // Parser for affiliations management packet.
+  private static class AffiliationsProvider implements PacketExtensionProvider {
+    @Override
+    public PacketExtension parseExtension(XmlPullParser parser) throws Exception {
+      String nodeId = null;
+      List<AffiliationPacket> list = new ArrayList<AffiliationPacket>();
+      boolean done = false;
+      do {
+        nodeId = parser.getAttributeValue(null, "node");
+        int eventType = parser.next();
+        if (eventType == XmlPullParser.START_TAG) {
+          if ("affiliation".equals(parser.getName())) {
+            String jid = parser.getAttributeValue(null, "jid");
+            String affiliation = parser.getAttributeValue(null, "affiliation");
+            try {
+              list.add(new AffiliationPacket(jid, Affiliation.Type.valueOf(affiliation)));
+            } catch (Throwable e) {
+              // Ignore invalid affiliation type.
+              e.printStackTrace();
+            }
+          }
+        } else if (eventType == XmlPullParser.END_TAG) {
+          if (PubSubElementType.AFFILIATIONS.getElementName().equals(parser.getName())) {
+            done = true;
+          }
+        }
+      } while (!done);
+
+      return new AffiliationsPacket(nodeId, list);
+    }
+  }
+
+  // Affiliations Management packet
+  private static class AffiliationsPacket extends NodeExtension {
+    private final List<AffiliationPacket> mList;
+
+    static {
+      // Register the parser for affiliations extension
+      ProviderManager.addExtensionProvider(
+          PubSubElementType.AFFILIATIONS.getElementName(),
+          PubSubNamespace.OWNER.getXmlns(), new AffiliationsProvider());
+    }
+
+    public AffiliationsPacket(String nodeId) {
+      super(PubSubElementType.AFFILIATIONS, nodeId);
+      mList = null;
+    }
+
+    public AffiliationsPacket(String nodeId, List<AffiliationPacket> list) {
+      super(PubSubElementType.AFFILIATIONS, nodeId);
+      mList = list;
+    }
+
+    public List<AffiliationPacket> getAffiliations() {
+      return mList;
+    }
+
+    @Override
+    public CharSequence toXML() {
+      if (mList == null) {
+        return super.toXML();
+      } else {
+        StringBuilder sb = new StringBuilder(256);
+        sb.append('<')
+          .append(getElementName())
+          .append(" node='")
+          .append(getNode())
+          .append("'>");
+        for (AffiliationPacket affiliation : mList) {
+          sb.append(affiliation.toXML());
+        }
+        sb.append("</")
+          .append(getElementName())
+          .append('>');
+        return sb.toString();
+      }
+    }
+  }
+
+  /**
+   * Get the subscriber white-list from a topic.
+   * @param topic
+   * @return
+   * @throws TopicNotFoundException
+   * @throws MMXException
+   */
+  public List<MMXid> getWhitelist(MMXPersonalTopic topic)
+                                  throws TopicNotFoundException, MMXException {
+    String topicPath = TopicHelper.normalizePath(topic.getName());
+    String realTopic = makeUserTopic(mCon.getUserId(), topicPath);
+    try {
+      PubSub iq = PubSub.createPubsubPacket("pubsub."+mCon.getDomain(), Type.GET,
+          new AffiliationsPacket(realTopic), PubSubNamespace.OWNER);
+      PubSub packet = (PubSub) mCon.getXMPPConnection().createPacketCollectorAndSend(iq).
+          nextResultOrThrow();
+      AffiliationsPacket affsExt = (AffiliationsPacket) packet.getExtension(
+          PubSubElementType.AFFILIATIONS);
+      List<MMXid> whitelist = new ArrayList<MMXid>();
+      for (AffiliationPacket affExt : affsExt.getAffiliations()) {
+        if (affExt.getAffiliation() == Affiliation.Type.member) {
+          whitelist.add(new MMXid(XIDUtil.extractUserId(affExt.getJid()), null, null));
+        }
+      }
+      return whitelist;
+    } catch (XMPPErrorException e) {
+      if (Condition.item_not_found.equals(e.getXMPPError().getCondition())) {
+        throw new TopicNotFoundException("Personal "+topic.getName()+" not found");
+      }
+      if (Condition.forbidden.equals(e.getXMPPError().getCondition())) {
+        throw new TopicPermissionException("Not the owner");
+      }
+      throw new MMXException("Unable to get subscriber whitelist", e);
+    } catch (Throwable e) {
+      throw new MMXException("Unable to get subscriber whitelist", e);
+    }
+  }
+
+  /**
+   * Set a subscriber white-list to a topic of the current user.
+   * @param topic A topic of the current user.
+   * @param xids A list of users (user ID's) allowed to subscribe.
+   * @throws MMXException
+   */
+  public void setWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
+         throws TopicNotFoundException, TopicPermissionException, MMXException {
+    setAffiliations(topic, xids, Affiliation.Type.member);
+  }
+
+  /**
+   * Remove user from the subscriber white-list to a topic of the current user.
+   * @param topic
+   * @param xids
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
+   * @throws MMXException
+   */
+  public void removeWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
+      throws TopicNotFoundException, TopicPermissionException, MMXException {
+    setAffiliations(topic, xids, Affiliation.Type.none);
+  }
+
+  private void setAffiliations(MMXPersonalTopic topic, List<MMXid> xids,
+                                Affiliation.Type type)
+      throws TopicNotFoundException, TopicPermissionException, MMXException {
+    String topicPath = TopicHelper.normalizePath(topic.getName());
+    String realTopic = makeUserTopic(mCon.getUserId(), topicPath);
+    try {
+      List<AffiliationPacket> affs = new ArrayList<AffiliationPacket>(xids.size());
+      for (MMXid xid : xids) {
+        affs.add(new AffiliationPacket(XIDUtil.makeXID(
+            xid, mCon.getAppId(), mCon.getDomain()), type));
+      }
+      PubSub iq = PubSub.createPubsubPacket("pubsub."+mCon.getDomain(), Type.SET,
+          new AffiliationsPacket(realTopic, affs), PubSubNamespace.OWNER);
+      Packet packet = mCon.getXMPPConnection().createPacketCollectorAndSend(iq).
+          nextResultOrThrow();
+      Log.i(TAG, packet.toString());
+    } catch (XMPPErrorException e) {
+      if (Condition.item_not_found.equals(e.getXMPPError().getCondition())) {
+        throw new TopicNotFoundException("Personal "+topic.getName()+" not found");
+      }
+      if (Condition.forbidden.equals(e.getXMPPError().getCondition())) {
+        throw new TopicPermissionException("Not the owner");
+      }
+      throw new MMXException("Unable to set subscriber whitelist", e);
+    } catch (Throwable e) {
+      throw new MMXException("Unable to set subscriber whitelist", e);
     }
   }
 }
