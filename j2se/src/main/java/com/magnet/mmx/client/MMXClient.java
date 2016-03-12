@@ -34,6 +34,8 @@ import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.OSType;
 import org.jivesoftware.smackx.privacy.PrivacyListManager;
+import org.jivesoftware.smackx.pubsub.Affiliation;
+import org.jivesoftware.smackx.pubsub.AffiliationsExtension;
 
 /**
  * This class is the main entry point of the MMX Java client API.  It allows
