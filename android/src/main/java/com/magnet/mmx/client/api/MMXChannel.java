@@ -1772,7 +1772,7 @@ public class MMXChannel implements Parcelable {
                           User u = UserCache.getInstance().getByUserId(ui.getUserId());
                           if(null != u){
                             userProfiles.add(new UserProfile.Builder().identifier(u.getUserIdentifier())
-                                .fistName(u.getFirstName())).lastName(u.getLastName()).hasAvatar(null != u.getAvatarUrl()).build());
+                                .firstName(u.getFirstName()).lastName(u.getLastName()).hasAvatar(null != u.getAvatarUrl()).build());
                           } else {
                             userProfiles.add(ui.toUserProfile());
                           }
