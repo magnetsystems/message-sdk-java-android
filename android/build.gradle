@@ -143,7 +143,11 @@ task androidJavadocs(type: Javadoc) {
     ext.androidJar = "${System.env.ANDROID_HOME}/platforms/${android.compileSdkVersion}/android.jar"
     ext.googlePlayServicesJar = "${System.env.ANDROID_HOME}/extras/google/google_play_services/libproject/google-play-services_lib/libs/google-play-services.jar"
     ext.androidSupportV4Jar = "${System.env.ANDROID_HOME}/extras/android/support/v4/android-support-v4.jar"
-    classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath
+    ext.maxCoreSourceJar = "$projectDir/build/intermediates/exploded-aar/com.magnet.max.android/magnet-max-android-core/${version}/jars/classes.jar"
+    ext.retrofitSourceJar = "$projectDir/build/intermediates/exploded-aar/com.magnet.max.android/magnet-max-android-core/${version}/jars/libs/retrofit-2.0.0-SNAPSHOT.jar"
+    ext.activeAndroidSourceJar = "$projectDir/build/intermediates/exploded-aar/com.magnet.max.android/magnet-max-android-core/${version}/jars/libs/ActiveAndroid-3.1.0-SNAPSHOT.jar"
+
+    classpath = files("$buildDir/intermediates/classes/debug") + files(ext.androidJar) + files(ext.googlePlayServicesJar) + files(ext.androidSupportV4Jar) + sourceSets.main.compileClasspath + files(ext.maxCoreSourceJar) + files(ext.retrofitSourceJar) + files(ext.activeAndroidSourceJar)
 
     if (project.hasProperty('externalJavadocJars')) {
         println "Adding external jars: ${externalJavadocJars} to classpath ${classpath.getAsPath()}"
