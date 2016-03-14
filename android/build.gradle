@@ -344,6 +344,8 @@ artifacts {
 //    archives debugZipfile
 //    archives releaseZipfile
     archives sdkAarfile
+    archives sourcesJar
+    archives androidJavadocsJar
 }
 
 def homeDir = System.getenv('HOME')
