@@ -1573,13 +1573,14 @@ public class PubSubManager {
 
   /**
    * Get the subscriber white-list from a topic.
-   * @param topic
+   * @param topic A topic owned by the current user.
    * @return
    * @throws TopicNotFoundException
+   * @throws TopicPermissionException
    * @throws MMXException
    */
   public List<MMXid> getWhitelist(MMXPersonalTopic topic)
-                                  throws TopicNotFoundException, MMXException {
+        throws TopicNotFoundException, TopicPermissionException, MMXException {
     String topicPath = TopicHelper.normalizePath(topic.getName());
     String realTopic = makeUserTopic(mCon.getUserId(), topicPath);
     try {
@@ -1610,20 +1611,22 @@ public class PubSubManager {
   }
 
   /**
-   * Set a subscriber white-list to a topic of the current user.
-   * @param topic A topic of the current user.
+   * Set users to the subscriber white-list to a topic of the current user.
+   * @param topic A topic owned by the current user.
    * @param xids A list of users (user ID's) allowed to subscribe.
+   * @throws TopicNotFoundException
+   * @throws TopicPermissionException
    * @throws MMXException
    */
   public void setWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
-         throws TopicNotFoundException, TopicPermissionException, MMXException {
+        throws TopicNotFoundException, TopicPermissionException, MMXException {
     setAffiliations(topic, xids, Affiliation.Type.member);
   }
 
   /**
-   * Remove user from the subscriber white-list to a topic of the current user.
-   * @param topic
-   * @param xids
+   * Revoke users from the white-list to a topic of the current user.
+   * @param topic A topic owned by the current user.
+   * @param xids A list of users (user ID's) are outcast
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException

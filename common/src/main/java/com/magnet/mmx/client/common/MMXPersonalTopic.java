@@ -62,7 +62,7 @@ public class MMXPersonalTopic extends MMXTopicId implements MMXVisibleTopic {
   @Override
   public String toString() {
     if (mUserId == null) {
-      return "?/"+getName();
+      return "./"+getName();
     } else {
       return super.toString();
     }
