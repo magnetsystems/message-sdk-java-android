@@ -732,10 +732,11 @@ public class MMXMessage implements Parcelable {
 
     return StringUtil.isStringValueEqual(mId, theOther.getId()) &&
         StringUtil.isStringValueEqual(mType, theOther.getType()) &&
-        null != mChannel ? mChannel.equals(theOther.getChannel()) : null == theOther.getChannel() &&
-        null != mSender ? mSender.equals(theOther.getSender()) : null == theOther.getSender() &&
-        null != mRecipients ? mRecipients.equals(theOther.getRecipients()) : null == theOther.getRecipients() &&
-        null != mContent ? mContent.equals(theOther.getContent()) : null == theOther.getContent();
+        (null != mChannel ? mChannel.equals(theOther.getChannel()) : null == theOther.getChannel()) &&
+        (null != mSender ? mSender.equals(theOther.getSender()) : null == theOther.getSender())
+        //(null != mRecipients ? mRecipients.equals(theOther.getRecipients()) : null == theOther.getRecipients()) &&
+        //null != mContent ? mContent.equals(theOther.getContent()) : null == theOther.getContent()
+        ;
   }
 
   @Override

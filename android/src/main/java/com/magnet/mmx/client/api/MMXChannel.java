@@ -1705,7 +1705,7 @@ public class MMXChannel implements Parcelable {
   }
 
   /**
-   * Get detail for channels
+   * Get details @{link ChannelDetail} for channels
    * @param channels
    * @param options
    * @param listener
@@ -1768,7 +1768,14 @@ public class MMXChannel implements Parcelable {
                       if(null != r.getSubscribers()) {
                         userProfiles = new ArrayList<UserProfile>(r.getSubscribers().size());
                         for(BasicUserInfo ui : r.getSubscribers()) {
-                          userProfiles.add(ui.toUserProfile());
+                          // Try to get from cache first
+                          User u = UserCache.getInstance().getByUserId(ui.getUserId());
+                          if(null != u){
+                            userProfiles.add(new UserProfile.Builder().identifier(u.getUserIdentifier())
+                                .firstName(u.getFirstName()).lastName(u.getLastName()).hasAvatar(null != u.getAvatarUrl()).build());
+                          } else {
+                            userProfiles.add(ui.toUserProfile());
+                          }
                         }
                       }
 
@@ -2360,8 +2367,8 @@ public class MMXChannel implements Parcelable {
         StringUtil.isStringValueEqual(mOwnerId, theOther.getOwnerId()) &&
         mPublic == theOther.isPublic() &&
         mPublishPermission == theOther.getPublishPermission() &&
-        StringUtil.isStringValueEqual(mName, theOther.getName()) &&
-        (null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
+        StringUtil.isStringValueEqual(mName, theOther.getName());
+        //(null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
   }
 
   @Override
