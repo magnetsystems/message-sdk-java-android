@@ -1628,9 +1628,9 @@ public class PubSubManager {
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public void removeWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
+  public void revokeWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
-    setAffiliations(topic, xids, Affiliation.Type.none);
+    setAffiliations(topic, xids, Affiliation.Type.outcast);
   }
 
   private void setAffiliations(MMXPersonalTopic topic, List<MMXid> xids,
