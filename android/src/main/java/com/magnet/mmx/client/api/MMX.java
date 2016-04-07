@@ -72,6 +72,7 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
    */
   public static class FailureCode {
+    public static final int ILLEGAL_ARGUMENT_CODE = 410;
     /**
      * A client error.
      */
@@ -103,6 +104,11 @@ public final class MMX {
     public static final MMX.FailureCode USER_NOT_LOGIN = new MMX.FailureCode(403, "USER_NOT_LOGIN");
 
     /**
+     * Illegal argument.
+     */
+    public static final FailureCode ILLEGAL_ARGUMENT = new FailureCode(ILLEGAL_ARGUMENT_CODE, "ILLEGAL_ARGUMENT");
+
+    /**
      * A server error.
      */
     public static final FailureCode SERVER_ERROR = new FailureCode(500, "SERVER_ERROR");
@@ -111,7 +117,7 @@ public final class MMX {
     protected String mToString;
     protected Throwable mThrowable;
 
-    FailureCode(int value, String description) {
+    public FailureCode(int value, String description) {
       this(value, description, null);
     }
 
@@ -324,22 +330,21 @@ public final class MMX {
     public void handleMessageReceived(MMXClient mmxClient, com.magnet.mmx.client.common.MMXMessage mmxMessage, String receiptId) {
       MMXPayload payload = mmxMessage.getPayload();
       String type = payload.getType();
+      MMXMessage newMessage = MMXMessage.fromMMXMessage(null, mmxMessage);
       if (MMXChannel.MMXInvite.TYPE.equals(type)) {
-        MMXChannel.MMXInvite invite = MMXChannel.MMXInvite.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
+        MMXChannel.MMXInvite invite = MMXChannel.MMXInvite.fromMMXMessage(newMessage);
         if (invite != null) {
           notifyInviteReceived(invite);
         }
       } else if (MMXChannel.MMXInviteResponse.TYPE.equals(type)) {
-        MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(MMXMessage.fromMMXMessage(null, mmxMessage));
+        MMXChannel.MMXInviteResponse inviteResponse = MMXChannel.MMXInviteResponse.fromMMXMessage(newMessage);
         if (inviteResponse != null) {
           notifyInviteResponseReceived(inviteResponse);
         }
       } else {
-
-        MMXMessage message = MMXMessage.fromMMXMessage(null, mmxMessage);
-        if (message != null) {
-          message.receiptId(receiptId);
-          notifyMessageReceived(message);
+        if (newMessage != null) {
+          newMessage.receiptId(receiptId);
+          notifyMessageReceived(newMessage);
         } else {
           throw new MessageHandlingException("Unable to handle message.");
         }
