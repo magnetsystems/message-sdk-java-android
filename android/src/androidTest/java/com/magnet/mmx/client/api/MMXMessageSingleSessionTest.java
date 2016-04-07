@@ -29,6 +29,7 @@ import com.magnet.mmx.client.utils.TestConstants;
 import com.magnet.mmx.client.utils.UserHelper;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -90,11 +91,7 @@ public class MMXMessageSingleSessionTest {
     // Verify received message
     MMXMessage receivedMessage = receivedResult.getReturnValue();
     assertNotNull(receivedMessage);
-    HashMap<String, Object> receivedContent = new HashMap<String, Object>();
-    for (Map.Entry<String, String> entry : receivedMessage.getContent().entrySet()) {
-      receivedContent.put(entry.getKey(), entry.getValue());
-    }
-    assertEquals("bar", receivedContent.get("foo"));
+    assertEquals("bar", receivedMessage.getContent().get("foo"));
   }
 
   @Test
@@ -133,7 +130,8 @@ public class MMXMessageSingleSessionTest {
     assertNotNull(receivedMessage.getAttachments());
     assertEquals(1, receivedMessage.getAttachments().size());
 
-    final Attachment attachmentReceived = message.getAttachments().get(0);
+    List<Attachment> attachments = message.getAttachments();
+    final Attachment attachmentReceived = attachments.get(0);
     assertEquals("image/jpeg", attachmentReceived.getMimeType());
     //assertEquals(Attachment.Status.INIT, attachmentReceived.getStatus());
     //assertEquals(attachmentSize.get(), attachmentReceived.getLength());

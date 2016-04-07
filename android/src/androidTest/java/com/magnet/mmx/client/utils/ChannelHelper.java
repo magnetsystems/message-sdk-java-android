@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -223,7 +224,8 @@ public class ChannelHelper {
     final MMX.EventListener messageListener = new MMX.EventListener() {
       @Override
       public boolean onMessageReceived(MMXMessage message) {
-        String bar = message.getContent().get("foo");
+        Map<String, String> mataData = message.getContent();
+        String bar = mataData.get("foo");
         //FIXME:  Check the sender name/displayname
         User sender = message.getSender();
         if (sender != null) {

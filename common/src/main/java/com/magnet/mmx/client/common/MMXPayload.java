@@ -147,7 +147,7 @@ public class MMXPayload implements Serializable {
    * @param value A JSON String value.
    * @return
    */
-  MMXPayload setMmxMetaData(String name, Object value) {
+  public MMXPayload setMmxMetaData(String name, Object value) {
     mMmxMeta.put(name, value);
     return this;
   }

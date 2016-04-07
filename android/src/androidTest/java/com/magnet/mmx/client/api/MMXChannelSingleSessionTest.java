@@ -172,7 +172,8 @@ public class MMXChannelSingleSessionTest {
     assertThat(receivedMessage1.getId()).isEqualTo(message1.getId());
     assertThat(receivedMessage1.getAttachments()).hasSize(1);
 
-    Attachment receivedAttachment1 = receivedMessage1.getAttachments().get(0);
+    List<Attachment> attachments = receivedMessage1.getAttachments();
+    Attachment receivedAttachment1 = attachments.get(0);
     Log.d(TAG, "attchement received : " + receivedAttachment1);
     assertThat(receivedAttachment1.getAttachmentId()).isEqualTo(attachment1.getAttachmentId());
 
