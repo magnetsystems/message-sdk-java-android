@@ -197,7 +197,9 @@ public class MMXPoll {
 
     List<MMXPollOption> pollOptions = new ArrayList<>(survey.getSurveyDefinition().getQuestions().get(0).getChoices().size());
     for(SurveyOption so : survey.getSurveyDefinition().getQuestions().get(0).getChoices()) {
-      pollOptions.add(new MMXPollOption(so.getValue(), so.getOptionId()));
+      MMXPollOption pollOption = new MMXPollOption(so.getValue());
+      pollOption.setOptionId(so.getOptionId());
+      pollOptions.add(pollOption);
     }
 
     return new MMXPoll(survey.getId(), null, null, survey.getSurveyDefinition().getQuestions().get(0).getText(),
