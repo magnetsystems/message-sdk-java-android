@@ -7,6 +7,7 @@ import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -50,8 +51,8 @@ final class UserCache {
    *
    * @param userIds the userIds to lookup
    */
-  void fillCacheByUserId(Set<String> userIds) {
-    fillCacheHelper(userIds, DEFAULT_ACCEPTED_AGE);
+  Set<User> fillCacheByUserId(Set<String> userIds) {
+    return fillCacheHelper(userIds, DEFAULT_ACCEPTED_AGE);
   }
 
   /**
@@ -61,13 +62,13 @@ final class UserCache {
    * @param userIds the userIds to lookup
    * @param acceptedAgeMillis the allowed age in milliseconds
    */
-  void fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {
-    fillCacheHelper(userIds, acceptedAgeMillis);
+  Set<User> fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {
+    return fillCacheHelper(userIds, acceptedAgeMillis);
   }
 
-  void fillCacheHelper(Set<String> keys, long acceptedAgeMillis) {
+  Set<User> fillCacheHelper(Set<String> keys, long acceptedAgeMillis) {
     final ArrayList<String> retrieveList = new ArrayList<String>();
-
+    final Set<User> result = new HashSet<>();
     synchronized (this) {
       for (String key : keys) {
         CachedUser cachedUser = mUserCache.get(key);
@@ -78,6 +79,8 @@ final class UserCache {
           Log.v(TAG, "fillCache(): cache expired for user: " + key +  ", cachedUser=" + cachedUser);
           mUserCache.remove(key);
           retrieveList.add(key);
+        } else {
+          result.add(cachedUser.user);
         }
       }
     }
@@ -92,6 +95,7 @@ final class UserCache {
             CachedUser cachedUser = new CachedUser(user, timestamp);
             mUserCache.put(user.getUserIdentifier().toLowerCase(), cachedUser);
           }
+          result.addAll(users);
           latch.countDown();
         }
 
@@ -110,6 +114,8 @@ final class UserCache {
         }
       }
     }
+
+    return result;
   }
 
   /**

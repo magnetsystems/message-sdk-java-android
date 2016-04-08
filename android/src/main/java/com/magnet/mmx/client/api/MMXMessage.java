@@ -56,7 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * If the message targets to a channel, it will be used for group chat or forum
  * discussions.
  */
-public class MMXMessage implements Parcelable {
+public class MMXMessage<T> implements Parcelable {
   private static final String TAG = MMXMessage.class.getSimpleName();
 
   public static final String CONTENT_ATTACHMENTS = "_attachments";
@@ -118,7 +118,7 @@ public class MMXMessage implements Parcelable {
   /**
    * The builder for the MMXMessage class
    */
-  public static final class Builder {
+  public static final class Builder<T> {
     private final MMXMessage mMessage;
 
     public Builder() {
@@ -204,8 +204,42 @@ public class MMXMessage implements Parcelable {
      * @param content the content
      * @return this Builder instance
      */
+    @Deprecated
     public MMXMessage.Builder content(Map<String, String> content) {
       mMessage.content(content);
+      return this;
+    }
+
+    public MMXMessage.Builder contentType(String contentType) {
+      mMessage.mContentType = contentType;
+      return this;
+    }
+
+    /**
+     * Sets the meta data for this message
+     *
+     * @param content the content
+     * @return this MMXMessage instance
+     */
+    public MMXMessage.Builder metaData(Map<String, String> content) {
+      mMessage.mMeta = content;
+      return this;
+    }
+
+    /**
+     * Sets the meta data for this message
+     *
+     * @param key the key of the mata data
+     * @param value the value of the mata data
+     * @return this MMXMessage instance
+     */
+    public MMXMessage.Builder metaData(String key, String value) {
+      mMessage.mMeta.put(key, value);
+      return this;
+    }
+
+    public MMXMessage.Builder payload(T payload) {
+      mMessage.mPayload = payload;
       return this;
     }
 
@@ -289,15 +323,27 @@ public class MMXMessage implements Parcelable {
   private User mSender;
   private MMXChannel mChannel;
   private Set<User> mRecipients = new HashSet<User>();
-  private Map<String, String> mContent = new HashMap<String, String>();
+  private Map<String, String> mMeta = new HashMap<String, String>();
+  private String mContentType;
+  private T mPayload;
   private String mReceiptId;
   private List<Attachment> mAttachments = new ArrayList<Attachment>();
+  // Map between type name to type class
+  private static final Map<String, Class> sTypeMapping = new HashMap<>();
 
   /**
    * Default constructor
    */
   MMXMessage() {
 
+  }
+
+  public static void registerPayloadType(String name, Class type) {
+    sTypeMapping.put(name, type);
+  }
+
+  public static Class getPayloadType(String name) {
+    return sTypeMapping.get(name);
   }
 
   /**
@@ -423,24 +469,77 @@ public class MMXMessage implements Parcelable {
     return mRecipients;
   }
 
-  /**
-   * Sets the content for this message
-   *
-   * @param content the content
-   * @return this MMXMessage instance
-   */
-  MMXMessage content(Map<String, String> content) {
-    mContent = content;
+  public String getContentType() {
+    return mContentType;
+  }
+
+  public MMXMessage contentType(String contentType) {
+    this.mContentType = contentType;
     return this;
   }
 
   /**
-   * The content for this message
+   * Sets the meta data for this message
+   *
+   * @param content the content
+   * @return this MMXMessage instance
+   */
+  MMXMessage metaData(Map<String, String> content) {
+    mMeta = content;
+    return this;
+  }
+
+  /**
+   * Sets the meta data for this message
+   *
+   * @param key the key of the mata data
+   * @param value the value of the mata data
+   * @return this MMXMessage instance
+   */
+  MMXMessage metaData(String key, String value) {
+    mMeta.put(key, value);
+    return this;
+  }
+
+  /**
+   * The meta data for this message
    *
    * @return the content
    */
+  @Deprecated
+  public Map<String, String> getMetaData() {
+    return mMeta;
+  }
+
+  /**
+   * Sets the meta data for this message
+   *
+   * @param content the content
+   * @return this MMXMessage instance
+   */
+  @Deprecated
+  MMXMessage content(Map<String, String> content) {
+    mMeta = content;
+    return this;
+  }
+
+  /**
+   * The meta data for this message
+   *
+   * @return the content
+   */
+  @Deprecated
   public Map<String, String> getContent() {
-    return mContent;
+    return mMeta;
+  }
+
+  public T getPayload() {
+    return mPayload;
+  }
+
+  public MMXMessage payload(T payload) {
+    this.mPayload = payload;
+    return this;
   }
 
   /**
@@ -449,6 +548,11 @@ public class MMXMessage implements Parcelable {
    */
   public List<Attachment> getAttachments() {
     return mAttachments;
+  }
+
+  public MMXMessage attachments(List<Attachment> attachments) {
+    this.mAttachments = attachments;
+    return this;
   }
 
   /**
@@ -493,7 +597,7 @@ public class MMXMessage implements Parcelable {
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
     final String type = getType() != null ? getType() : null;
     final MMXPayload payload = new MMXPayload(type, "");
-    for (Map.Entry<String, String> entry : mContent.entrySet()) {
+    for (Map.Entry<String, String> entry : mMeta.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
 
@@ -562,7 +666,7 @@ public class MMXMessage implements Parcelable {
    * @param listener the listener for this method call
    */
   public String send(final OnFinishedListener<String> listener) {
-    final boolean isContentEmpty = null == mContent || mContent.isEmpty();
+    final boolean isContentEmpty = (null == mMeta || mMeta.isEmpty()) && null == mPayload;
     if (MMX.getCurrentUser() == null || isContentEmpty) {
       //FIXME:  This needs to be done in MMXClient/MMXMessageManager.  Do it here for now.
       final Throwable exception = isContentEmpty ? new IllegalArgumentException("content is empty") : new IllegalStateException("Cannot send message.  " +
@@ -581,8 +685,11 @@ public class MMXMessage implements Parcelable {
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
     final String type = getType() != null ? getType() : null;
     final MMXPayload payload = new MMXPayload(type, "");
-    for (Map.Entry<String, String> entry : mContent.entrySet()) {
+    for (Map.Entry<String, String> entry : mMeta.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
+    }
+    if(null != mContentType) {
+      payload.setMmxMetaData(MMXPayload.CONTENT_TYPE, mContentType);
     }
 
     MMXTask<String> task;
@@ -718,8 +825,7 @@ public class MMXMessage implements Parcelable {
   }
 
   @Override public int hashCode() {
-    return new HashCodeBuilder().hash(mId).hash(mType).hash(mSender).hash(mRecipients)
-        .hash(mChannel).hash(mContent).hashCode();
+    return new HashCodeBuilder().hash(mId).hashCode();
   }
 
   @Override
@@ -730,12 +836,12 @@ public class MMXMessage implements Parcelable {
 
     MMXMessage theOther = (MMXMessage) obj;
 
-    return StringUtil.isStringValueEqual(mId, theOther.getId()) &&
-        StringUtil.isStringValueEqual(mType, theOther.getType()) &&
-        (null != mChannel ? mChannel.equals(theOther.getChannel()) : null == theOther.getChannel()) &&
-        (null != mSender ? mSender.equals(theOther.getSender()) : null == theOther.getSender())
+    return StringUtil.isStringValueEqual(mId, theOther.getId())
+        //StringUtil.isStringValueEqual(mType, theOther.getType()) &&
+        //(null != mChannel ? mChannel.equals(theOther.getChannel()) : null == theOther.getChannel()) &&
+        //(null != mSender ? mSender.equals(theOther.getSender()) : null == theOther.getSender())
         //(null != mRecipients ? mRecipients.equals(theOther.getRecipients()) : null == theOther.getRecipients()) &&
-        //null != mContent ? mContent.equals(theOther.getContent()) : null == theOther.getContent()
+        //null != mMeta ? mMeta.equals(theOther.getContent()) : null == theOther.getContent()
         ;
   }
 
@@ -747,7 +853,7 @@ public class MMXMessage implements Parcelable {
         .append("sender = ").append(mSender).append(", ")
         .append("channel = ").append(mChannel).append(", ")
         .append("recipients = ").append(StringUtil.toString(mRecipients)).append(", ")
-        .append("content = ").append(StringUtil.toString(mContent))
+        .append("content = ").append(StringUtil.toString(mMeta))
         .append("}")
         .toString();
   }
@@ -774,7 +880,7 @@ public class MMXMessage implements Parcelable {
     return new MMXMessage()
             .channel(mChannel)
             .recipients(replyRecipients)
-            .content(content);
+            .metaData(content);
   }
 
   /**
@@ -965,7 +1071,7 @@ public class MMXMessage implements Parcelable {
   }
 
   //For handling the onSuccess of send() messages when server ack is received
-  private class MessageListenerPair {
+  private static class MessageListenerPair {
     private final OnFinishedListener<String> listener;
     private final MMXMessage message;
 
@@ -1131,7 +1237,7 @@ public class MMXMessage implements Parcelable {
     dest.writeParcelable(this.mSender, flags);
     dest.writeParcelable(this.mChannel, 0);
     dest.writeParcelableArray(ParcelableHelper.setToArray(this.mRecipients), flags);
-    dest.writeBundle(ParcelableHelper.stringMapToBundle(this.mContent));
+    dest.writeBundle(ParcelableHelper.stringMapToBundle(this.mMeta));
     dest.writeString(this.mReceiptId);
     dest.writeList(this.mAttachments);
   }
@@ -1147,7 +1253,7 @@ public class MMXMessage implements Parcelable {
     if(null != tmpRecipients) {
       this.mRecipients = new HashSet<User>(Arrays.asList(tmpRecipients));
     }
-    this.mContent = ParcelableHelper.stringMapfromBundle(in.readBundle());
+    this.mMeta = ParcelableHelper.stringMapfromBundle(in.readBundle());
     this.mReceiptId = in.readString();
     this.mAttachments = new ArrayList<Attachment>();
     in.readTypedList(this.mAttachments, Attachment.CREATOR);
