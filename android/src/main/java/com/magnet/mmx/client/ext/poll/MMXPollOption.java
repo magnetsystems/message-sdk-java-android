@@ -20,6 +20,12 @@ public class MMXPollOption {
     //this.pollId = pollId;
   }
 
+  public MMXPollOption(String text, String pollId) {
+    this.text = text;
+    this.pollId = pollId;
+  }
+
+
   public String getPollId() {
     return pollId;
   }
