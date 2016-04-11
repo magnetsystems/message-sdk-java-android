@@ -14,7 +14,7 @@ public class MMXPollOption implements MMXTypedPayload {
   private String pollId;
   private String optionId;
   private String text;
-  private int count;
+  private long count;
 
   //private List<UserProfile> voters;
 
@@ -39,11 +39,15 @@ public class MMXPollOption implements MMXTypedPayload {
     this.optionId = optionId;
   }
 
+  /* package */ void setCount(long count) {
+    this.count = count;
+  }
+
   public String getText() {
     return text;
   }
 
-  public int getCount() {
+  public long getCount() {
     return count;
   }
 

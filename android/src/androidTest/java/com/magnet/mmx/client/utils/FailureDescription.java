@@ -4,7 +4,6 @@
 package com.magnet.mmx.client.utils;
 
 import com.magnet.mmx.client.api.MMX;
-import com.magnet.mmx.client.api.MMXMessage;
 
 public class FailureDescription {
   private MMX.FailureCode code;
@@ -21,5 +20,9 @@ public class FailureDescription {
 
   public Throwable getException() {
     return exception;
+  }
+
+  @Override public String toString() {
+    return "FailureDescription { \n" + "  FailureCode : " + code.toString() + "\n exception : " + exception + "\n}";
   }
 }

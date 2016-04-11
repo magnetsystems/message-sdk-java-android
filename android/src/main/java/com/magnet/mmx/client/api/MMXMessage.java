@@ -130,7 +130,7 @@ public class MMXMessage implements Parcelable {
   /**
    * The builder for the MMXMessage class
    */
-  public static final class Builder<T> {
+  public static final class Builder {
     private final MMXMessage mMessage;
 
     public Builder() {
@@ -251,7 +251,7 @@ public class MMXMessage implements Parcelable {
     }
 
     public MMXMessage.Builder payload(MMXTypedPayload payload) {
-      mMessage.mPayload = payload;
+      mMessage.payload(payload);
       return this;
     }
 
@@ -341,8 +341,8 @@ public class MMXMessage implements Parcelable {
   private String mReceiptId;
   private List<Attachment> mAttachments = new ArrayList<Attachment>();
   // Map between type name to type class
-  private static final Map<String, Class> sTypeClassMapping = new HashMap<>();
-  private static final Map<Class, String> sClassTypeMapping = new HashMap<>();
+  private static Map<String, Class> sTypeClassMapping;
+  private static Map<Class, String> sClassTypeMapping;
 
   /**
    * Default constructor
@@ -352,6 +352,12 @@ public class MMXMessage implements Parcelable {
   }
 
   public static void registerPayloadType(String name, Class type) {
+    if(null == sTypeClassMapping) {
+      sTypeClassMapping = new HashMap<>();
+    }
+    if(null == sClassTypeMapping) {
+      sClassTypeMapping = new HashMap<>();
+    }
     sTypeClassMapping.put(name, type);
     sClassTypeMapping.put(type, name);
   }
@@ -565,7 +571,7 @@ public class MMXMessage implements Parcelable {
 
   public MMXMessage payload(MMXTypedPayload payload) {
     if(null != payload) {
-      String typeName = getPayloadTypeName(mPayload.getClass());
+      String typeName = getPayloadTypeName(payload.getClass());
       if (null != typeName) {
         mContentType = TYPED_PAYLOAD_CONTENT_TYPE + typeName;
       } else {
@@ -889,7 +895,8 @@ public class MMXMessage implements Parcelable {
         .append("sender = ").append(mSender).append(", ")
         .append("channel = ").append(mChannel).append(", ")
         .append("recipients = ").append(StringUtil.toString(mRecipients)).append(", ")
-        .append("content = ").append(StringUtil.toString(mMeta))
+        .append("metaData = ").append(StringUtil.toString(mMeta)).append(", ")
+        .append("payload = ").append(mPayload)
         .append("}")
         .toString();
   }
@@ -986,6 +993,12 @@ public class MMXMessage implements Parcelable {
 
         Log.e(TAG, errorMessage);
         return null;
+      }
+    }
+
+    if(null != tmpPayload) {
+      for (Map.Entry<String, String> entry : mMeta.entrySet()) {
+        tmpPayload.setMetaData(entry.getKey(), entry.getValue());
       }
     }
 

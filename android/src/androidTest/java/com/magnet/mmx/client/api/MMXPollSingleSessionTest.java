@@ -48,6 +48,7 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @RunWith(AndroidJUnit4.class)
 public class MMXPollSingleSessionTest {
@@ -77,10 +78,10 @@ public class MMXPollSingleSessionTest {
     final ExecMonitor<MMXMessage, FailureDescription> newPollMessageMonitor = new ExecMonitor<>("NewPollMessageMonitor");
     MMX.EventListener messageListener = new MMX.EventListener() {
       public boolean onMessageReceived(final MMXMessage messageReceived) {
-        Log.d(TAG, "onMessageReceived(): " + messageReceived.getId());
+        Log.d(TAG, "------testPoll()--------onMessageReceived(): \n" + messageReceived);
 
         if(null != messageReceived.getContentType()) {
-          if(messageReceived.getContentType().endsWith(MMXPoll.TYPE)) {
+          if(messageReceived.getContentType().endsWith(MMXPoll.MMXPollIdentifier.TYPE)) {
             newPollMessageMonitor.invoked(messageReceived);
           }
         }
@@ -124,29 +125,54 @@ public class MMXPollSingleSessionTest {
         });
 
     // Create poll
-    ExecMonitor.Status createPollStatus = createPollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC * 2);
+    ExecMonitor.Status createPollStatus = createPollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    assertThat(createPollResult.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, createPollStatus);
     assertEquals(question, createPollResult.getReturnValue().getQuestion());
 
     MMXPoll newPoll = createPollResult.getReturnValue();
 
     // Received new poll
-    ExecMonitor.Status newPollMessageStatus = newPollMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC * 2);
+    ExecMonitor.Status newPollMessageStatus = newPollMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    assertThat(newPollMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
     assertEquals(newPoll.getPollId(), ((MMXPoll.MMXPollIdentifier) newPollMessageMonitor.getReturnValue().getPayload()).getPollId());
 
+    // Retrieve Poll by id
+    final ExecMonitor<MMXPoll, FailureDescription> retrievePollResult = new ExecMonitor<>("RetrievePollResult");
+    MMXPoll.getPoll(newPoll.getPollId(), new MMX.OnFinishedListener<MMXPoll>() {
+      @Override public void onSuccess(MMXPoll result) {
+        retrievePollResult.invoked(result);
+      }
+
+      @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
+        retrievePollResult.failed(new FailureDescription(code, ex));
+      }
+    });
+    ExecMonitor.Status retrievePollStatus = retrievePollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    assertThat(retrievePollResult.getFailedValue()).isNull();
+    assertEquals(ExecMonitor.Status.INVOKED, retrievePollStatus);
+    assertEquals(question, retrievePollResult.getReturnValue().getQuestion());
+
+    MMXPoll retrievedPoll = retrievePollResult.getReturnValue();
+
     // Choose option
     final ExecMonitor<Boolean, FailureDescription> chooseOptionResult = new ExecMonitor<>("ChooseOptionResult");
-    newPoll.choose(newPoll.getOptions().get(0), new MMX.OnFinishedListener<Boolean>() {
+    newPoll.choose(retrievedPoll.getOptions().get(0), new MMX.OnFinishedListener<Boolean>() {
       @Override public void onSuccess(Boolean result) {
         chooseOptionResult.invoked(result);
       }
 
       @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-
+        chooseOptionResult.failed(new FailureDescription(code, ex));
       }
     });
+    ExecMonitor.Status chooseOptionStatus = chooseOptionResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    assertThat(chooseOptionResult.getFailedValue()).isNull();
+    assertEquals(ExecMonitor.Status.INVOKED, chooseOptionStatus);
+    assertEquals(Boolean.TRUE, chooseOptionResult.getReturnValue());
 
+    MMXPoll.deletePoll(retrievedPoll.getPollId(), null);
     ChannelHelper.delete(channel);
   }
 
