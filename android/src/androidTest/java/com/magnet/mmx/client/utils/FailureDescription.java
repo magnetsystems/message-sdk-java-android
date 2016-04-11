@@ -3,18 +3,19 @@
  */
 package com.magnet.mmx.client.utils;
 
+import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXMessage;
 
 public class FailureDescription {
-  private MMXMessage.FailureCode code;
+  private MMX.FailureCode code;
   private Throwable exception;
 
-  public FailureDescription(MMXMessage.FailureCode code, Throwable exception) {
+  public FailureDescription(MMX.FailureCode code, Throwable exception) {
     this.code = code;
     this.exception = exception;
   }
 
-  public MMXMessage.FailureCode getCode() {
+  public MMX.FailureCode getCode() {
     return code;
   }
 

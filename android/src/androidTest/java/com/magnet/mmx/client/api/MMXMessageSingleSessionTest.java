@@ -211,7 +211,7 @@ public class MMXMessageSingleSessionTest {
     ExecMonitor<MMXMessage, FailureDescription> receivedResult = new ExecMonitor<>("MessageReceive");
 
     MessageHelper.sendMessage(message, sendResult, ExecMonitor.Status.FAILED, receivedResult, ExecMonitor.Status.WAITING, null, null);
-    MMXMessage.FailureCode sendFailure = sendResult.getFailedValue().getCode();
+    MMX.FailureCode sendFailure = sendResult.getFailedValue().getCode();
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendFailure);
 
     InvalidRecipientException irEx = (InvalidRecipientException) sendResult.getFailedValue().getException();
@@ -245,7 +245,7 @@ public class MMXMessageSingleSessionTest {
     ExecMonitor<MMXMessage, FailureDescription> receivedResult = new ExecMonitor<>("MessageReceive");
 
     MessageHelper.sendMessage(message, sendResult, ExecMonitor.Status.FAILED, receivedResult, ExecMonitor.Status.INVOKED, null, null);
-    MMXMessage.FailureCode sendFailure = sendResult.getFailedValue().getCode();
+    MMX.FailureCode sendFailure = sendResult.getFailedValue().getCode();
     assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendFailure);
 
     InvalidRecipientException irEx = (InvalidRecipientException) sendResult.getFailedValue().getException();

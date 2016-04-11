@@ -7,10 +7,9 @@ package com.magnet.mmx.client.internal.poll.model;
 
 public class Survey {
 
-  
-  
   private String id;
 
+  private String name;
   
   private SurveyDefinition surveyDefinition;
 
@@ -22,6 +21,10 @@ public class Survey {
 
   public String getId() {
     return id;
+  }
+
+  public String getName() {
+    return name;
   }
 
   public SurveyDefinition getSurveyDefinition() {
@@ -52,6 +55,11 @@ public class Survey {
 
     public SurveyBuilder id(String value) {
       toBuild.id = value;
+      return this;
+    }
+
+    public SurveyBuilder name(String value) {
+      toBuild.name = value;
       return this;
     }
 

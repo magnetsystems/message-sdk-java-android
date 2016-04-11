@@ -6,8 +6,11 @@ package com.magnet.mmx.client.ext.poll;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.api.MMXTypedPayload;
 
-public class MMXPollOption {
+public class MMXPollOption implements MMXTypedPayload {
+  public static final String TYPE = "MMXPollOption";
+
   private String pollId;
   private String optionId;
   private String text;
