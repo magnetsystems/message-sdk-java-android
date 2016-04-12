@@ -33,7 +33,7 @@ import com.magnet.mmx.util.InvalidMessageException;
  * This class represents a push event sent by MMX server via GCM.  There are
  * different situations that a client will receive this event.
  * <ul>
- * <li>a channel wake-up notification: a special payload 
+ * <li>a channel wake-up notification: a special payload
  * com.magnet.mmx.protocol.PubSubNotification is sent by the server via GCM or
  * APNS when a message is published to a channel while the subscriber is not
  * connected to the server.</li>
@@ -45,13 +45,13 @@ import com.magnet.mmx.util.InvalidMessageException;
  * The client must provide a custom receiver and convert its Intent into
  * MMXPushEvent via {@link #fromIntent(Intent)}.  By examining the type using
  * {@link #getType()}, the caller will handle each payload accordingly.
- * 
+ *
  * @see MMX
  */
 public class MMXPushEvent implements Serializable {
   private static final long serialVersionUID = 2789163511461919579L;
   private final static String TAG = MMXPushEvent.class.getSimpleName();
-  private PushMessage mPushMessage;
+  private final PushMessage mPushMessage;
 
   /**
    * Convert the intent from the custom receiver into MMXPushEvent.  If the
@@ -105,7 +105,7 @@ public class MMXPushEvent implements Serializable {
   public Action getAction() {
     return mPushMessage == null ? null : mPushMessage.getAction();
   }
-  
+
   /**
    * Get the push message type (if any.)  It can be an ad-hoc message wake-up
    * ("retrieve"), a channel wake-up ("pubsub"), or a custom type.
@@ -130,15 +130,18 @@ public class MMXPushEvent implements Serializable {
    */
   protected Map<String, ? super Object> getPayload() {
     GCMPayload payload = getPushMessage();
-    if (payload == null)
+    if (payload == null) {
       return null;
+    }
     return payload.getMmx();
   }
 
   /**
    * Get the custom payload as a Map object from the event payload.
    * Alternatively, use {@link #getCustomObject(Class)} if there is a class
-   * associated with the custom payload,
+   * associated with the custom payload.  The custom payload includes extra
+   * push notification attributes to make silent and push notification similar
+   * in Android.
    * @return A Map object for the payload.
    * @see #getCustomMap()
    */
@@ -147,7 +150,37 @@ public class MMXPushEvent implements Serializable {
     if (mmx == null) {
       return null;
     }
-    return (Map<String, Object>) mmx.get(GCMPayload.KEY_CUSTOM_CONTENT);
+    Map<String, Object> custom = (Map<String, Object>) mmx.get(
+        GCMPayload.KEY_CUSTOM_CONTENT);
+    if (custom != null) {
+      // Silent or push notification are same in Android; copy push notification
+      // attributes to the custom payload to simplify the client API.
+      GCMPayload payload = getPushMessage();
+      if (custom.get(Constants.PAYLOAD_PUSH_TITLE) == null &&
+          payload.getTitle() != null) {
+        custom.put(Constants.PAYLOAD_PUSH_TITLE, payload.getTitle());
+      }
+      if (custom.get(Constants.PAYLOAD_PUSH_BODY) == null &&
+          payload.getBody() != null) {
+        custom.put(Constants.PAYLOAD_PUSH_BODY, payload.getBody());
+      }
+      if (custom.get(Constants.PAYLOAD_PUSH_SOUND) == null &&
+          payload.getSound() != null) {
+        custom.put(Constants.PAYLOAD_PUSH_SOUND, payload.getSound());
+      }
+      if (custom.get(Constants.PAYLOAD_PUSH_BADGE) == null &&
+          payload.getBadge() != null) {
+        custom.put(Constants.PAYLOAD_PUSH_BADGE, payload.getBadge());
+      }
+      if (custom.get(Constants.PAYLOAD_PUSH_ICON) == null &&
+          payload.getIcon() != null) {
+        custom.put(Constants.PAYLOAD_PUSH_ICON, payload.getIcon());
+      }
+    }
+    if (Log.isLoggable(TAG, Log.DEBUG)) {
+      Log.d(TAG, "combined getCustomMap(): "+custom);
+    }
+    return custom;
   }
 
   /**
