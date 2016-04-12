@@ -6,12 +6,15 @@ package com.magnet.mmx.client.ext.poll;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.api.MMXTypedPayload;
 
-public class MMXPollOption {
+public class MMXPollOption implements MMXTypedPayload {
+  public static final String TYPE = "MMXPollOption";
+
   private String pollId;
   private String optionId;
   private String text;
-  private int count;
+  private long count;
 
   //private List<UserProfile> voters;
 
@@ -42,11 +45,15 @@ public class MMXPollOption {
     this.optionId = optionId;
   }
 
+  /* package */ void setCount(long count) {
+    this.count = count;
+  }
+
   public String getText() {
     return text;
   }
 
-  public int getCount() {
+  public long getCount() {
     return count;
   }
 

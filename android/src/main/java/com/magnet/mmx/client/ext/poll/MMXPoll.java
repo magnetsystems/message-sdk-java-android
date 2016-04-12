@@ -8,17 +8,20 @@ import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXChannel;
 import com.magnet.mmx.client.api.MMXMessage;
+import com.magnet.mmx.client.api.MMXTypedPayload;
 import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.client.internal.poll.PollService;
 import com.magnet.mmx.client.internal.poll.SurveyService;
-import com.magnet.mmx.client.internal.poll.model.AnswerType;
 import com.magnet.mmx.client.internal.poll.model.Survey;
 import com.magnet.mmx.client.internal.poll.model.SurveyAnswer;
+import com.magnet.mmx.client.internal.poll.model.SurveyAnswerRequest;
+import com.magnet.mmx.client.internal.poll.model.SurveyChoiceResult;
 import com.magnet.mmx.client.internal.poll.model.SurveyDefinition;
 import com.magnet.mmx.client.internal.poll.model.SurveyOption;
 import com.magnet.mmx.client.internal.poll.model.SurveyParticipantModel;
 import com.magnet.mmx.client.internal.poll.model.SurveyQuestion;
 import com.magnet.mmx.client.internal.poll.model.SurveyQuestionType;
+import com.magnet.mmx.client.internal.poll.model.SurveyResults;
+import com.magnet.mmx.client.internal.poll.model.SurveyType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -26,7 +29,9 @@ import java.util.List;
 import retrofit.Callback;
 import retrofit.Response;
 
-public class MMXPoll {
+public class MMXPoll implements MMXTypedPayload {
+  public static final String TYPE = "MMXPoll";
+
   private static final String TAG = "MMXPoll";
 
   private String pollId;
@@ -36,6 +41,8 @@ public class MMXPoll {
   private Date endDate;
   private boolean hideResultsFromOthers;
   private MMXPollOption myVote;
+  //Internal use only
+  private String questionId;
 
   private MMXChannel channel;
 
@@ -50,23 +57,7 @@ public class MMXPoll {
       return;
     }
 
-    List<SurveyQuestion> surveyQuestions = new ArrayList<>(1);
-    List<SurveyOption> surveyOptions = new ArrayList<>(options.size());
-    for(int i = 0; i < options.size(); i++) {
-      surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(options.get(i).getText()).displayOder(i).build());
-    }
-    surveyQuestions.add(new SurveyQuestion.SurveyQuestionBuilder().text(question)
-        .displayOrder(0)
-        .type(SurveyQuestionType.SINGLE_CHOICE)
-        .choices(surveyOptions).build());
-
-    Survey newSurvey = new Survey.SurveyBuilder().owners(Arrays.asList(User.getCurrentUserId()))
-        .surveyDefinition(new SurveyDefinition.SurveyDefinitionBuilder().endDate(endDate)
-        .notificationChannelId(channel.getName())
-        //.participantModel(SurveyParticipantModel.PRIVATE)
-        .resultAccessModel(hideResultsFromOthers ? SurveyParticipantModel.PRIVATE : SurveyParticipantModel.PUBLIC)
-        .questions(surveyQuestions)
-        .build()).build();
+    Survey newSurvey = createSurvey(channel, name, question, options, endDate, hideResultsFromOthers);
     getPollService().createSurvey(newSurvey,
         new Callback<Survey>() {
           @Override public void onResponse(Response<Survey> response) {
@@ -76,15 +67,24 @@ public class MMXPoll {
               options.get(i).setOptionId(surveyCreated.getSurveyDefinition().getQuestions().get(0).getChoices().get(i).getOptionId());
               options.get(i).setPollId(surveyCreated.getId());
             }
-            MMXPoll newPoll = new MMXPoll(surveyCreated.getId(), channel, name, question, options, endDate, hideResultsFromOthers);
+            final MMXPoll newPoll = new MMXPoll(surveyCreated.getId(), channel, name, question, options, endDate, hideResultsFromOthers);
+            newPoll.setQuestionId(surveyCreated.getSurveyDefinition().getQuestions().get(0).getQuestionId());
 
-            MMXMessage<MMXPoll>
-                message = new MMXMessage.Builder().channel(channel).payload(newPoll).build();
-            publishChannelMessage(channel, message);
+            MMXMessage
+                message = new MMXMessage.Builder().channel(channel).payload(new MMXPollIdentifier(newPoll.getPollId())).build();
+            publishChannelMessage(channel, message, new MMXChannel.OnFinishedListener<String>() {
+              @Override public void onSuccess(String result) {
+                if(null != listener) {
+                  listener.onSuccess(newPoll);
+                }
+              }
 
-            if(null != listener) {
-              listener.onSuccess(newPoll);
-            }
+              @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
+                if(null != listener) {
+                  listener.onFailure(code, throwable);
+                }
+              }
+            });
           }
 
           @Override public void onFailure(Throwable throwable) {
@@ -94,33 +94,80 @@ public class MMXPoll {
   }
 
   public static void getPoll(String pollId, final MMX.OnFinishedListener<MMXPoll> listener) {
-    getPollService().getSurvey(pollId,
-        new Callback<Survey>() {
-          @Override public void onResponse(Response<Survey> response) {
-            if(null != listener) {
-              listener.onSuccess(fromSurvey(response.body()));
+    getPollService().getResults(pollId,
+        new Callback<SurveyResults>() {
+          @Override public void onResponse(Response<SurveyResults> response) {
+            if(response.isSuccess()) {
+              if (null != listener) {
+                SurveyResults surveyResults = response.body();
+                listener.onSuccess(fromSurvey(surveyResults.getSurvey(), surveyResults.getSummary()));
+              }
+            } else {
+              handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
+            handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+          }
 
+          private void handleError(MMXChannel.FailureCode code, Throwable throwable) {
+            if (null != listener) {
+              listener.onFailure(code, throwable);
+            }
           }
         }).executeInBackground();
   }
 
-  public void choose(final MMXPollOption option, final MMX.OnFinishedListener<MMXPoll> listener) {
-    getPollService().submitSurveyAnswers(this.pollId,
-        Arrays.asList(new SurveyAnswer.SurveyAnswerBuilder().questionId(pollId).selectedOptionId(option.getOptionId()).build()),
-        new Callback<Void>() {
+  public static void deletePoll(String pollId, final MMX.OnFinishedListener<Boolean> listener) {
+    getPollService().deleteSurvey(pollId, new Callback<Void>() {
       @Override public void onResponse(Response<Void> response) {
-        MMXMessage<MMXPollOption> message = new MMXMessage.Builder().channel(channel).payload(option).build();
-        publishChannelMessage(channel, message);
+        if (null != listener) {
+          listener.onSuccess(response.isSuccess());
+        }
       }
 
       @Override public void onFailure(Throwable throwable) {
 
       }
-    });
+    }).executeInBackground();
+  }
+
+  public void choose(final MMXPollOption option, final MMX.OnFinishedListener<Boolean> listener) {
+    getPollService().submitSurveyAnswers(this.pollId,
+        new SurveyAnswerRequest.SurveyAnswerRequestBuilder().answers(Arrays.asList(new SurveyAnswer.SurveyAnswerBuilder().questionId(questionId).selectedOptionId(option.getOptionId()).build())).build(),
+        new Callback<Void>() {
+      @Override public void onResponse(Response<Void> response) {
+        if(response.isSuccess()) {
+          MMXMessage message = new MMXMessage.Builder().channel(channel).payload(option).build();
+          publishChannelMessage(channel, message, new MMXChannel.OnFinishedListener<String>() {
+            @Override public void onSuccess(String result) {
+              if (null != listener) {
+                listener.onSuccess(true);
+              }
+            }
+
+            @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
+              handleError(code, throwable);
+            }
+          });
+        } else {
+          Log.e(TAG, "Failed to choose option for poll due to " + response.message());
+          handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
+        }
+      }
+
+      @Override public void onFailure(Throwable throwable) {
+        Log.e(TAG, "Failed to choose option for poll due to " + throwable.getMessage());
+        handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+      }
+
+      private void handleError(MMXChannel.FailureCode code, Throwable throwable) {
+        if (null != listener) {
+          listener.onFailure(code, throwable);
+        }
+      }
+    }).executeInBackground();
   }
 
   private MMXPoll(String id, MMXChannel channel, String name, String question, List<MMXPollOption> options, Date endDate,
@@ -158,6 +205,14 @@ public class MMXPoll {
     return myVote;
   }
 
+  /** Package */ String getQuestionId() {
+    return questionId;
+  }
+
+  /** Package */ void setQuestionId(String questionId) {
+    this.questionId = questionId;
+  }
+
   private static SurveyService getPollService() {
     return MaxCore.create(SurveyService.class);
   }
@@ -173,19 +228,11 @@ public class MMXPoll {
     }
   }
 
-  private static void publishChannelMessage(MMXChannel channel, MMXMessage message) {
-    channel.publish(message, new MMXChannel.OnFinishedListener<String>() {
-      @Override public void onSuccess(String result) {
-
-      }
-
-      @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-
-      }
-    });
+  private static void publishChannelMessage(MMXChannel channel, MMXMessage message, MMXChannel.OnFinishedListener<String> listener) {
+    channel.publish(message, listener);
   }
 
-  private static MMXPoll fromSurvey(Survey survey) {
+  private static MMXPoll fromSurvey(Survey survey, List<SurveyChoiceResult> results) {
     if(null == survey || null == survey.getSurveyDefinition() || null == survey.getSurveyDefinition().getQuestions()
         || survey.getSurveyDefinition().getQuestions().isEmpty()) {
       return null;
@@ -196,19 +243,49 @@ public class MMXPoll {
     }
 
     List<MMXPollOption> pollOptions = new ArrayList<>(survey.getSurveyDefinition().getQuestions().get(0).getChoices().size());
-    for(SurveyOption so : survey.getSurveyDefinition().getQuestions().get(0).getChoices()) {
+    for(int i = 0; i < survey.getSurveyDefinition().getQuestions().get(0).getChoices().size(); i++) {
+      SurveyOption so = survey.getSurveyDefinition().getQuestions().get(0).getChoices().get(i);
       MMXPollOption pollOption = new MMXPollOption(so.getValue());
       pollOption.setOptionId(so.getOptionId());
+      if(null != results && null != results.get(i)) {
+        pollOption.setCount(results.get(i).getCount());
+      }
       pollOptions.add(pollOption);
     }
 
-    return new MMXPoll(survey.getId(), null, null, survey.getSurveyDefinition().getQuestions().get(0).getText(),
+    MMXPoll newPoll = new MMXPoll(survey.getId(), null, null, survey.getSurveyDefinition().getQuestions().get(0).getText(),
         pollOptions, survey.getSurveyDefinition().getEndDate(),
         SurveyParticipantModel.PRIVATE == survey.getSurveyDefinition().getResultAccessModel() ? true : false);
+    newPoll.setQuestionId(survey.getSurveyDefinition().getQuestions().get(0).getQuestionId());
+
+    return newPoll;
   }
 
-  public static class MMXPollIdentifier {
-    public static final String TYPE_NAME = "MMXPollIdentifier";
+  private static Survey createSurvey(final MMXChannel channel, final String name, final String question, final List<MMXPollOption> options, final Date endDate,
+      final boolean hideResultsFromOthers) {
+    List<SurveyQuestion> surveyQuestions = new ArrayList<>(1);
+    List<SurveyOption> surveyOptions = new ArrayList<>(options.size());
+    for(int i = 0; i < options.size(); i++) {
+      surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(options.get(i).getText()).displayOrder(i).build());
+    }
+    surveyQuestions.add(new SurveyQuestion.SurveyQuestionBuilder().text(question)
+        .displayOrder(0)
+        .type(SurveyQuestionType.SINGLE_CHOICE)
+        .choices(surveyOptions).build());
+
+    return new Survey.SurveyBuilder().owners(Arrays.asList(User.getCurrentUserId()))
+        .surveyDefinition(new SurveyDefinition.SurveyDefinitionBuilder().endDate(endDate)
+            .notificationChannelId(channel.getName())
+            //.participantModel(SurveyParticipantModel.PRIVATE)
+            .resultAccessModel(hideResultsFromOthers ? SurveyParticipantModel.PRIVATE : SurveyParticipantModel.PUBLIC)
+            .questions(surveyQuestions)
+            .type(SurveyType.POLL)
+            .build())
+        .build();
+  }
+
+  public static class MMXPollIdentifier implements MMXTypedPayload {
+    public static final String TYPE = "MMXPollIdentifier";
 
     private String pollId;
 

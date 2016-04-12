@@ -18,12 +18,15 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import com.google.gson.reflect.TypeToken;
 import com.magnet.max.android.Attachment;
+import com.magnet.max.android.rest.marshalling.GsonDecorator;
 import com.magnet.max.android.rest.marshalling.Iso8601DateConverter;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.MagnetUtils;
 import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
+import com.magnet.mmx.client.ext.poll.MMXPoll;
+import com.magnet.mmx.client.ext.poll.MMXPollOption;
 import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.util.GsonData;
 import java.util.ArrayList;
@@ -56,10 +59,19 @@ import java.util.concurrent.atomic.AtomicReference;
  * If the message targets to a channel, it will be used for group chat or forum
  * discussions.
  */
-public class MMXMessage<T> implements Parcelable {
+public class MMXMessage implements Parcelable {
   private static final String TAG = MMXMessage.class.getSimpleName();
 
   public static final String CONTENT_ATTACHMENTS = "_attachments";
+
+  public static final String TYPED_PAYLOAD_CONTENT_TYPE = "object/";
+
+  // Register built-in types
+  static {
+    registerPayloadType(MMXPoll.TYPE, MMXPoll.class);
+    registerPayloadType(MMXPollOption.TYPE, MMXPollOption.class);
+    registerPayloadType(MMXPoll.MMXPollIdentifier.TYPE, MMXPoll.MMXPollIdentifier.class);
+  }
 
   /**
    * Failure codes for the MMXMessage class.
@@ -118,7 +130,7 @@ public class MMXMessage<T> implements Parcelable {
   /**
    * The builder for the MMXMessage class
    */
-  public static final class Builder<T> {
+  public static final class Builder {
     private final MMXMessage mMessage;
 
     public Builder() {
@@ -210,10 +222,10 @@ public class MMXMessage<T> implements Parcelable {
       return this;
     }
 
-    public MMXMessage.Builder contentType(String contentType) {
-      mMessage.mContentType = contentType;
-      return this;
-    }
+    //public MMXMessage.Builder contentType(String contentType) {
+    //  mMessage.mContentType = contentType;
+    //  return this;
+    //}
 
     /**
      * Sets the meta data for this message
@@ -238,8 +250,8 @@ public class MMXMessage<T> implements Parcelable {
       return this;
     }
 
-    public MMXMessage.Builder payload(T payload) {
-      mMessage.mPayload = payload;
+    public MMXMessage.Builder payload(MMXTypedPayload payload) {
+      mMessage.payload(payload);
       return this;
     }
 
@@ -325,11 +337,12 @@ public class MMXMessage<T> implements Parcelable {
   private Set<User> mRecipients = new HashSet<User>();
   private Map<String, String> mMeta = new HashMap<String, String>();
   private String mContentType;
-  private T mPayload;
+  private MMXTypedPayload mPayload;
   private String mReceiptId;
   private List<Attachment> mAttachments = new ArrayList<Attachment>();
   // Map between type name to type class
-  private static final Map<String, Class> sTypeMapping = new HashMap<>();
+  private static Map<String, Class> sTypeClassMapping;
+  private static Map<Class, String> sClassTypeMapping;
 
   /**
    * Default constructor
@@ -339,11 +352,30 @@ public class MMXMessage<T> implements Parcelable {
   }
 
   public static void registerPayloadType(String name, Class type) {
-    sTypeMapping.put(name, type);
+    if(null == sTypeClassMapping) {
+      sTypeClassMapping = new HashMap<>();
+    }
+    if(null == sClassTypeMapping) {
+      sClassTypeMapping = new HashMap<>();
+    }
+    sTypeClassMapping.put(name, type);
+    sClassTypeMapping.put(type, name);
   }
 
   public static Class getPayloadType(String name) {
-    return sTypeMapping.get(name);
+    return sTypeClassMapping.get(name);
+  }
+
+  static String getPayloadTypeName(Class clazz) {
+    return sClassTypeMapping.get(clazz);
+  }
+
+  static String getPayloadTypeName(String fullName) {
+    if(StringUtil.isNotEmpty(fullName) && fullName.startsWith(TYPED_PAYLOAD_CONTENT_TYPE)) {
+      return fullName.substring(TYPED_PAYLOAD_CONTENT_TYPE.length());
+    }
+
+    return null;
   }
 
   /**
@@ -473,10 +505,10 @@ public class MMXMessage<T> implements Parcelable {
     return mContentType;
   }
 
-  public MMXMessage contentType(String contentType) {
-    this.mContentType = contentType;
-    return this;
-  }
+  //public MMXMessage contentType(String contentType) {
+  //  this.mContentType = contentType;
+  //  return this;
+  //}
 
   /**
    * Sets the meta data for this message
@@ -533,11 +565,20 @@ public class MMXMessage<T> implements Parcelable {
     return mMeta;
   }
 
-  public T getPayload() {
+  public MMXTypedPayload getPayload() {
     return mPayload;
   }
 
-  public MMXMessage payload(T payload) {
+  public MMXMessage payload(MMXTypedPayload payload) {
+    if(null != payload) {
+      String typeName = getPayloadTypeName(payload.getClass());
+      if (null != typeName) {
+        mContentType = TYPED_PAYLOAD_CONTENT_TYPE + typeName;
+      } else {
+        throw new IllegalArgumentException("Unknown payload type " + mPayload.getClass().getName() + ", please register it by calling MMXMessage.registerPayloadType");
+      }
+    }
+
     this.mPayload = payload;
     return this;
   }
@@ -595,8 +636,12 @@ public class MMXMessage<T> implements Parcelable {
       return null;
     }
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
-    final String type = getType() != null ? getType() : null;
-    final MMXPayload payload = new MMXPayload(type, "");
+
+    final MMXPayload payload = createPayload(listener);
+    if(null == payload) {
+      return null;
+    }
+
     for (Map.Entry<String, String> entry : mMeta.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
     }
@@ -683,13 +728,10 @@ public class MMXMessage<T> implements Parcelable {
       return null;
     }
     final String generatedMessageId = MMX.getMMXClient().generateMessageId();
-    final String type = getType() != null ? getType() : null;
-    final MMXPayload payload = new MMXPayload(type, "");
-    for (Map.Entry<String, String> entry : mMeta.entrySet()) {
-      payload.setMetaData(entry.getKey(), entry.getValue());
-    }
-    if(null != mContentType) {
-      payload.setMmxMetaData(MMXPayload.CONTENT_TYPE, mContentType);
+
+    final MMXPayload payload = createPayload(listener);
+    if(null == payload) {
+      return null;
     }
 
     MMXTask<String> task;
@@ -853,7 +895,8 @@ public class MMXMessage<T> implements Parcelable {
         .append("sender = ").append(mSender).append(", ")
         .append("channel = ").append(mChannel).append(", ")
         .append("recipients = ").append(StringUtil.toString(mRecipients)).append(", ")
-        .append("content = ").append(StringUtil.toString(mMeta))
+        .append("metaData = ").append(StringUtil.toString(mMeta)).append(", ")
+        .append("payload = ").append(mPayload)
         .append("}")
         .toString();
   }
@@ -934,6 +977,33 @@ public class MMXMessage<T> implements Parcelable {
     task.execute();
   }
 
+  private <T extends IOnFinishedListener> MMXPayload createPayload(T listener) {
+    MMXPayload tmpPayload = null;
+    if(null == mPayload) {
+      final String type = getType() != null ? getType() : null;
+      tmpPayload = new MMXPayload(type, "");
+    } else {
+      if(null != mContentType) {
+        tmpPayload = new MMXPayload(mContentType, GsonDecorator.getInstance().toJson(mPayload));
+      } else {
+        String errorMessage = "Unknown payload type " + mPayload.getClass().getName() + ", please register it by calling MMXMessage.registerPayloadType";
+        if(null != listener) {
+          listener.onFailure(new MMXChannel.FailureCode(MMX.FailureCode.ILLEGAL_ARGUMENT_CODE, "unkown payload type"), new Exception(errorMessage));
+        }
+
+        Log.e(TAG, errorMessage);
+        return null;
+      }
+    }
+
+    if(null != tmpPayload) {
+      for (Map.Entry<String, String> entry : mMeta.entrySet()) {
+        tmpPayload.setMetaData(entry.getKey(), entry.getValue());
+      }
+    }
+
+    return tmpPayload;
+  }
   /**
    * Convenience method to construct this object from a lower level MMXMessage object
    *
@@ -989,10 +1059,10 @@ public class MMXMessage<T> implements Parcelable {
     }
 
     //populate the message content
-    HashMap<String, String> content = new HashMap<String, String>();
+    HashMap<String, String> metaData = new HashMap<String, String>();
     for (Map.Entry<String,String> entry : message.getPayload().getAllMetaData().entrySet()) {
       if(!CONTENT_ATTACHMENTS.equals(entry.getKey())) {
-        content.put(entry.getKey(), entry.getValue());
+        metaData.put(entry.getKey(), entry.getValue());
       }
     }
 
@@ -1016,9 +1086,26 @@ public class MMXMessage<T> implements Parcelable {
     } else {
       throw new IllegalArgumentException("Neither recipients nor channel is set in message.");
     }
+
+    String payloadDataType = getPayloadTypeName(message.getPayload().getType());
+    if(null != payloadDataType) {
+      Class payloadDataTypeClass = getPayloadType(payloadDataType);
+      if(null != payloadDataTypeClass) {
+        String payloadDataStr = message.getPayload().getDataAsText().toString();
+        if(StringUtil.isNotEmpty(payloadDataStr)) {
+          newMessage.payload((MMXTypedPayload) GsonDecorator.getInstance()
+              .fromJson(payloadDataStr, TypeToken.get(payloadDataTypeClass)));
+        } else {
+          Log.e(TAG, "Payload is empty for type " + payloadDataType);
+        }
+      } else {
+        Log.e(TAG, "Payload type " + payloadDataType + " is not registered");
+      }
+    }
+
     return newMessage
             .sender(sender).id(message.getId())
-            .timestamp(message.getPayload().getSentTime()).content(content)
+            .timestamp(message.getPayload().getSentTime()).metaData(metaData)
             .build();
   }
 
