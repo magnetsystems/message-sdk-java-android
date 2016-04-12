@@ -44,6 +44,7 @@ import com.magnet.mmx.client.internal.channel.ChannelService;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
 import com.magnet.mmx.client.internal.channel.PubSubItem;
+import com.magnet.mmx.protocol.MMXChannelId;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
@@ -318,6 +319,7 @@ public class MMXChannel implements Parcelable {
   private String mName;
   private String mSummary;
   private String mOwnerId;
+  private MMXChannelId mChannelIdentifier;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private boolean mPublic;
@@ -350,6 +352,14 @@ public class MMXChannel implements Parcelable {
    */
   public String getName() {
     return mName;
+  }
+
+  public String getIdentifier() {
+    if(null == mChannelIdentifier) {
+      mChannelIdentifier = new MMXChannelId(isPublic() ? null : mOwnerId, mName);
+    }
+
+    return mChannelIdentifier.toString();
   }
 
   /**
@@ -1420,7 +1430,7 @@ public class MMXChannel implements Parcelable {
   }
   
   // Get a public or private channel by its name.
-  private static void getChannel(final String name, final boolean publicOnly,
+  public static void getChannel(final String name, final boolean publicOnly,
                   final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
