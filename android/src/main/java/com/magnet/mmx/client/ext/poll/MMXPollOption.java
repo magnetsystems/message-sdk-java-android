@@ -11,6 +11,9 @@ import com.magnet.mmx.client.internal.poll.model.SurveyAnswer;
 import com.magnet.mmx.client.internal.poll.model.SurveyChoiceResult;
 import com.magnet.mmx.client.internal.poll.model.SurveyOption;
 
+/**
+ * This class defines a option of a MMXPoll
+ */
 public class MMXPollOption implements MMXTypedPayload {
   public static final String TYPE = "MMXPollOption";
 
@@ -36,6 +39,10 @@ public class MMXPollOption implements MMXTypedPayload {
     return pollOption;
   }
 
+  /**
+   * The id of the MMXPoll
+   * @return
+   */
   public String getPollId() {
     return pollId;
   }
@@ -44,6 +51,10 @@ public class MMXPollOption implements MMXTypedPayload {
     this.pollId = pollId;
   }
 
+  /**
+   * The id of the option
+   * @return
+   */
   public String getOptionId() {
     return optionId;
   }
@@ -56,10 +67,18 @@ public class MMXPollOption implements MMXTypedPayload {
     this.count = count;
   }
 
+  /**
+   * The text of the option
+   * @return
+   */
   public String getText() {
     return text;
   }
 
+  /**
+   * The voted count of this option
+   * @return
+   */
   public long getCount() {
     return count;
   }

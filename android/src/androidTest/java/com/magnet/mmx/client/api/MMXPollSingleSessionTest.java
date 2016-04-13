@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +51,7 @@ import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 @RunWith(AndroidJUnit4.class)
 public class MMXPollSingleSessionTest {
@@ -119,7 +121,10 @@ public class MMXPollSingleSessionTest {
     final ExecMonitor<MMXPoll, FailureDescription> createPollResult = new ExecMonitor<>("CreatePoll");
     String question = "What's your favorite color ?";
     String name = "Test Poll for channel " + channel.getName();
-    MMXPoll.create(channel, name, question, pollOptions, null, false, null, new MMX.OnFinishedListener<MMXPoll>() {
+    Map<String, String> metaData = new HashMap<>();
+    metaData.put("key1", "value1");
+    metaData.put("key2", "value2");
+    MMXPoll.create(channel, name, question, pollOptions, null, false, metaData, new MMX.OnFinishedListener<MMXPoll>() {
           @Override public void onSuccess(MMXPoll result) {
             createPollResult.invoked(result);
           }
@@ -166,6 +171,7 @@ public class MMXPollSingleSessionTest {
     assertThat(poll2.getName()).isEqualTo(poll1.getName());
     assertThat(poll2.getOwnerId()).isEqualTo(poll1.getOwnerId());
     assertThat(poll2.getOptions()).containsExactly(poll1.getOptions().toArray(new MMXPollOption[]{}));
+    assertThat(poll2.getMetaData()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
   }
 
   private MMXPoll chooseOptions(MMXPoll poll, int optionIndex, ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor) {
