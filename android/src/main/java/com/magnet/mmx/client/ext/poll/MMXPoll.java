@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import retrofit.Callback;
 import retrofit.Response;
 
@@ -53,7 +54,7 @@ public class MMXPoll implements MMXTypedPayload {
   private MMXChannel channel;
 
   public static void create(final MMXChannel channel, final String name, final String question, final List<MMXPollOption> options, final Date endDate,
-      final boolean hideResultsFromOthers, final MMX.OnFinishedListener<MMXPoll> listener) {
+      final boolean hideResultsFromOthers, final Map<String, String> metaData, final MMX.OnFinishedListener<MMXPoll> listener) {
     if(null == channel) {
       handleParameterError("Channel is required", listener);
       return;
@@ -67,7 +68,7 @@ public class MMXPoll implements MMXTypedPayload {
       return;
     }
 
-    Survey newSurvey = createSurvey(channel, name, question, options, endDate, hideResultsFromOthers);
+    Survey newSurvey = createSurvey(channel, name, question, options, endDate, hideResultsFromOthers, metaData);
     getPollService().createSurvey(newSurvey,
         new Callback<Survey>() {
           @Override public void onResponse(Response<Survey> response) {
@@ -378,7 +379,7 @@ public class MMXPoll implements MMXTypedPayload {
   }
 
   private static Survey createSurvey(final MMXChannel channel, final String name, final String question, final List<MMXPollOption> options, final Date endDate,
-      final boolean hideResultsFromOthers) {
+      final boolean hideResultsFromOthers, final Map<String, String> metaData) {
     List<SurveyQuestion> surveyQuestions = new ArrayList<>(1);
     List<SurveyOption> surveyOptions = new ArrayList<>(options.size());
     for(int i = 0; i < options.size(); i++) {
@@ -397,6 +398,7 @@ public class MMXPoll implements MMXTypedPayload {
             .questions(surveyQuestions)
             .type(SurveyType.POLL)
             .build())
+        .metaData(metaData)
         .build();
   }
 

@@ -23,7 +23,6 @@ public class MMXPollOption implements MMXTypedPayload {
 
   public MMXPollOption(String text) {
     this.text = text;
-    //this.pollId = pollId;
   }
 
   public static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption, SurveyChoiceResult surveyChoiceResult) {

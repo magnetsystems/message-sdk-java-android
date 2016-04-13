@@ -119,7 +119,7 @@ public class MMXPollSingleSessionTest {
     final ExecMonitor<MMXPoll, FailureDescription> createPollResult = new ExecMonitor<>("CreatePoll");
     String question = "What's your favorite color ?";
     String name = "Test Poll for channel " + channel.getName();
-    MMXPoll.create(channel, name, question, pollOptions, null, false, new MMX.OnFinishedListener<MMXPoll>() {
+    MMXPoll.create(channel, name, question, pollOptions, null, false, null, new MMX.OnFinishedListener<MMXPoll>() {
           @Override public void onSuccess(MMXPoll result) {
             createPollResult.invoked(result);
           }
