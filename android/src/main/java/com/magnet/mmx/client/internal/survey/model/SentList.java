@@ -3,7 +3,7 @@
  * @see {@link http://developer.magnet.com}
  */
 
-package com.magnet.mmx.client.internal.poll.model;
+package com.magnet.mmx.client.internal.survey.model;
 
 public class SentList {
 

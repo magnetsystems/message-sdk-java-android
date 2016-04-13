@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2012-2016 Magnet Systems. All rights reserved.
  */
-package com.magnet.mmx.client.internal.poll;
+package com.magnet.mmx.client.internal.survey;
 
 import com.magnet.mmx.client.ext.poll.MMXPoll;
 import retrofit.Callback;

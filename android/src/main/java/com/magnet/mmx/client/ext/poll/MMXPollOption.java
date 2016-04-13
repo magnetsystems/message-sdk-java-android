@@ -7,9 +7,8 @@ import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.api.MMXTypedPayload;
-import com.magnet.mmx.client.internal.poll.model.SurveyAnswer;
-import com.magnet.mmx.client.internal.poll.model.SurveyChoiceResult;
-import com.magnet.mmx.client.internal.poll.model.SurveyOption;
+import com.magnet.mmx.client.internal.survey.model.SurveyChoiceResult;
+import com.magnet.mmx.client.internal.survey.model.SurveyOption;
 
 /**
  * This class defines a option of a MMXPoll
