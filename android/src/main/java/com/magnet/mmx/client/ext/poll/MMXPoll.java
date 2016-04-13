@@ -30,9 +30,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import retrofit.Callback;
 import retrofit.Response;
 
+/**
+ * The class defines a poll which is published and voted in a MMXChannel
+ */
 public class MMXPoll implements MMXTypedPayload {
   public static final String TYPE = "MMXPoll";
 
@@ -46,14 +50,26 @@ public class MMXPoll implements MMXTypedPayload {
   private Date endDate;
   private boolean hideResultsFromOthers;
   private MMXPollOption myVote;
+  Map<String, String> metaData;
 
   //Internal use only
   private String questionId;
   private String channelIdentifier;
   private MMXChannel channel;
 
+  /**
+   * Create a Poll and publish it to the channel
+   * @param channel
+   * @param name
+   * @param question
+   * @param options
+   * @param endDate
+   * @param hideResultsFromOthers
+   * @param metaData
+   * @param listener
+   */
   public static void create(final MMXChannel channel, final String name, final String question, final List<MMXPollOption> options, final Date endDate,
-      final boolean hideResultsFromOthers, final MMX.OnFinishedListener<MMXPoll> listener) {
+      final boolean hideResultsFromOthers, final Map<String, String> metaData, final MMX.OnFinishedListener<MMXPoll> listener) {
     if(null == channel) {
       handleParameterError("Channel is required", listener);
       return;
@@ -67,7 +83,7 @@ public class MMXPoll implements MMXTypedPayload {
       return;
     }
 
-    Survey newSurvey = createSurvey(channel, name, question, options, endDate, hideResultsFromOthers);
+    Survey newSurvey = createSurvey(channel, name, question, options, endDate, hideResultsFromOthers, metaData);
     getPollService().createSurvey(newSurvey,
         new Callback<Survey>() {
           @Override public void onResponse(Response<Survey> response) {
@@ -77,7 +93,8 @@ public class MMXPoll implements MMXTypedPayload {
               options.get(i).setOptionId(surveyCreated.getSurveyDefinition().getQuestions().get(0).getChoices().get(i).getOptionId());
               options.get(i).setPollId(surveyCreated.getId());
             }
-            final MMXPoll newPoll = new MMXPoll(surveyCreated.getId(), channel, name, User.getCurrentUserId(), question, options, endDate, hideResultsFromOthers);
+            final MMXPoll newPoll = new MMXPoll(surveyCreated.getId(), channel, name, User.getCurrentUserId(),
+                question, options, endDate, hideResultsFromOthers, metaData);
             newPoll.setQuestionId(surveyCreated.getSurveyDefinition().getQuestions().get(0).getQuestionId());
 
             MMXMessage
@@ -103,6 +120,11 @@ public class MMXPoll implements MMXTypedPayload {
         }).executeInBackground();
   }
 
+  /**
+   * Get the Poll by id
+   * @param pollId
+   * @param listener
+   */
   public static void getPoll(String pollId, final MMX.OnFinishedListener<MMXPoll> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
@@ -133,6 +155,11 @@ public class MMXPoll implements MMXTypedPayload {
         }).executeInBackground();
   }
 
+  /**
+   * Delete a poll by id
+   * @param pollId
+   * @param listener
+   */
   public static void deletePoll(String pollId, final MMX.OnFinishedListener<Boolean> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
@@ -151,6 +178,11 @@ public class MMXPoll implements MMXTypedPayload {
     }).executeInBackground();
   }
 
+  /**
+   * Choose a option for a poll and publish a message to the channel
+   * @param option
+   * @param listener
+   */
   public void choose(final MMXPollOption option, final MMX.OnFinishedListener<Boolean> listener) {
     if(null == option) {
       handleParameterError("option is required", listener);
@@ -193,7 +225,7 @@ public class MMXPoll implements MMXTypedPayload {
   }
 
   private MMXPoll(String id, MMXChannel channel, String name, String ownerId, String question, List<MMXPollOption> options, Date endDate,
-      boolean hideResultsFromOthers) {
+      boolean hideResultsFromOthers, Map<String, String> metaData) {
     this.pollId = id;
     this.channel = channel;
     this.name = name;
@@ -202,36 +234,77 @@ public class MMXPoll implements MMXTypedPayload {
     this.options = options;
     this.endDate = endDate;
     this.hideResultsFromOthers = hideResultsFromOthers;
+    this.metaData = metaData;
   }
 
+  /**
+   * The id of the poll
+   * @return
+   */
   public String getPollId() {
     return pollId;
   }
 
+  /**
+   * The user id of the owner of the poll
+   * @return
+   */
   public String getOwnerId() {
     return ownerId;
   }
 
+  /**
+   * The name of the poll
+   * @return
+   */
   public String getName() {
     return name;
   }
 
+  /**
+   * The question of the poll
+   * @return
+   */
   public String getQuestion() {
     return question;
   }
 
+  /**
+   * The options of the poll
+   * @return
+   */
   public List<MMXPollOption> getOptions() {
     return options;
   }
 
+  /**
+   * The end date of the poll
+   * @return
+   */
   public Date getEndDate() {
     return endDate;
   }
 
+  /**
+   * Whether to hide result from others
+   * @return
+   */
   public boolean isHideResultsFromOthers() {
     return hideResultsFromOthers;
   }
 
+  /**
+   * The extra meta data of the poll in key-value pair
+   * @return
+   */
+  public Map<String, String> getMetaData() {
+    return metaData;
+  }
+
+  /**
+   * My vote
+   * @return
+   */
   public MMXPollOption getMyVote() {
     return myVote;
   }
@@ -367,7 +440,8 @@ public class MMXPoll implements MMXTypedPayload {
 
     MMXPoll newPoll = new MMXPoll(survey.getId(), null, survey.getName(), survey.getOwners().get(0), survey.getSurveyDefinition().getQuestions().get(0).getText(),
         pollOptions, survey.getSurveyDefinition().getEndDate(),
-        SurveyParticipantModel.PRIVATE == survey.getSurveyDefinition().getResultAccessModel() ? true : false);
+        SurveyParticipantModel.PRIVATE == survey.getSurveyDefinition().getResultAccessModel() ? true : false,
+        survey.getMetaData());
     newPoll.setQuestionId(survey.getSurveyDefinition().getQuestions().get(0).getQuestionId());
     newPoll.setChannelIdentifier(survey.getSurveyDefinition().getNotificationChannelId());
     if(myAnswerOptionIndex > -1) {
@@ -378,7 +452,7 @@ public class MMXPoll implements MMXTypedPayload {
   }
 
   private static Survey createSurvey(final MMXChannel channel, final String name, final String question, final List<MMXPollOption> options, final Date endDate,
-      final boolean hideResultsFromOthers) {
+      final boolean hideResultsFromOthers, final Map<String, String> metaData) {
     List<SurveyQuestion> surveyQuestions = new ArrayList<>(1);
     List<SurveyOption> surveyOptions = new ArrayList<>(options.size());
     for(int i = 0; i < options.size(); i++) {
@@ -397,6 +471,7 @@ public class MMXPoll implements MMXTypedPayload {
             .questions(surveyQuestions)
             .type(SurveyType.POLL)
             .build())
+        .metaData(metaData)
         .build();
   }
 
