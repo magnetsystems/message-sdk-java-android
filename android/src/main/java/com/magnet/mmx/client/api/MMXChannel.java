@@ -58,6 +58,7 @@ import com.magnet.mmx.util.TimeUtil;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -276,6 +277,21 @@ public class MMXChannel implements Parcelable {
       return this;
     }
 
+    /** Package */ Builder isMuted(Boolean isMuted) {
+      mChannel.mIsMuted = isMuted;
+      return this;
+    }
+
+    /**
+     * Set the push configuration for the channel
+     * @param pushConfigName
+     * @return
+     */
+    public Builder pushConfigName(String pushConfigName) {
+      mChannel.mPushConfigName = pushConfigName;
+      return this;
+    }
+
     /**
      * Set the public flag for this channel
      *
@@ -326,6 +342,8 @@ public class MMXChannel implements Parcelable {
   private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
+  private boolean mIsMuted;
+  private String mPushConfigName;
 
   /**
    * Default constructor
@@ -460,6 +478,22 @@ public class MMXChannel implements Parcelable {
    */
   public Date getCreationDate() {
     return mCreationDate;
+  }
+
+  /**
+   * Is push notification muted for current user
+   * @return
+   */
+  public boolean isMuted() {
+    return mIsMuted;
+  }
+
+  /**
+   * The name of the push configuration (match what on server side)
+   * @return
+   */
+  public String getPushConfigName() {
+    return mPushConfigName;
   }
 
   /**
@@ -1908,6 +1942,37 @@ public class MMXChannel implements Parcelable {
    */
   public String getIconUrl() {
     return Attachment.createDownloadUrl(getFullChannelName(), mOwnerId);
+  }
+
+  /**
+   * Mute push notification from this channel
+   * @param listener
+   */
+  public void mute(MMXChannel.OnFinishedListener<Void> listener) {
+    mute(0, listener);
+  }
+
+  /**
+   * Mute push notification from this channel for specified minutes
+   * @param timeInMinute
+   * @param listener
+   */
+  public void mute(int timeInMinute, MMXChannel.OnFinishedListener<Void> listener) {
+    Date untilDate = null;
+    if(timeInMinute > 0) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(new Date());
+      c.add(timeInMinute, Calendar.MINUTE);
+      untilDate = c.getTime();
+    }
+  }
+
+  /**
+   * Enable notification from this channel
+   * @param listener
+   */
+  public void unMute(MMXChannel.OnFinishedListener<Void> listener) {
+
   }
 
   private String getFullChannelName() {
