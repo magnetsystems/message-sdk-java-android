@@ -5,6 +5,9 @@ package com.magnet.mmx.client.utils;
 
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.ext.poll.MMXPoll;
+import com.magnet.mmx.client.ext.poll.MMXPollOption;
+import java.util.ArrayList;
+import java.util.List;
 
 import static junit.framework.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,11 +32,11 @@ public class PollHelper {
     return retrievePollResult.getReturnValue();
   }
 
-  public static void vote(MMXPoll poll, int optionIndex) {
-    final ExecMonitor<Boolean, FailureDescription> chooseOptionResult = new ExecMonitor<>("ChooseOptionResult");
-    poll.choose(poll.getOptions().get(optionIndex), new MMX.OnFinishedListener<Boolean>() {
-      @Override public void onSuccess(Boolean result) {
-        chooseOptionResult.invoked(result);
+  public static void vote(MMXPoll poll, List<MMXPollOption> options) {
+    final ExecMonitor<Void, FailureDescription> chooseOptionResult = new ExecMonitor<>("ChooseOptionResult");
+    poll.choose(options, new MMX.OnFinishedListener<Void>() {
+      @Override public void onSuccess(Void result) {
+        chooseOptionResult.invoked(null);
       }
 
       @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
@@ -42,7 +45,6 @@ public class PollHelper {
     });
     ExecMonitor.Status chooseOptionStatus = chooseOptionResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(chooseOptionResult.getFailedValue()).isNull();
-    assertEquals(ExecMonitor.Status.INVOKED, chooseOptionStatus);
-    assertEquals(Boolean.TRUE, chooseOptionResult.getReturnValue());
+    assertEquals(ExecMonitor.Status.INVOKED, chooseOptionStatus);;
   }
 }
