@@ -1965,6 +1965,16 @@ public class MMXChannel implements Parcelable {
       c.add(timeInMinute, Calendar.MINUTE);
       untilDate = c.getTime();
     }
+    mute(untilDate, listener);
+  }
+
+  /**
+   * Mute push notification from this channel until a specified date
+   * @param utilDate
+   * @param listener
+   */
+  public void mute(Date utilDate, MMXChannel.OnFinishedListener<Void> listener) {
+
   }
 
   /**
