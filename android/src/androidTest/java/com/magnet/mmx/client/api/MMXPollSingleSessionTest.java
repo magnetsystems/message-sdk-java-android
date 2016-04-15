@@ -87,7 +87,7 @@ public class MMXPollSingleSessionTest {
         if(null != messageReceived.getContentType()) {
           if(messageReceived.getContentType().endsWith(MMXPoll.MMXPollIdentifier.TYPE)) {
             newPollMessageMonitor.invoked(messageReceived);
-          } else if(messageReceived.getContentType().endsWith(MMXPollOption.TYPE)) {
+          } else if(messageReceived.getContentType().endsWith(MMXPoll.MMXPollResult.TYPE)) {
             newPollChosenMessageMonitor.invoked(messageReceived);
           }
         }
@@ -113,31 +113,32 @@ public class MMXPollSingleSessionTest {
     MMXChannel channel = createChannel();
 
     // Create poll
-    List<MMXPollOption> pollOptions = new ArrayList<>(4);
-    pollOptions.add(new MMXPollOption("Red"));
-    pollOptions.add(new MMXPollOption("Black"));
-    pollOptions.add(new MMXPollOption("Orange"));
-    pollOptions.add(new MMXPollOption("Blue"));
-    final ExecMonitor<MMXPoll, FailureDescription> createPollResult = new ExecMonitor<>("CreatePoll");
     String question = "What's your favorite color ?";
     String name = "Test Poll for channel " + channel.getName();
-    Map<String, String> metaData = new HashMap<>();
-    metaData.put("key1", "value1");
-    metaData.put("key2", "value2");
-    MMXPoll.create(channel, name, question, pollOptions, null, false, metaData, new MMX.OnFinishedListener<MMXPoll>() {
-          @Override public void onSuccess(MMXPoll result) {
-            createPollResult.invoked(result);
+
+    MMXPoll newPoll = new MMXPoll.Builder().name(name).question(question).allowMultiChoice(false)
+        .hideResultsFromOthers(false)
+        .option("Red")
+        .option("Black")
+        .option("Orange")
+        .option(new MMXPollOption("Blue"))
+        .metaData("key1", "value1")
+        .metaData("key2", "value2").build();
+
+    final ExecMonitor<Void, FailureDescription> publishPollResult = new ExecMonitor<>("PublishPoll");
+    newPoll.publish(channel, new MMX.OnFinishedListener<Void>() {
+          @Override public void onSuccess(Void result) {
+            publishPollResult.invoked(result);
           }
 
           @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-            createPollResult.failed(new FailureDescription(code, ex));
+            publishPollResult.failed(new FailureDescription(code, ex));
           }
         });
-    ExecMonitor.Status createPollStatus = createPollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    assertThat(createPollResult.getFailedValue()).isNull();
+    ExecMonitor.Status createPollStatus = publishPollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
+    assertThat(publishPollResult.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, createPollStatus);
 
-    MMXPoll newPoll = createPollResult.getReturnValue();
     assertThat(newPoll.getName()).isEqualTo(name);
     assertThat(newPoll.getQuestion()).isEqualTo(question);
     assertThat(newPoll.getMyVote()).isNull();
@@ -162,13 +163,14 @@ public class MMXPollSingleSessionTest {
     MMXPoll pollAfterChosenSecond = chooseOptions(retrievedPoll, 1, newPollChosenMessageMonitor);
     assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
 
-    MMXPoll.deletePoll(retrievedPoll.getPollId(), null);
+    MMXPoll.delete(retrievedPoll.getPollId(), null);
     ChannelHelper.delete(channel);
   }
 
   private void assertPolls(MMXPoll poll1, MMXPoll poll2) {
     assertThat(poll2).isEqualTo(poll1); // pollId
     assertThat(poll2.getName()).isEqualTo(poll1.getName());
+    assertThat(poll2.isAllowMultiChoice()).isEqualTo(poll1.isAllowMultiChoice());
     assertThat(poll2.getOwnerId()).isEqualTo(poll1.getOwnerId());
     assertThat(poll2.getOptions()).containsExactly(poll1.getOptions().toArray(new MMXPollOption[]{}));
     assertThat(poll2.getMetaData()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
@@ -192,7 +194,7 @@ public class MMXPollSingleSessionTest {
     ExecMonitor.Status newPollMessageStatus = newPollChosenMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollChosenMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
-    assertEquals(poll.getOptions().get(optionIndex), ((MMXPollOption) newPollChosenMessageMonitor.getReturnValue().getPayload()));
+    assertEquals(poll.getOptions().get(optionIndex), ((MMXPoll.MMXPollResult) newPollChosenMessageMonitor.getReturnValue().getPayload()).getResult().get(0));
 
     return retrievedPollAfterVote;
   }

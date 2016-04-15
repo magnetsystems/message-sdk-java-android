@@ -13,7 +13,7 @@ public class PollHelper {
 
   public static MMXPoll getPollById(String pollId) {
     final ExecMonitor<MMXPoll, FailureDescription> retrievePollResult = new ExecMonitor<>("RetrievePollResult");
-    MMXPoll.getPoll(pollId, new MMX.OnFinishedListener<MMXPoll>() {
+    MMXPoll.get(pollId, new MMX.OnFinishedListener<MMXPoll>() {
       @Override public void onSuccess(MMXPoll result) {
         retrievePollResult.invoked(result);
       }

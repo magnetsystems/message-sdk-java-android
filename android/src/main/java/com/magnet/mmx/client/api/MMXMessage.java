@@ -71,6 +71,7 @@ public class MMXMessage implements Parcelable {
     registerPayloadType(MMXPoll.TYPE, MMXPoll.class);
     registerPayloadType(MMXPollOption.TYPE, MMXPollOption.class);
     registerPayloadType(MMXPoll.MMXPollIdentifier.TYPE, MMXPoll.MMXPollIdentifier.class);
+    registerPayloadType(MMXPoll.MMXPollResult.TYPE, MMXPoll.MMXPollResult.class);
   }
 
   /**
