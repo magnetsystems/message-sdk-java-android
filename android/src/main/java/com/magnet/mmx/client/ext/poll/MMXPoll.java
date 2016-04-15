@@ -470,12 +470,14 @@ public class MMXPoll implements MMXTypedPayload {
     List<SurveyQuestion> surveyQuestions = new ArrayList<>(1);
     List<SurveyOption> surveyOptions = new ArrayList<>(poll.options.size());
     for(int i = 0; i < poll.options.size(); i++) {
-      surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(poll.options.get(i).getText()).displayOrder(i).build());
+      surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(poll.options.get(i).getText())
+                            .metaData(poll.options.get(i).getMetaData()).displayOrder(i).build());
     }
     surveyQuestions.add(new SurveyQuestion.SurveyQuestionBuilder().text(poll.question)
         .displayOrder(0)
         .type(poll.allowMultiChoice ? SurveyQuestionType.MULTI_CHOICE : SurveyQuestionType.SINGLE_CHOICE)
-        .choices(surveyOptions).build());
+        .choices(surveyOptions)
+        .build());
 
     return new Survey.SurveyBuilder().name(poll.name).owners(Arrays.asList(User.getCurrentUserId()))
         .surveyDefinition(new SurveyDefinition.SurveyDefinitionBuilder().endDate(poll.endDate)

@@ -28,9 +28,12 @@ import com.magnet.mmx.client.utils.TestCaseTimer;
 import com.magnet.mmx.client.utils.TestConstants;
 import com.magnet.mmx.client.utils.UserHelper;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.assertj.core.data.MapEntry;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -139,12 +142,14 @@ public class MMXPollSingleSessionTest {
 
   private MMXPoll createAndPublishPoll(String question, String name, boolean allowMultiChoices) {
     // Create poll
+    Map<String, String> optionMeta = new HashMap<>();
+    optionMeta.put("imageUrl", "image1");
     MMXPoll newPoll = new MMXPoll.Builder().name(name).question(question).allowMultiChoice(allowMultiChoices)
         .hideResultsFromOthers(false)
         .option("Red")
         .option("Black")
         .option("Orange")
-        .option(new MMXPollOption("Blue"))
+        .option(new MMXPollOption("Blue", optionMeta))
         .metaData("key1", "value1")
         .metaData("key2", "value2").build();
 
@@ -197,6 +202,16 @@ public class MMXPollSingleSessionTest {
     assertThat(poll2.isAllowMultiChoice()).isEqualTo(poll1.isAllowMultiChoice());
     assertThat(poll2.getOwnerId()).isEqualTo(poll1.getOwnerId());
     assertThat(poll2.getOptions()).containsExactly(poll1.getOptions().toArray(new MMXPollOption[]{}));
+    for(int i = 0; i< poll2.getOptions().size(); i++) {
+      if(poll2.getOptions().get(i).getText().equals("Blue")) {
+        MapEntry entry = entry("imageUrl", "image1");
+        assertThat(poll2.getOptions().get(i).getMetaData()).containsExactly(entry);
+        assertThat(poll1.getOptions().get(i).getMetaData()).containsExactly(entry);
+      } else {
+        assertThat(poll2.getOptions().get(i).getMetaData()).isNull();
+        assertThat(poll1.getOptions().get(i).getMetaData()).isNull();
+      }
+    }
     assertThat(poll2.getMetaData()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
   }
 
