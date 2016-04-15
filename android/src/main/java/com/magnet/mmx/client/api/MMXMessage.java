@@ -27,6 +27,7 @@ import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.ext.poll.MMXPoll;
 import com.magnet.mmx.client.ext.poll.MMXPollOption;
+import com.magnet.mmx.client.ext.survey.ObjectIdentifier;
 import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.util.GsonData;
 import java.util.ArrayList;
@@ -71,6 +72,11 @@ public class MMXMessage implements Parcelable {
     registerPayloadType(MMXPoll.TYPE, MMXPoll.class);
     registerPayloadType(MMXPollOption.TYPE, MMXPollOption.class);
     registerPayloadType(MMXPoll.MMXPollIdentifier.TYPE, MMXPoll.MMXPollIdentifier.class);
+
+    registerPayloadType(com.magnet.mmx.client.ext.survey.MMXPoll.TYPE, com.magnet.mmx.client.ext.survey.MMXPoll.class);
+    registerPayloadType(com.magnet.mmx.client.ext.survey.MMXPollOption.TYPE, com.magnet.mmx.client.ext.survey.MMXPollOption.class);
+    registerPayloadType(MMXPoll.MMXPollIdentifier.TYPE, MMXPoll.MMXPollIdentifier.class);
+    registerPayloadType(ObjectIdentifier.TYPE, ObjectIdentifier.class);
   }
 
   /**
@@ -107,13 +113,13 @@ public class MMXMessage implements Parcelable {
    *
    *
    *
-   * @param <T> The type of the onSuccess result
+   * @param <T> The type of the onSuccess answer
    */
   public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
     /**
      * Called when the operation completes successfully
      *
-     * @param result the result of the operation
+     * @param result the answer of the operation
      */
     @Override
     public abstract void onSuccess(T result);

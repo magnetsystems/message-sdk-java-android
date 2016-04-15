@@ -286,7 +286,7 @@ public class MMXPoll implements MMXTypedPayload {
   }
 
   /**
-   * Whether to hide result from others
+   * Whether to hide answer from others
    * @return
    */
   public boolean isHideResultsFromOthers() {

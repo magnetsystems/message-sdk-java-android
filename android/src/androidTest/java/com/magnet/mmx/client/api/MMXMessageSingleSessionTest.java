@@ -171,8 +171,8 @@ public class MMXMessageSingleSessionTest {
 //    final ExecMonitor<String,MMXChannel.FailureCode> failureMonitor = new ExecMonitor<String,MMXChannel.FailureCode>();
 //    channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
 //      @Override
-//      public void onSuccess(String result) {
-//        failureMonitor.invoked(result);
+//      public void onSuccess(String answer) {
+//        failureMonitor.invoked(answer);
 //      }
 //
 //      @Override

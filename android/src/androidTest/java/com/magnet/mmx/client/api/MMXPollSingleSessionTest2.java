@@ -17,13 +17,14 @@ package com.magnet.mmx.client.api;
 import android.support.test.runner.AndroidJUnit4;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
-import com.magnet.mmx.client.ext.poll.MMXPoll;
-import com.magnet.mmx.client.ext.poll.MMXPollOption;
+import com.magnet.mmx.client.ext.survey.MMXPoll;
+import com.magnet.mmx.client.ext.survey.MMXPollOption;
+import com.magnet.mmx.client.ext.survey.ObjectIdentifier;
 import com.magnet.mmx.client.utils.ChannelHelper;
 import com.magnet.mmx.client.utils.ExecMonitor;
 import com.magnet.mmx.client.utils.FailureDescription;
 import com.magnet.mmx.client.utils.MaxHelper;
-import com.magnet.mmx.client.utils.PollHelper;
+import com.magnet.mmx.client.utils.PollHelper2;
 import com.magnet.mmx.client.utils.TestCaseTimer;
 import com.magnet.mmx.client.utils.TestConstants;
 import com.magnet.mmx.client.utils.UserHelper;
@@ -33,9 +34,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -43,15 +41,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
-import static junit.framework.Assert.fail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
 @RunWith(AndroidJUnit4.class)
-public class MMXPollSingleSessionTest {
-  private static final String TAG = MMXPollSingleSessionTest.class.getSimpleName();
+public class MMXPollSingleSessionTest2 {
+  private static final String TAG = MMXPollSingleSessionTest2.class.getSimpleName();
 
   @Rule
   public TestCaseTimer testCaseTimer = new TestCaseTimer();
@@ -81,8 +77,11 @@ public class MMXPollSingleSessionTest {
         Log.d(TAG, "------testPoll()--------onMessageReceived(): \n" + messageReceived);
 
         if(null != messageReceived.getContentType()) {
-          if(messageReceived.getContentType().endsWith(MMXPoll.MMXPollIdentifier.TYPE)) {
-            newPollMessageMonitor.invoked(messageReceived);
+          if(messageReceived.getContentType().endsWith(ObjectIdentifier.TYPE)) {
+            ObjectIdentifier objectIdentifier = (ObjectIdentifier) messageReceived.getPayload();
+            if(MMXPoll.TYPE.equals(objectIdentifier.getObjectType())) {
+              newPollMessageMonitor.invoked(messageReceived);
+            }
           } else if(messageReceived.getContentType().endsWith(MMXPollOption.TYPE)) {
             newPollChosenMessageMonitor.invoked(messageReceived);
           }
@@ -114,14 +113,16 @@ public class MMXPollSingleSessionTest {
     pollOptions.add(new MMXPollOption("Black"));
     pollOptions.add(new MMXPollOption("Orange"));
     pollOptions.add(new MMXPollOption("Blue"));
-    final ExecMonitor<MMXPoll, FailureDescription> createPollResult = new ExecMonitor<>("CreatePoll");
     String question = "What's your favorite color ?";
     String name = "Test Poll for channel " + channel.getName();
     Map<String, String> metaData = new HashMap<>();
     metaData.put("key1", "value1");
     metaData.put("key2", "value2");
-    MMXPoll.create(channel, name, question, pollOptions, null, false, metaData, new MMX.OnFinishedListener<MMXPoll>() {
-          @Override public void onSuccess(MMXPoll result) {
+    MMXPoll newPoll = new MMXPoll(name, question, pollOptions, null, false, metaData);
+
+    final ExecMonitor<Void, FailureDescription> createPollResult = new ExecMonitor<>("CreatePoll");
+    newPoll.publish(channel, new MMX.OnFinishedListener<Void>() {
+          @Override public void onSuccess(Void result) {
             createPollResult.invoked(result);
           }
 
@@ -133,7 +134,11 @@ public class MMXPollSingleSessionTest {
     assertThat(createPollResult.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, createPollStatus);
 
-    MMXPoll newPoll = createPollResult.getReturnValue();
+    assertThat(newPoll.getPollId()).isNotNull();
+    for(MMXPollOption option : newPoll.getOptions() ) {
+      assertThat(option.getPollId()).isNotNull();
+      assertThat(option.getOptionId()).isNotNull();
+    }
     assertThat(newPoll.getName()).isEqualTo(name);
     assertThat(newPoll.getQuestion()).isEqualTo(question);
     assertThat(newPoll.getMyVote()).isNull();
@@ -143,12 +148,12 @@ public class MMXPollSingleSessionTest {
     ExecMonitor.Status newPollMessageStatus = newPollMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
-    assertEquals(newPoll.getPollId(), ((MMXPoll.MMXPollIdentifier) newPollMessageMonitor.getReturnValue().getPayload()).getPollId());
+    assertEquals(newPoll.getPollId(), ((ObjectIdentifier) newPollMessageMonitor.getReturnValue().getPayload()).getObjectId());
 
     // Retrieve Poll by id
-    MMXPoll retrievedPoll = PollHelper.getPollById(newPoll.getPollId());
+    MMXPoll retrievedPoll = PollHelper2.getPollById(newPoll.getPollId());
     assertPolls(retrievedPoll, newPoll);
-    assertThat(retrievedPoll.getOptions().get(0).getCount()).isEqualTo(0);
+    assertThat(retrievedPoll.getOptions().get(0).getAnswer()).isEqualTo(0);
     assertThat(retrievedPoll.getMyVote()).isNull();
 
     // Choose first option
@@ -156,9 +161,9 @@ public class MMXPollSingleSessionTest {
 
     // Choose second option
     MMXPoll pollAfterChosenSecond = chooseOptions(retrievedPoll, 1, newPollChosenMessageMonitor);
-    assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
+    assertThat(pollAfterChosenSecond.getOptions().get(0).getAnswer()).isEqualTo(0);
 
-    MMXPoll.deletePoll(retrievedPoll.getPollId(), null);
+    MMXPoll.delete(retrievedPoll.getPollId(), null);
     ChannelHelper.delete(channel);
   }
 
@@ -174,13 +179,13 @@ public class MMXPollSingleSessionTest {
     newPollChosenMessageMonitor.reset(null, null);
 
     // Choose first option
-    PollHelper.vote(poll, optionIndex);
+    PollHelper2.vote(poll, optionIndex);
 
     // Retrieve Poll by id again
-    MMXPoll retrievedPollAfterVote = PollHelper.getPollById(poll.getPollId());
+    MMXPoll retrievedPollAfterVote = PollHelper2.getPollById(poll.getPollId());
     assertPolls(retrievedPollAfterVote, poll);
 
-    assertThat(retrievedPollAfterVote.getOptions().get(optionIndex).getCount()).isEqualTo(1);
+    assertThat(retrievedPollAfterVote.getOptions().get(optionIndex).getAnswer()).isEqualTo(1);
     assertThat(retrievedPollAfterVote.getMyVote()).isNotNull();
     assertThat(retrievedPollAfterVote.getMyVote()).isEqualTo(retrievedPollAfterVote.getOptions().get(optionIndex));
 
@@ -188,7 +193,7 @@ public class MMXPollSingleSessionTest {
     ExecMonitor.Status newPollMessageStatus = newPollChosenMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollChosenMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
-    assertEquals(poll.getOptions().get(optionIndex), ((MMXPollOption) newPollChosenMessageMonitor.getReturnValue().getPayload()));
+    assertEquals(poll.getOptions().get(optionIndex), newPollChosenMessageMonitor.getReturnValue().getPayload());
 
     return retrievedPollAfterVote;
   }
