@@ -9,6 +9,7 @@ import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.api.MMXTypedPayload;
 import com.magnet.mmx.client.internal.survey.model.SurveyChoiceResult;
 import com.magnet.mmx.client.internal.survey.model.SurveyOption;
+import java.util.Map;
 
 /**
  * This class defines a option of a MMXPoll
@@ -20,11 +21,17 @@ public class MMXPollOption implements MMXTypedPayload {
   private String optionId;
   private String text;
   private long count;
+  private Map<String, String> metaData;
 
   //private List<UserProfile> voters;
 
   public MMXPollOption(String text) {
+    this(text, null);
+  }
+
+  public MMXPollOption(String text, Map<String, String> metaData) {
     this.text = text;
+    this.metaData = metaData;
   }
 
   public static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption, SurveyChoiceResult surveyChoiceResult) {
@@ -34,6 +41,9 @@ public class MMXPollOption implements MMXTypedPayload {
       pollOption.setCount(surveyChoiceResult.getCount());
     }
     pollOption.setPollId(pollId);
+    if(null != surveyOption.getMetaData() && !surveyOption.getMetaData().isEmpty()) {
+      pollOption.metaData = surveyOption.getMetaData();
+    }
 
     return pollOption;
   }
@@ -80,6 +90,14 @@ public class MMXPollOption implements MMXTypedPayload {
    */
   public long getCount() {
     return count;
+  }
+
+  /**
+   * The extra meta data of the option in key-value pair
+   * @return
+   */
+  public Map<String, String> getMetaData() {
+    return metaData;
   }
 
   @Override public boolean equals(Object o) {
