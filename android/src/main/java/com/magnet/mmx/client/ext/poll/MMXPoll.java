@@ -213,7 +213,7 @@ public class MMXPoll implements MMXTypedPayload {
         new Callback<Void>() {
       @Override public void onResponse(Response<Void> response) {
         if(response.isSuccess()) {
-          MMXMessage message = new MMXMessage.Builder().channel(channel).payload(new MMXPollResult(chosenOptions)).build();
+          MMXMessage message = new MMXMessage.Builder().channel(channel).payload(new MMXPollAnswer(chosenOptions)).build();
           publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
             @Override public void onSuccess(String result) {
               if (null != listener) {
@@ -505,12 +505,12 @@ public class MMXPoll implements MMXTypedPayload {
     }
   }
 
-  public static class MMXPollResult implements MMXTypedPayload {
-    public static final String TYPE = "MMXPollResult";
+  public static class MMXPollAnswer implements MMXTypedPayload {
+    public static final String TYPE = "MMXPollAnswer";
 
     private List<MMXPollOption> result;
 
-    public MMXPollResult(List<MMXPollOption> result) {
+    public MMXPollAnswer(List<MMXPollOption> result) {
       this.result = result;
     }
 

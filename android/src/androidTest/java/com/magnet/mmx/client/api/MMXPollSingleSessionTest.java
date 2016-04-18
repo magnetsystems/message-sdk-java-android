@@ -240,7 +240,7 @@ public class MMXPollSingleSessionTest {
     ExecMonitor.Status newPollMessageStatus = newPollChosenMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollChosenMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
-    assertThat(((MMXPoll.MMXPollResult) newPollChosenMessageMonitor.getReturnValue().getPayload()).getResult()).containsExactly(options.toArray(new MMXPollOption[] {}));
+    assertThat(((MMXPoll.MMXPollAnswer) newPollChosenMessageMonitor.getReturnValue().getPayload()).getResult()).containsExactly(options.toArray(new MMXPollOption[] {}));
 
     newPollChosenMessageMonitor.reset(null, null);
 
@@ -278,7 +278,7 @@ public class MMXPollSingleSessionTest {
           if (null != messageReceived.getContentType()) {
             if (messageReceived.getContentType().endsWith(MMXPoll.MMXPollIdentifier.TYPE)) {
               newPollMessageMonitor.invoked(messageReceived);
-            } else if (messageReceived.getContentType().endsWith(MMXPoll.MMXPollResult.TYPE)) {
+            } else if (messageReceived.getContentType().endsWith(MMXPoll.MMXPollAnswer.TYPE)) {
               newPollChosenMessageMonitor.invoked(messageReceived);
             }
           }
