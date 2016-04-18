@@ -3,10 +3,13 @@
  */
 package com.magnet.mmx.client.ext.poll;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
+import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXChannel;
@@ -40,7 +43,7 @@ import retrofit.Response;
 /**
  * The class defines a poll which is published and voted in a MMXChannel
  */
-public class MMXPoll implements MMXTypedPayload {
+public class MMXPoll implements MMXTypedPayload, Parcelable {
   public static final String TYPE = "MMXPoll";
 
   private static final String TAG = "MMXPoll";
@@ -489,6 +492,51 @@ public class MMXPoll implements MMXTypedPayload {
         .metaData(poll.extras)
         .build();
   }
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeString(this.pollId);
+    dest.writeString(this.name);
+    dest.writeString(this.ownerId);
+    dest.writeString(this.question);
+    dest.writeList(this.options);
+    dest.writeLong(endDate != null ? endDate.getTime() : -1);
+    dest.writeByte(hideResultsFromOthers ? (byte) 1 : (byte) 0);
+    dest.writeByte(allowMultiChoice ? (byte) 1 : (byte) 0);
+    dest.writeString(this.questionId);
+    dest.writeList(this.myVote);
+    dest.writeBundle(ParcelableHelper.stringMapToBundle(this.extras));
+  }
+
+  protected MMXPoll(Parcel in) {
+    this.pollId = in.readString();
+    this.name = in.readString();
+    this.ownerId = in.readString();
+    this.question = in.readString();
+    this.options = new ArrayList<MMXPollOption>();
+    in.readList(this.options, MMXPollOption.class.getClassLoader());
+    long tmpEndDate = in.readLong();
+    this.endDate = tmpEndDate == -1 ? null : new Date(tmpEndDate);
+    this.hideResultsFromOthers = in.readByte() != 0;
+    this.allowMultiChoice = in.readByte() != 0;
+    this.questionId = in.readString();
+    this.myVote = new ArrayList<MMXPollOption>();
+    in.readList(this.myVote, MMXPollOption.class.getClassLoader());
+    this.extras = ParcelableHelper.stringMapfromBundle(in.readBundle(getClass().getClassLoader()));
+  }
+
+  public static final Parcelable.Creator<MMXPoll> CREATOR = new Parcelable.Creator<MMXPoll>() {
+    @Override public MMXPoll createFromParcel(Parcel source) {
+      return new MMXPoll(source);
+    }
+
+    @Override public MMXPoll[] newArray(int size) {
+      return new MMXPoll[size];
+    }
+  };
 
   public static class MMXPollIdentifier implements MMXTypedPayload {
     public static final String TYPE = "MMXPollIdentifier";

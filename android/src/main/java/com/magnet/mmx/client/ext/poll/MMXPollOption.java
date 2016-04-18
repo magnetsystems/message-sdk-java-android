@@ -3,8 +3,11 @@
  */
 package com.magnet.mmx.client.ext.poll;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
+import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.api.MMXTypedPayload;
 import com.magnet.mmx.client.internal.survey.model.SurveyChoiceResult;
@@ -14,7 +17,7 @@ import java.util.Map;
 /**
  * This class defines a option of a MMXPoll
  */
-public class MMXPollOption implements MMXTypedPayload {
+public class MMXPollOption implements MMXTypedPayload, Parcelable {
   public static final String TYPE = "MMXPollOption";
 
   private String pollId;
@@ -123,4 +126,35 @@ public class MMXPollOption implements MMXTypedPayload {
         .append(" }")
         .toString();
   }
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeString(this.pollId);
+    dest.writeString(this.optionId);
+    dest.writeString(this.text);
+    dest.writeLong(this.count);
+    dest.writeBundle(ParcelableHelper.stringMapToBundle(this.extras));
+  }
+
+  protected MMXPollOption(Parcel in) {
+    this.pollId = in.readString();
+    this.optionId = in.readString();
+    this.text = in.readString();
+    this.count = in.readLong();
+    this.extras = ParcelableHelper.stringMapfromBundle(in.readBundle(getClass().getClassLoader()));
+  }
+
+  public static final Parcelable.Creator<MMXPollOption> CREATOR =
+      new Parcelable.Creator<MMXPollOption>() {
+        @Override public MMXPollOption createFromParcel(Parcel source) {
+          return new MMXPollOption(source);
+        }
+
+        @Override public MMXPollOption[] newArray(int size) {
+          return new MMXPollOption[size];
+        }
+      };
 }
