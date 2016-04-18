@@ -150,8 +150,8 @@ public class MMXPollSingleSessionTest {
         .option("Black")
         .option("Orange")
         .option(new MMXPollOption("Blue", optionMeta))
-        .metaData("key1", "value1")
-        .metaData("key2", "value2").build();
+        .extra("key1", "value1")
+        .extra("key2", "value2").build();
 
     final ExecMonitor<Void, FailureDescription> publishPollResult = new ExecMonitor<>("PublishPoll");
     newPoll.publish(channel, new MMX.OnFinishedListener<Void>() {
@@ -205,14 +205,14 @@ public class MMXPollSingleSessionTest {
     for(int i = 0; i< poll2.getOptions().size(); i++) {
       if(poll2.getOptions().get(i).getText().equals("Blue")) {
         MapEntry entry = entry("imageUrl", "image1");
-        assertThat(poll2.getOptions().get(i).getMetaData()).containsExactly(entry);
-        assertThat(poll1.getOptions().get(i).getMetaData()).containsExactly(entry);
+        assertThat(poll2.getOptions().get(i).getExtras()).containsExactly(entry);
+        assertThat(poll1.getOptions().get(i).getExtras()).containsExactly(entry);
       } else {
-        assertThat(poll2.getOptions().get(i).getMetaData()).isNull();
-        assertThat(poll1.getOptions().get(i).getMetaData()).isNull();
+        assertThat(poll2.getOptions().get(i).getExtras()).isNull();
+        assertThat(poll1.getOptions().get(i).getExtras()).isNull();
       }
     }
-    assertThat(poll2.getMetaData()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
+    assertThat(poll2.getExtras()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
   }
 
   private MMXPoll chooseOptions(MMXPoll poll, ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor,

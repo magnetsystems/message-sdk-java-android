@@ -53,7 +53,7 @@ public class MMXPoll implements MMXTypedPayload {
   private Date endDate;
   private boolean hideResultsFromOthers;
   private List<MMXPollOption> myVote;
-  private Map<String, String> metaData;
+  private Map<String, String> extras;
   private boolean allowMultiChoice;
 
   //Internal use only
@@ -238,7 +238,7 @@ public class MMXPoll implements MMXTypedPayload {
   }
 
   private MMXPoll(String id, MMXChannel channel, String name, String ownerId, String question, List<MMXPollOption> options, Date endDate,
-      boolean hideResultsFromOthers, Map<String, String> metaData) {
+      boolean hideResultsFromOthers, Map<String, String> extras) {
     this.pollId = id;
     this.channel = channel;
     this.name = name;
@@ -247,7 +247,7 @@ public class MMXPoll implements MMXTypedPayload {
     this.options = options;
     this.endDate = endDate;
     this.hideResultsFromOthers = hideResultsFromOthers;
-    this.metaData = metaData;
+    this.extras = extras;
   }
 
   /**
@@ -310,8 +310,8 @@ public class MMXPoll implements MMXTypedPayload {
    * The extra meta data of the poll in key-value pair
    * @return
    */
-  public Map<String, String> getMetaData() {
-    return metaData;
+  public Map<String, String> getExtras() {
+    return extras;
   }
 
   public boolean isAllowMultiChoice() {
@@ -470,7 +470,7 @@ public class MMXPoll implements MMXTypedPayload {
     List<SurveyOption> surveyOptions = new ArrayList<>(poll.options.size());
     for(int i = 0; i < poll.options.size(); i++) {
       surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(poll.options.get(i).getText())
-                            .metaData(poll.options.get(i).getMetaData()).displayOrder(i).build());
+                            .metaData(poll.options.get(i).getExtras()).displayOrder(i).build());
     }
     surveyQuestions.add(new SurveyQuestion.SurveyQuestionBuilder().text(poll.question)
         .displayOrder(0)
@@ -486,7 +486,7 @@ public class MMXPoll implements MMXTypedPayload {
             .questions(surveyQuestions)
             .type(SurveyType.POLL)
             .build())
-        .metaData(poll.metaData)
+        .metaData(poll.extras)
         .build();
   }
 
@@ -571,16 +571,16 @@ public class MMXPoll implements MMXTypedPayload {
       return this;
     }
 
-    public Builder metaData(Map<String, String> metaData) {
-      toBuild.metaData = metaData;
+    public Builder extras(Map<String, String> metaData) {
+      toBuild.extras = metaData;
       return this;
     }
 
-    public Builder metaData(String key, String value) {
-      if(null == toBuild.metaData) {
-        toBuild.metaData = new HashMap<>();
+    public Builder extra(String key, String value) {
+      if(null == toBuild.extras) {
+        toBuild.extras = new HashMap<>();
       }
-      toBuild.metaData.put(key, value);
+      toBuild.extras.put(key, value);
       return this;
     }
 

@@ -21,7 +21,7 @@ public class MMXPollOption implements MMXTypedPayload {
   private String optionId;
   private String text;
   private long count;
-  private Map<String, String> metaData;
+  private Map<String, String> extras;
 
   //private List<UserProfile> voters;
 
@@ -29,9 +29,9 @@ public class MMXPollOption implements MMXTypedPayload {
     this(text, null);
   }
 
-  public MMXPollOption(String text, Map<String, String> metaData) {
+  public MMXPollOption(String text, Map<String, String> extras) {
     this.text = text;
-    this.metaData = metaData;
+    this.extras = extras;
   }
 
   public static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption, SurveyChoiceResult surveyChoiceResult) {
@@ -42,7 +42,7 @@ public class MMXPollOption implements MMXTypedPayload {
     }
     pollOption.setPollId(pollId);
     if(null != surveyOption.getMetaData() && !surveyOption.getMetaData().isEmpty()) {
-      pollOption.metaData = surveyOption.getMetaData();
+      pollOption.extras = surveyOption.getMetaData();
     }
 
     return pollOption;
@@ -96,8 +96,8 @@ public class MMXPollOption implements MMXTypedPayload {
    * The extra meta data of the option in key-value pair
    * @return
    */
-  public Map<String, String> getMetaData() {
-    return metaData;
+  public Map<String, String> getExtras() {
+    return extras;
   }
 
   @Override public boolean equals(Object o) {
