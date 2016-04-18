@@ -67,7 +67,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   protected MMXPoll() {
   }
 
-  public void publish(final MMXChannel channel, final MMX.OnFinishedListener<Void> listener) {
+  public void publish(final MMXChannel channel, final MMX.OnFinishedListener<MMXMessage> listener) {
     if(null == channel) {
       handleParameterError("Channel is required", listener);
       return;
@@ -96,12 +96,12 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             }
             questionId = surveyCreated.getSurveyDefinition().getQuestions().get(0).getQuestionId();
 
-            MMXMessage
+            final MMXMessage
                 message = new MMXMessage.Builder().channel(channel).payload(new MMXPollIdentifier(pollId)).build();
             publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
               @Override public void onSuccess(String result) {
                 if(null != listener) {
-                  listener.onSuccess(null);
+                  listener.onSuccess(message);
                 }
               }
 

@@ -153,9 +153,9 @@ public class MMXPollSingleSessionTest {
         .extra("key1", "value1")
         .extra("key2", "value2").build();
 
-    final ExecMonitor<Void, FailureDescription> publishPollResult = new ExecMonitor<>("PublishPoll");
-    newPoll.publish(channel, new MMX.OnFinishedListener<Void>() {
-      @Override public void onSuccess(Void result) {
+    final ExecMonitor<MMXMessage, FailureDescription> publishPollResult = new ExecMonitor<>("PublishPoll");
+    newPoll.publish(channel, new MMX.OnFinishedListener<MMXMessage>() {
+      @Override public void onSuccess(MMXMessage result) {
         publishPollResult.invoked(result);
       }
 
@@ -165,6 +165,7 @@ public class MMXPollSingleSessionTest {
     });
     ExecMonitor.Status createPollStatus = publishPollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(publishPollResult.getFailedValue()).isNull();
+    assertThat(publishPollResult.getReturnValue()).isNotNull();
     assertEquals(ExecMonitor.Status.INVOKED, createPollStatus);
 
     assertThat(newPoll.getPollId()).isNotNull();
