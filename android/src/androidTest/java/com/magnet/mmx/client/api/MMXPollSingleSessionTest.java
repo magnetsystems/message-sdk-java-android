@@ -113,7 +113,7 @@ public class MMXPollSingleSessionTest {
     assertEquals(ExecMonitor.Status.FAILED, chooseAllStatus);
     assertThat(chooseAllResult.getFailedValue().getException().getMessage()).isEqualTo("Only one option is allowed");
 
-    MMXPoll.delete(retrievedPoll.getPollId(), null);
+    retrievedPoll.delete(null);
   }
 
   @Test
@@ -137,7 +137,7 @@ public class MMXPollSingleSessionTest {
     MMXPoll pollAfterChosenSecond = chooseOptions(retrievedPoll, newPollChosenMessageMonitor, 1, 2);
     assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
 
-    MMXPoll.delete(retrievedPoll.getPollId(), null);
+    retrievedPoll.delete(null);
   }
 
   private MMXPoll createAndPublishPoll(String question, String name, boolean allowMultiChoices) {

@@ -157,10 +157,9 @@ public class MMXPoll implements MMXTypedPayload {
 
   /**
    * Delete a poll by id
-   * @param pollId
    * @param listener
    */
-  public static void delete(String pollId, final MMX.OnFinishedListener<Void> listener) {
+  public void delete(final MMX.OnFinishedListener<Void> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
       return;
