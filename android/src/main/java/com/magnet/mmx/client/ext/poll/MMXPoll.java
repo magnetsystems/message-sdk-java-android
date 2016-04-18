@@ -3,10 +3,13 @@
  */
 package com.magnet.mmx.client.ext.poll;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
+import com.magnet.max.android.util.ParcelableHelper;
 import com.magnet.max.android.util.StringUtil;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXChannel;
@@ -40,7 +43,7 @@ import retrofit.Response;
 /**
  * The class defines a poll which is published and voted in a MMXChannel
  */
-public class MMXPoll implements MMXTypedPayload {
+public class MMXPoll implements MMXTypedPayload, Parcelable {
   public static final String TYPE = "MMXPoll";
 
   private static final String TAG = "MMXPoll";
@@ -53,7 +56,7 @@ public class MMXPoll implements MMXTypedPayload {
   private Date endDate;
   private boolean hideResultsFromOthers;
   private List<MMXPollOption> myVote;
-  private Map<String, String> metaData;
+  private Map<String, String> extras;
   private boolean allowMultiChoice;
 
   //Internal use only
@@ -157,10 +160,9 @@ public class MMXPoll implements MMXTypedPayload {
 
   /**
    * Delete a poll by id
-   * @param pollId
    * @param listener
    */
-  public static void delete(String pollId, final MMX.OnFinishedListener<Void> listener) {
+  public void delete(final MMX.OnFinishedListener<Void> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
       return;
@@ -213,7 +215,7 @@ public class MMXPoll implements MMXTypedPayload {
         new Callback<Void>() {
       @Override public void onResponse(Response<Void> response) {
         if(response.isSuccess()) {
-          MMXMessage message = new MMXMessage.Builder().channel(channel).payload(new MMXPollResult(chosenOptions)).build();
+          MMXMessage message = new MMXMessage.Builder().channel(channel).payload(new MMXPollAnswer(chosenOptions)).build();
           publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
             @Override public void onSuccess(String result) {
               if (null != listener) {
@@ -239,7 +241,7 @@ public class MMXPoll implements MMXTypedPayload {
   }
 
   private MMXPoll(String id, MMXChannel channel, String name, String ownerId, String question, List<MMXPollOption> options, Date endDate,
-      boolean hideResultsFromOthers, Map<String, String> metaData) {
+      boolean hideResultsFromOthers, Map<String, String> extras) {
     this.pollId = id;
     this.channel = channel;
     this.name = name;
@@ -248,7 +250,7 @@ public class MMXPoll implements MMXTypedPayload {
     this.options = options;
     this.endDate = endDate;
     this.hideResultsFromOthers = hideResultsFromOthers;
-    this.metaData = metaData;
+    this.extras = extras;
   }
 
   /**
@@ -311,8 +313,8 @@ public class MMXPoll implements MMXTypedPayload {
    * The extra meta data of the poll in key-value pair
    * @return
    */
-  public Map<String, String> getMetaData() {
-    return metaData;
+  public Map<String, String> getExtras() {
+    return extras;
   }
 
   public boolean isAllowMultiChoice() {
@@ -471,7 +473,7 @@ public class MMXPoll implements MMXTypedPayload {
     List<SurveyOption> surveyOptions = new ArrayList<>(poll.options.size());
     for(int i = 0; i < poll.options.size(); i++) {
       surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(poll.options.get(i).getText())
-                            .metaData(poll.options.get(i).getMetaData()).displayOrder(i).build());
+                            .metaData(poll.options.get(i).getExtras()).displayOrder(i).build());
     }
     surveyQuestions.add(new SurveyQuestion.SurveyQuestionBuilder().text(poll.question)
         .displayOrder(0)
@@ -487,9 +489,54 @@ public class MMXPoll implements MMXTypedPayload {
             .questions(surveyQuestions)
             .type(SurveyType.POLL)
             .build())
-        .metaData(poll.metaData)
+        .metaData(poll.extras)
         .build();
   }
+
+  @Override public int describeContents() {
+    return 0;
+  }
+
+  @Override public void writeToParcel(Parcel dest, int flags) {
+    dest.writeString(this.pollId);
+    dest.writeString(this.name);
+    dest.writeString(this.ownerId);
+    dest.writeString(this.question);
+    dest.writeList(this.options);
+    dest.writeLong(endDate != null ? endDate.getTime() : -1);
+    dest.writeByte(hideResultsFromOthers ? (byte) 1 : (byte) 0);
+    dest.writeByte(allowMultiChoice ? (byte) 1 : (byte) 0);
+    dest.writeString(this.questionId);
+    dest.writeList(this.myVote);
+    dest.writeBundle(ParcelableHelper.stringMapToBundle(this.extras));
+  }
+
+  protected MMXPoll(Parcel in) {
+    this.pollId = in.readString();
+    this.name = in.readString();
+    this.ownerId = in.readString();
+    this.question = in.readString();
+    this.options = new ArrayList<MMXPollOption>();
+    in.readList(this.options, MMXPollOption.class.getClassLoader());
+    long tmpEndDate = in.readLong();
+    this.endDate = tmpEndDate == -1 ? null : new Date(tmpEndDate);
+    this.hideResultsFromOthers = in.readByte() != 0;
+    this.allowMultiChoice = in.readByte() != 0;
+    this.questionId = in.readString();
+    this.myVote = new ArrayList<MMXPollOption>();
+    in.readList(this.myVote, MMXPollOption.class.getClassLoader());
+    this.extras = ParcelableHelper.stringMapfromBundle(in.readBundle(getClass().getClassLoader()));
+  }
+
+  public static final Parcelable.Creator<MMXPoll> CREATOR = new Parcelable.Creator<MMXPoll>() {
+    @Override public MMXPoll createFromParcel(Parcel source) {
+      return new MMXPoll(source);
+    }
+
+    @Override public MMXPoll[] newArray(int size) {
+      return new MMXPoll[size];
+    }
+  };
 
   public static class MMXPollIdentifier implements MMXTypedPayload {
     public static final String TYPE = "MMXPollIdentifier";
@@ -505,12 +552,12 @@ public class MMXPoll implements MMXTypedPayload {
     }
   }
 
-  public static class MMXPollResult implements MMXTypedPayload {
-    public static final String TYPE = "MMXPollResult";
+  public static class MMXPollAnswer implements MMXTypedPayload {
+    public static final String TYPE = "MMXPollAnswer";
 
     private List<MMXPollOption> result;
 
-    public MMXPollResult(List<MMXPollOption> result) {
+    public MMXPollAnswer(List<MMXPollOption> result) {
       this.result = result;
     }
 
@@ -572,16 +619,16 @@ public class MMXPoll implements MMXTypedPayload {
       return this;
     }
 
-    public Builder metaData(Map<String, String> metaData) {
-      toBuild.metaData = metaData;
+    public Builder extras(Map<String, String> metaData) {
+      toBuild.extras = metaData;
       return this;
     }
 
-    public Builder metaData(String key, String value) {
-      if(null == toBuild.metaData) {
-        toBuild.metaData = new HashMap<>();
+    public Builder extra(String key, String value) {
+      if(null == toBuild.extras) {
+        toBuild.extras = new HashMap<>();
       }
-      toBuild.metaData.put(key, value);
+      toBuild.extras.put(key, value);
       return this;
     }
 

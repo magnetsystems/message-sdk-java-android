@@ -113,7 +113,7 @@ public class MMXPollSingleSessionTest {
     assertEquals(ExecMonitor.Status.FAILED, chooseAllStatus);
     assertThat(chooseAllResult.getFailedValue().getException().getMessage()).isEqualTo("Only one option is allowed");
 
-    MMXPoll.delete(retrievedPoll.getPollId(), null);
+    retrievedPoll.delete(null);
   }
 
   @Test
@@ -137,7 +137,7 @@ public class MMXPollSingleSessionTest {
     MMXPoll pollAfterChosenSecond = chooseOptions(retrievedPoll, newPollChosenMessageMonitor, 1, 2);
     assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
 
-    MMXPoll.delete(retrievedPoll.getPollId(), null);
+    retrievedPoll.delete(null);
   }
 
   private MMXPoll createAndPublishPoll(String question, String name, boolean allowMultiChoices) {
@@ -150,8 +150,8 @@ public class MMXPollSingleSessionTest {
         .option("Black")
         .option("Orange")
         .option(new MMXPollOption("Blue", optionMeta))
-        .metaData("key1", "value1")
-        .metaData("key2", "value2").build();
+        .extra("key1", "value1")
+        .extra("key2", "value2").build();
 
     final ExecMonitor<Void, FailureDescription> publishPollResult = new ExecMonitor<>("PublishPoll");
     newPoll.publish(channel, new MMX.OnFinishedListener<Void>() {
@@ -205,14 +205,14 @@ public class MMXPollSingleSessionTest {
     for(int i = 0; i< poll2.getOptions().size(); i++) {
       if(poll2.getOptions().get(i).getText().equals("Blue")) {
         MapEntry entry = entry("imageUrl", "image1");
-        assertThat(poll2.getOptions().get(i).getMetaData()).containsExactly(entry);
-        assertThat(poll1.getOptions().get(i).getMetaData()).containsExactly(entry);
+        assertThat(poll2.getOptions().get(i).getExtras()).containsExactly(entry);
+        assertThat(poll1.getOptions().get(i).getExtras()).containsExactly(entry);
       } else {
-        assertThat(poll2.getOptions().get(i).getMetaData()).isNull();
-        assertThat(poll1.getOptions().get(i).getMetaData()).isNull();
+        assertThat(poll2.getOptions().get(i).getExtras()).isNull();
+        assertThat(poll1.getOptions().get(i).getExtras()).isNull();
       }
     }
-    assertThat(poll2.getMetaData()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
+    assertThat(poll2.getExtras()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
   }
 
   private MMXPoll chooseOptions(MMXPoll poll, ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor,
@@ -240,7 +240,7 @@ public class MMXPollSingleSessionTest {
     ExecMonitor.Status newPollMessageStatus = newPollChosenMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollChosenMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
-    assertThat(((MMXPoll.MMXPollResult) newPollChosenMessageMonitor.getReturnValue().getPayload()).getResult()).containsExactly(options.toArray(new MMXPollOption[] {}));
+    assertThat(((MMXPoll.MMXPollAnswer) newPollChosenMessageMonitor.getReturnValue().getPayload()).getResult()).containsExactly(options.toArray(new MMXPollOption[] {}));
 
     newPollChosenMessageMonitor.reset(null, null);
 
@@ -278,7 +278,7 @@ public class MMXPollSingleSessionTest {
           if (null != messageReceived.getContentType()) {
             if (messageReceived.getContentType().endsWith(MMXPoll.MMXPollIdentifier.TYPE)) {
               newPollMessageMonitor.invoked(messageReceived);
-            } else if (messageReceived.getContentType().endsWith(MMXPoll.MMXPollResult.TYPE)) {
+            } else if (messageReceived.getContentType().endsWith(MMXPoll.MMXPollAnswer.TYPE)) {
               newPollChosenMessageMonitor.invoked(messageReceived);
             }
           }
