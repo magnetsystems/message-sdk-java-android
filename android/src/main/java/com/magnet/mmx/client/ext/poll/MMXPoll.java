@@ -55,9 +55,9 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   private List<MMXPollOption> options;
   private Date endDate;
   private boolean hideResultsFromOthers;
-  private List<MMXPollOption> myVote;
+  private List<MMXPollOption> myVotes;
   private Map<String, String> extras;
-  private boolean allowMultiChoice;
+  private boolean allowMultiChoices;
 
   //Internal use only
   private String questionId;
@@ -67,7 +67,16 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   protected MMXPoll() {
   }
 
+  /**
+   * Publish the poll to a channel
+   * @param channel
+   * @param listener
+   */
   public void publish(final MMXChannel channel, final MMX.OnFinishedListener<MMXMessage> listener) {
+    if(null != pollId) {
+      handleParameterError("Poll is already published", listener);
+      return;
+    }
     if(null == channel) {
       handleParameterError("Channel is required", listener);
       return;
@@ -96,22 +105,27 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             }
             questionId = surveyCreated.getSurveyDefinition().getQuestions().get(0).getQuestionId();
 
-            final MMXMessage
-                message = new MMXMessage.Builder().channel(channel).payload(new MMXPollIdentifier(pollId)).build();
-            publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
-              @Override public void onSuccess(String result) {
-                if(null != listener) {
-                  listener.onSuccess(message);
+            if(null != channel) {
+              final MMXMessage message = new MMXMessage.Builder().channel(channel)
+                  .payload(new MMXPollIdentifier(pollId))
+                  .build();
+              publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
+                @Override public void onSuccess(String result) {
+                  if (null != listener) {
+                    listener.onSuccess(message);
+                  }
                 }
-              }
 
-              @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-                Log.e(TAG, "Failed to publish poll to channel due to " + code, throwable);
-                if(null != listener) {
-                  listener.onFailure(code, throwable);
+                @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
+                  Log.e(TAG, "Failed to publish poll to channel due to " + code, throwable);
+                  if (null != listener) {
+                    listener.onFailure(code, throwable);
+                  }
                 }
-              }
-            });
+              });
+            } else {
+
+            }
           }
 
           @Override public void onFailure(Throwable throwable) {
@@ -159,10 +173,10 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   }
 
   /**
-   * Delete a poll by id
+   * Delete a poll
    * @param listener
    */
-  public void delete(final MMX.OnFinishedListener<Void> listener) {
+  private void delete(final MMX.OnFinishedListener<Void> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
       return;
@@ -185,7 +199,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
    * @param option
    * @param listener
    */
-  public void choose(final MMXPollOption option, final MMX.OnFinishedListener<Void> listener) {
+  public void choose(final MMXPollOption option, final MMX.OnFinishedListener<MMXMessage> listener) {
     choose(Arrays.asList(option), listener);
   }
 
@@ -194,13 +208,13 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
      * @param chosenOptions
      * @param listener
      */
-  public void choose(final List<MMXPollOption> chosenOptions, final MMX.OnFinishedListener<Void> listener) {
+  public void choose(final List<MMXPollOption> chosenOptions, final MMX.OnFinishedListener<MMXMessage> listener) {
     if(null == chosenOptions && chosenOptions.isEmpty()) {
       handleParameterError("option is required", listener);
       return;
     }
 
-    if(!allowMultiChoice && chosenOptions.size() > 1) {
+    if(!allowMultiChoices && chosenOptions.size() > 1) {
       handleParameterError("Only one option is allowed", listener);
       return;
     }
@@ -215,18 +229,26 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
         new Callback<Void>() {
       @Override public void onResponse(Response<Void> response) {
         if(response.isSuccess()) {
-          MMXMessage message = new MMXMessage.Builder().channel(channel).payload(new MMXPollAnswer(chosenOptions)).build();
-          publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
-            @Override public void onSuccess(String result) {
-              if (null != listener) {
-                listener.onSuccess(null);
+          if(!hideResultsFromOthers) {
+            MMXMessage message = new MMXMessage.Builder().channel(channel)
+                .payload(new MMXPollAnswer(chosenOptions))
+                .build();
+            publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
+              @Override public void onSuccess(String result) {
+                if (null != listener) {
+                  listener.onSuccess(null);
+                }
               }
-            }
 
-            @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-              handleError(code, throwable, listener);
+              @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
+                handleError(code, throwable, listener);
+              }
+            });
+          } else {
+            if (null != listener) {
+              listener.onSuccess(null);
             }
-          });
+          }
         } else {
           Log.e(TAG, "Failed to choose option for poll due to " + response.message());
           handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()), listener);
@@ -305,7 +327,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
    * Whether to hide result from others
    * @return
    */
-  public boolean isHideResultsFromOthers() {
+  public boolean shouldHideResultsFromOthers() {
     return hideResultsFromOthers;
   }
 
@@ -317,16 +339,16 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     return extras;
   }
 
-  public boolean isAllowMultiChoice() {
-    return allowMultiChoice;
+  public boolean isAllowMultiChoices() {
+    return allowMultiChoices;
   }
 
   /**
    * My vote
    * @return
    */
-  public List<MMXPollOption> getMyVote() {
-    return myVote;
+  public List<MMXPollOption> getMyVotes() {
+    return myVotes;
   }
 
   @Override public boolean equals(Object o) {
@@ -352,7 +374,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
         .append(", endDate = ").append(endDate)
         .append(", hideResultsFromOthers = ").append(hideResultsFromOthers)
         .append(", channel = ").append(getChannelIdentifier())
-        .append(", myVote = ").append(myVote).append("\n");
+        .append(", myVotes = ").append(myVotes).append("\n");
 
     sb.append(", options = [\n");
     if(null != options) {
@@ -458,11 +480,11 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
         pollOptions, survey.getSurveyDefinition().getEndDate(),
         SurveyParticipantModel.PRIVATE == survey.getSurveyDefinition().getResultAccessModel() ? true : false,
         survey.getMetaData());
-    newPoll.allowMultiChoice = survey.getSurveyDefinition().getQuestions().get(0).getType() == SurveyQuestionType.MULTI_CHOICE;
+    newPoll.allowMultiChoices = survey.getSurveyDefinition().getQuestions().get(0).getType() == SurveyQuestionType.MULTI_CHOICE;
     newPoll.questionId = survey.getSurveyDefinition().getQuestions().get(0).getQuestionId();
     newPoll.channelIdentifier = survey.getSurveyDefinition().getNotificationChannelId();
     if(!myAnswerOptions.isEmpty()) {
-      newPoll.myVote = myAnswerOptions;
+      newPoll.myVotes = myAnswerOptions;
     }
 
     return newPoll;
@@ -477,7 +499,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     }
     surveyQuestions.add(new SurveyQuestion.SurveyQuestionBuilder().text(poll.question)
         .displayOrder(0)
-        .type(poll.allowMultiChoice ? SurveyQuestionType.MULTI_CHOICE : SurveyQuestionType.SINGLE_CHOICE)
+        .type(poll.allowMultiChoices ? SurveyQuestionType.MULTI_CHOICE : SurveyQuestionType.SINGLE_CHOICE)
         .choices(surveyOptions)
         .build());
 
@@ -505,9 +527,9 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     dest.writeList(this.options);
     dest.writeLong(endDate != null ? endDate.getTime() : -1);
     dest.writeByte(hideResultsFromOthers ? (byte) 1 : (byte) 0);
-    dest.writeByte(allowMultiChoice ? (byte) 1 : (byte) 0);
+    dest.writeByte(allowMultiChoices ? (byte) 1 : (byte) 0);
     dest.writeString(this.questionId);
-    dest.writeList(this.myVote);
+    dest.writeList(this.myVotes);
     dest.writeBundle(ParcelableHelper.stringMapToBundle(this.extras));
   }
 
@@ -521,10 +543,10 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     long tmpEndDate = in.readLong();
     this.endDate = tmpEndDate == -1 ? null : new Date(tmpEndDate);
     this.hideResultsFromOthers = in.readByte() != 0;
-    this.allowMultiChoice = in.readByte() != 0;
+    this.allowMultiChoices = in.readByte() != 0;
     this.questionId = in.readString();
-    this.myVote = new ArrayList<MMXPollOption>();
-    in.readList(this.myVote, MMXPollOption.class.getClassLoader());
+    this.myVotes = new ArrayList<MMXPollOption>();
+    in.readList(this.myVotes, MMXPollOption.class.getClassLoader());
     this.extras = ParcelableHelper.stringMapfromBundle(in.readBundle(getClass().getClassLoader()));
   }
 
@@ -615,7 +637,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     }
 
     public Builder allowMultiChoice(boolean allowMultiChoice) {
-      toBuild.allowMultiChoice = allowMultiChoice;
+      toBuild.allowMultiChoices = allowMultiChoice;
       return this;
     }
 

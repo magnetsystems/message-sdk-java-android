@@ -98,9 +98,9 @@ public class MMXPollSingleSessionTest {
     assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
 
     // Choose all options failed
-    final ExecMonitor<Void, FailureDescription> chooseAllResult = new ExecMonitor<>("ChooseAll");
-    retrievedPoll.choose(retrievedPoll.getOptions(), new MMX.OnFinishedListener<Void>() {
-      @Override public void onSuccess(Void result) {
+    final ExecMonitor<MMXMessage, FailureDescription> chooseAllResult = new ExecMonitor<>("ChooseAll");
+    retrievedPoll.choose(retrievedPoll.getOptions(), new MMX.OnFinishedListener<MMXMessage>() {
+      @Override public void onSuccess(MMXMessage result) {
         chooseAllResult.invoked(result);
       }
 
@@ -113,7 +113,7 @@ public class MMXPollSingleSessionTest {
     assertEquals(ExecMonitor.Status.FAILED, chooseAllStatus);
     assertThat(chooseAllResult.getFailedValue().getException().getMessage()).isEqualTo("Only one option is allowed");
 
-    retrievedPoll.delete(null);
+    //retrievedPoll.delete(null);
   }
 
   @Test
@@ -137,7 +137,7 @@ public class MMXPollSingleSessionTest {
     MMXPoll pollAfterChosenSecond = chooseOptions(retrievedPoll, newPollChosenMessageMonitor, 1, 2);
     assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
 
-    retrievedPoll.delete(null);
+    //retrievedPoll.delete(null);
   }
 
   private MMXPoll createAndPublishPoll(String question, String name, boolean allowMultiChoices) {
@@ -171,7 +171,7 @@ public class MMXPollSingleSessionTest {
     assertThat(newPoll.getPollId()).isNotNull();
     assertThat(newPoll.getName()).isEqualTo(name);
     assertThat(newPoll.getQuestion()).isEqualTo(question);
-    assertThat(newPoll.getMyVote()).isNull();
+    assertThat(newPoll.getMyVotes()).isNull();
     assertThat(newPoll.getOwnerId()).isEqualTo(User.getCurrentUserId());
 
     return newPoll;
@@ -190,7 +190,7 @@ public class MMXPollSingleSessionTest {
     MMXPoll retrievedPoll = PollHelper.getPollById(pollSent.getPollId());
     assertPolls(retrievedPoll, pollSent);
     assertThat(retrievedPoll.getOptions().get(0).getCount()).isEqualTo(0);
-    assertThat(retrievedPoll.getMyVote()).isNull();
+    assertThat(retrievedPoll.getMyVotes()).isNull();
 
     newPollMessageMonitor.reset(null, null);
 
@@ -200,7 +200,7 @@ public class MMXPollSingleSessionTest {
   private void assertPolls(MMXPoll poll1, MMXPoll poll2) {
     assertThat(poll2).isEqualTo(poll1); // pollId
     assertThat(poll2.getName()).isEqualTo(poll1.getName());
-    assertThat(poll2.isAllowMultiChoice()).isEqualTo(poll1.isAllowMultiChoice());
+    assertThat(poll2.isAllowMultiChoices()).isEqualTo(poll1.isAllowMultiChoices());
     assertThat(poll2.getOwnerId()).isEqualTo(poll1.getOwnerId());
     assertThat(poll2.getOptions()).containsExactly(poll1.getOptions().toArray(new MMXPollOption[]{}));
     for(int i = 0; i< poll2.getOptions().size(); i++) {
@@ -229,13 +229,13 @@ public class MMXPollSingleSessionTest {
     MMXPoll retrievedPollAfterVote = PollHelper.getPollById(poll.getPollId());
     assertPolls(retrievedPollAfterVote, poll);
 
-    assertThat(retrievedPollAfterVote.getMyVote()).isNotNull();
+    assertThat(retrievedPollAfterVote.getMyVotes()).isNotNull();
 
     for(int i : optionIndex) {
       assertThat(retrievedPollAfterVote.getOptions().get(i).getCount()).isEqualTo(1);
     }
 
-    assertThat(retrievedPollAfterVote.getMyVote()).containsExactly(options.toArray(new MMXPollOption[] {}));
+    assertThat(retrievedPollAfterVote.getMyVotes()).containsExactly(options.toArray(new MMXPollOption[] {}));
 
     // Received new message
     ExecMonitor.Status newPollMessageStatus = newPollChosenMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
