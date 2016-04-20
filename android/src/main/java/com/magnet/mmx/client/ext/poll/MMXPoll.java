@@ -234,9 +234,14 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
         new Callback<Void>() {
       @Override public void onResponse(Response<Void> response) {
         if(response.isSuccess()) {
+          // Update result
+          MMXPollAnswer pollAnswer = createAnswer(chosenOptions);
+          updateResults(pollAnswer);
+
+          // Publish message
           if(!hideResultsFromOthers) {
             MMXMessage message = new MMXMessage.Builder().channel(channel)
-                .payload(createAnswer(chosenOptions))
+                .payload(pollAnswer)
                 .build();
             publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
               @Override public void onSuccess(String result) {
@@ -253,6 +258,15 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             if (null != listener) {
               listener.onSuccess(null);
             }
+          }
+
+          // Reset my votes
+          if(null != myVotes) {
+            myVotes = new ArrayList<MMXPollOption>();
+          }
+          myVotes.clear();
+          if(null != chosenOptions) {
+            myVotes.addAll(chosenOptions);
           }
         } else {
           Log.e(TAG, "Failed to choose option for poll due to " + response.message());
@@ -325,15 +339,11 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       return new MMXPollAnswer(pollId, name, question, chosenOptions, null);
     } else {
       List<MMXPollOption> selected = new ArrayList<>();
+      List<MMXPollOption> deselected = new ArrayList<>();
       for(MMXPollOption option : chosenOptions) {
         if(!myVotes.contains(option)) {
           selected.add(option);
-        }
-      }
-
-      List<MMXPollOption> deselected = new ArrayList<>();
-      for(MMXPollOption option : myVotes) {
-        if(null == chosenOptions || !chosenOptions.contains(option)) {
+        } else {
           deselected.add(option);
         }
       }
