@@ -343,7 +343,11 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       for(MMXPollOption option : chosenOptions) {
         if(!myVotes.contains(option)) {
           selected.add(option);
-        } else {
+        }
+      }
+
+      for(MMXPollOption option : myVotes) {
+        if(null == chosenOptions || !chosenOptions.contains(option)) {
           deselected.add(option);
         }
       }
