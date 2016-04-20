@@ -694,6 +694,22 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     public List<MMXPollOption> getDeselectedOptions() {
       return deselectedOptions;
     }
+
+    public String getSelectedOptionsAsString() {
+      StringBuilder sb = new StringBuilder("[");
+      if(null != selectedOptions) {
+        for(int i = 0; i < selectedOptions.size(); i++) {
+          sb.append(selectedOptions.get(i).getText());
+          if(i < selectedOptions.size() - 1) {
+            sb.append(", ");
+          }
+        }
+      }
+
+      sb.append("]");
+
+      return sb.toString();
+    }
   }
 
     public static class Builder {
