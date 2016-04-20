@@ -31,6 +31,7 @@ import com.magnet.mmx.client.internal.survey.model.SurveyType;
 import com.magnet.mmx.protocol.MMXChannelId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -235,8 +236,17 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       @Override public void onResponse(Response<Void> response) {
         if(response.isSuccess()) {
           // Update result
-          MMXPollAnswer pollAnswer = createAnswer(chosenOptions);
+          MMXPollAnswer pollAnswer = new MMXPollAnswer(pollId, name, question, chosenOptions, myVotes);
           updateResults(pollAnswer);
+
+          // Reset my votes
+          if(null == myVotes) {
+            myVotes = new ArrayList<MMXPollOption>();
+          }
+          myVotes.clear();
+          if(null != chosenOptions) {
+            myVotes.addAll(chosenOptions);
+          }
 
           // Publish message
           if(!hideResultsFromOthers) {
@@ -259,15 +269,6 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
               listener.onSuccess(null);
             }
           }
-
-          // Reset my votes
-          if(null == myVotes) {
-            myVotes = new ArrayList<MMXPollOption>();
-          }
-          myVotes.clear();
-          if(null != chosenOptions) {
-            myVotes.addAll(chosenOptions);
-          }
         } else {
           Log.e(TAG, "Failed to choose option for poll due to " + response.message());
           handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()), listener);
@@ -284,14 +285,14 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   public void updateResults(MMXPollAnswer answer) {
     if(null != answer) {
       for(MMXPollOption option : options) {
-        if (null != answer.getSelectedOptions() && !answer.getSelectedOptions().isEmpty()) {
-          if(answer.getSelectedOptions().contains(option)) {
-            option.increaseCount(1);
+        if (null != answer.getPreviousSelection() && !answer.getPreviousSelection().isEmpty()) {
+          if(answer.getPreviousSelection().contains(option) && !answer.getCurrentSelection().contains(option)) {
+            option.increaseCount(-1);
           }
         }
-        if (null != answer.getDeselectedOptions() && !answer.getDeselectedOptions().isEmpty()) {
-          if(answer.getDeselectedOptions().contains(option)) {
-            option.increaseCount(-1);
+        if (null != answer.getCurrentSelection() && !answer.getCurrentSelection().isEmpty()) {
+          if(answer.getCurrentSelection().contains(option) && !answer.getPreviousSelection().contains(option)) {
+            option.increaseCount(1);
           }
         }
       }
@@ -677,16 +678,16 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     private String question;
 
-    private List<MMXPollOption> selectedOptions;
+    private List<MMXPollOption> previousSelection;
 
-    private List<MMXPollOption> deselectedOptions;
+    private List<MMXPollOption> currentSelection;
 
-    public MMXPollAnswer(String pollId, String name, String question, List<MMXPollOption> selectedOptions, List<MMXPollOption> deselectedOptions) {
+    public MMXPollAnswer(String pollId, String name, String question, List<MMXPollOption> currentSelection, List<MMXPollOption> previousSelection) {
       this.pollId = pollId;
       this.name = name;
       this.question = question;
-      this.selectedOptions = selectedOptions;
-      this.deselectedOptions = deselectedOptions;
+      this.previousSelection = null != previousSelection ? new ArrayList<>(previousSelection) : Collections.EMPTY_LIST;
+      this.currentSelection = currentSelection;
     }
 
     public String getPollId() {
@@ -701,20 +702,20 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       return question;
     }
 
-    public List<MMXPollOption> getSelectedOptions() {
-      return selectedOptions;
+    public List<MMXPollOption> getPreviousSelection() {
+      return previousSelection;
     }
 
-    public List<MMXPollOption> getDeselectedOptions() {
-      return deselectedOptions;
+    public List<MMXPollOption> getCurrentSelection() {
+      return currentSelection;
     }
 
     public String getSelectedOptionsAsString() {
       StringBuilder sb = new StringBuilder("[");
-      if(null != selectedOptions) {
-        for(int i = 0; i < selectedOptions.size(); i++) {
-          sb.append(selectedOptions.get(i).getText());
-          if(i < selectedOptions.size() - 1) {
+      if(null != previousSelection) {
+        for(int i = 0; i < previousSelection.size(); i++) {
+          sb.append(previousSelection.get(i).getText());
+          if(i < previousSelection.size() - 1) {
             sb.append(", ");
           }
         }
