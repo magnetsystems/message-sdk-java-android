@@ -261,7 +261,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
           }
 
           // Reset my votes
-          if(null != myVotes) {
+          if(null == myVotes) {
             myVotes = new ArrayList<MMXPollOption>();
           }
           myVotes.clear();
