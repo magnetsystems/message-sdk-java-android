@@ -241,7 +241,7 @@ public class MMXPollSingleSessionTest {
     ExecMonitor.Status newPollMessageStatus = newPollChosenMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollChosenMessageMonitor.getFailedValue()).isNull();
     assertEquals(ExecMonitor.Status.INVOKED, newPollMessageStatus);
-    assertThat(((MMXPoll.MMXPollAnswer) newPollChosenMessageMonitor.getReturnValue().getPayload()).getResult()).containsExactly(options.toArray(new MMXPollOption[] {}));
+    assertThat(((MMXPoll.MMXPollAnswer) newPollChosenMessageMonitor.getReturnValue().getPayload()).getSelectedOptions()).containsExactly(options.toArray(new MMXPollOption[] {}));
 
     newPollChosenMessageMonitor.reset(null, null);
 

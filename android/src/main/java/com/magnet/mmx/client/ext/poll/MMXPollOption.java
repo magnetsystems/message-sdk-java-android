@@ -95,6 +95,10 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
     return count;
   }
 
+  public void increaseCount(long delta) {
+    this.count += delta;
+  }
+
   /**
    * The extra meta data of the option in key-value pair
    * @return
