@@ -37,7 +37,7 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
     this.extras = extras;
   }
 
-  public static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption, SurveyChoiceResult surveyChoiceResult) {
+  /** Package */ static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption, SurveyChoiceResult surveyChoiceResult) {
     MMXPollOption pollOption = new MMXPollOption(surveyOption.getValue());
     pollOption.setOptionId(surveyOption.getOptionId());
     if(null != surveyChoiceResult) {
