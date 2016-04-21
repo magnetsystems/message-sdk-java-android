@@ -300,6 +300,9 @@ public class MMXMessage implements Parcelable {
       if (mMessage.mChannel != null && mMessage.mRecipients.size() > 0) {
         throw new IllegalArgumentException("Only either channel or recipients should be specified");
       }
+      if(null == mMessage.mSender) {
+        mMessage.mSender = User.getCurrentUser();
+      }
       return mMessage;
     }
   }
