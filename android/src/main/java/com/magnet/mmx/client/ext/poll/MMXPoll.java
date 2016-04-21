@@ -250,13 +250,13 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
           // Publish message
           if(!hideResultsFromOthers) {
-            MMXMessage message = new MMXMessage.Builder().channel(channel)
+            final MMXMessage message = new MMXMessage.Builder().channel(channel)
                 .payload(pollAnswer)
                 .build();
             publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
               @Override public void onSuccess(String result) {
                 if (null != listener) {
-                  listener.onSuccess(null);
+                  listener.onSuccess(message);
                 }
               }
 
