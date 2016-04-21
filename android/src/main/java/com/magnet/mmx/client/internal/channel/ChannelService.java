@@ -63,6 +63,15 @@ public interface ChannelService {
       retrofit.Callback<ChannelSubscribeResponse> callback
   );
 
+  @POST("/api/com.magnet.server/channel/{channelId}/push/mute")
+  MagnetCall<Void> mute(@Path("channelId") String channelId,
+      @Body MuteChannelPushRequest muteChannelPushRequest,
+      Callback<Void> callback);
+
+  @POST("/api/com.magnet.server/channel/{channelId}/push/unmute")
+  MagnetCall<Void> unMute(@Path("channelId") String channelId,
+      Callback<Void> callback);
+
   class ChannelSubscribeRequest {
     //Set to true to if channel is private, false to make public.
     //Default to false
@@ -206,6 +215,8 @@ public interface ChannelService {
 
     private String description;
 
+    private String pushConfigName;
+
     //Who can publish to the channels.
     //anyone ( default)
     //owner
@@ -213,11 +224,12 @@ public interface ChannelService {
     private String publishPermission;
 
     public ChannelInfo(String channelName, String description, boolean privateChannel,
-        String publishPermission, Set<String> subscribers) {
+        String publishPermission, Set<String> subscribers, String pushConfigName) {
       super(privateChannel, subscribers);
       this.channelName = channelName;
       this.description = description;
       this.publishPermission = publishPermission;
+      this.pushConfigName = pushConfigName;
     }
 
     public String getChannelName() {
@@ -230,6 +242,10 @@ public interface ChannelService {
 
     public String getPublishPermission() {
       return publishPermission;
+    }
+
+    public String getPushConfigName() {
+      return pushConfigName;
     }
   }
 
