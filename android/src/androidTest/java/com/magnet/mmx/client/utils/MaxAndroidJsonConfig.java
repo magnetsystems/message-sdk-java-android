@@ -36,7 +36,7 @@ public class MaxAndroidJsonConfig extends MaxAndroidConfig {
   }
 
   @Override public String getBaseUrl() {
-    return "http://10.0.3.2:8443/api";
+    return "http://192.168.101.141:8443/api";
   }
 
   @Override public String getClientId() {
