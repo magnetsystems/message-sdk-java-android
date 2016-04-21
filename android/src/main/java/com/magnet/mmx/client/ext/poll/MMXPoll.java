@@ -712,10 +712,10 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     public String getSelectedOptionsAsString() {
       StringBuilder sb = new StringBuilder("[");
-      if(null != previousSelection) {
-        for(int i = 0; i < previousSelection.size(); i++) {
-          sb.append(previousSelection.get(i).getText());
-          if(i < previousSelection.size() - 1) {
+      if(null != currentSelection) {
+        for(int i = 0; i < currentSelection.size(); i++) {
+          sb.append(currentSelection.get(i).getText());
+          if(i < currentSelection.size() - 1) {
             sb.append(", ");
           }
         }
