@@ -4,6 +4,7 @@
 package com.magnet.mmx.client.utils;
 
 import com.magnet.mmx.client.api.MMX;
+import com.magnet.mmx.client.api.MMXMessage;
 import com.magnet.mmx.client.ext.poll.MMXPoll;
 import com.magnet.mmx.client.ext.poll.MMXPollOption;
 import java.util.ArrayList;
@@ -33,9 +34,9 @@ public class PollHelper {
   }
 
   public static void vote(MMXPoll poll, List<MMXPollOption> options) {
-    final ExecMonitor<Void, FailureDescription> chooseOptionResult = new ExecMonitor<>("ChooseOptionResult");
-    poll.choose(options, new MMX.OnFinishedListener<Void>() {
-      @Override public void onSuccess(Void result) {
+    final ExecMonitor<MMXMessage, FailureDescription> chooseOptionResult = new ExecMonitor<>("ChooseOptionResult");
+    poll.choose(options, new MMX.OnFinishedListener<MMXMessage>() {
+      @Override public void onSuccess(MMXMessage result) {
         chooseOptionResult.invoked(null);
       }
 

@@ -1428,17 +1428,21 @@ public class MMXChannel implements Parcelable {
                             final OnFinishedListener<MMXChannel> listener) {
     getChannel(name, false, listener);
   }
-  
-  // Get a public or private channel by its name.
+
   public static void getChannel(final String name, final boolean publicOnly,
+      final OnFinishedListener<MMXChannel> listener) {
+    getChannel(name, publicOnly, User.getCurrentUserId(), listener);
+  }
+
+  // Get a public or private channel by its name.
+  public static void getChannel(final String name, final boolean publicOnly, final String ownerId,
                   final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
         validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        MMXTopicInfo info = psm.getTopic(publicOnly ? 
-            new MMXGlobalTopic(name) : new MMXPersonalTopic(name));
+        MMXTopicInfo info = psm.getTopic(getMMXTopic(publicOnly, name, ownerId));
         List<MMXTopicInfo> infos = Arrays.asList(new MMXTopicInfo[] { info });
         return fromTopicInfos(infos, null).get(0);
       }
