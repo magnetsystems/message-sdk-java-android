@@ -1969,16 +1969,18 @@ public class MMXChannel implements Parcelable {
     getChannelService().mute(getIdentifier(), new MuteChannelPushRequest(getIdentifier(), utilDate),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
-            if(null != listener) {
-              listener.onSuccess(null);
+            if(response.isSuccess()) {
+              mIsMuted = true;
+              if (null != listener) {
+                listener.onSuccess(null);
+              }
+            } else {
+              handleError("Failed to mute channel " + mName, new Exception(response.message()), listener);
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
-            Log.e(TAG, "Failed to mute channel " + mName, throwable);
-            if(null != listener) {
-              listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
-            }
+            handleError("Failed to mute channel " + mName, throwable, listener);
           }
         }).executeInBackground();
   }
@@ -1991,16 +1993,18 @@ public class MMXChannel implements Parcelable {
     getChannelService().unMute(getIdentifier(),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
-            if(null != listener) {
-              listener.onSuccess(null);
+            if(response.isSuccess()) {
+              mIsMuted = false;
+              if (null != listener) {
+                listener.onSuccess(null);
+              }
+            } else {
+              handleError("Failed to unmute channel " + mName, new Exception(response.message()), listener);
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
-            Log.e(TAG, "Failed to unmute channel " + mName, throwable);
-            if(null != listener) {
-              listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
-            }
+            handleError("Failed to unmute channel " + mName, throwable, listener);
           }
         }).executeInBackground();
   }
@@ -2111,6 +2115,13 @@ public class MMXChannel implements Parcelable {
 
   private static ChannelService getChannelService() {
     return MaxCore.create(ChannelService.class);
+  }
+
+  private void handleError(String message, Throwable throwable, OnFinishedListener listener) {
+    Log.e(TAG, message, throwable);
+    if(null != listener) {
+      listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+    }
   }
 
   // ***************************
