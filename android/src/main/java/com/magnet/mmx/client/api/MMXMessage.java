@@ -71,6 +71,7 @@ public class MMXMessage implements Parcelable {
     registerPayloadType(MMXPoll.TYPE, MMXPoll.class);
     registerPayloadType(MMXPollOption.TYPE, MMXPollOption.class);
     registerPayloadType(MMXPoll.MMXPollIdentifier.TYPE, MMXPoll.MMXPollIdentifier.class);
+    registerPayloadType(MMXPoll.MMXPollAnswer.TYPE, MMXPoll.MMXPollAnswer.class);
   }
 
   /**
@@ -1087,20 +1088,9 @@ public class MMXMessage implements Parcelable {
       throw new IllegalArgumentException("Neither recipients nor channel is set in message.");
     }
 
-    String payloadDataType = getPayloadTypeName(message.getPayload().getType());
-    if(null != payloadDataType) {
-      Class payloadDataTypeClass = getPayloadType(payloadDataType);
-      if(null != payloadDataTypeClass) {
-        String payloadDataStr = message.getPayload().getDataAsText().toString();
-        if(StringUtil.isNotEmpty(payloadDataStr)) {
-          newMessage.payload((MMXTypedPayload) GsonDecorator.getInstance()
-              .fromJson(payloadDataStr, TypeToken.get(payloadDataTypeClass)));
-        } else {
-          Log.e(TAG, "Payload is empty for type " + payloadDataType);
-        }
-      } else {
-        Log.e(TAG, "Payload type " + payloadDataType + " is not registered");
-      }
+    if(null != message.getPayload() && null != message.getPayload().getType()) {
+      parsePayload(message.getPayload().getType(), message.getPayload().getDataAsText().toString(),
+          newMessage);
     }
 
     return newMessage
@@ -1147,13 +1137,35 @@ public class MMXMessage implements Parcelable {
         }
       }
 
+      if(null != pubSubItem.getMetaData()) {
+        parsePayload(pubSubItem.getMetaData().getMtype(), pubSubItem.getMetaData().getData(),
+            newMessage);
+      }
+
       return newMessage
           .sender(sender).id(pubSubItem.getItemId())
-          .timestamp(Iso8601DateConverter.fromString(pubSubItem.getMetaData().get("creationDate"))).content(content)
+          .timestamp(Iso8601DateConverter.fromString(pubSubItem.getMetaData().getCreationDate())).content(content)
           .build();
     } else {
       Log.w(TAG, "PubSubItem doesn't have content : " + pubSubItem);
       return null;
+    }
+  }
+
+  private static void parsePayload(String payloadType, String data, MMXMessage.Builder newMessage) {
+    String payloadDataType = getPayloadTypeName(payloadType);
+    if(null != payloadDataType) {
+      Class payloadDataTypeClass = getPayloadType(payloadDataType);
+      if(null != payloadDataTypeClass) {
+        if(StringUtil.isNotEmpty(data)) {
+          newMessage.payload((MMXTypedPayload) GsonDecorator.getInstance()
+              .fromJson(data, TypeToken.get(payloadDataTypeClass)));
+        } else {
+          Log.e(TAG, "Payload is empty for type " + payloadDataType);
+        }
+      } else {
+        Log.e(TAG, "Payload type " + payloadDataType + " is not registered");
+      }
     }
   }
 

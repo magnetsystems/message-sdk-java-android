@@ -17,6 +17,8 @@ public class SurveyOption {
   
   private Integer displayOrder;
 
+  private java.util.Map<String, String> metaData;
+
   public String getOptionId() {
     return optionId;
   }
@@ -29,7 +31,9 @@ public class SurveyOption {
     return displayOrder;
   }
 
-
+  public java.util.Map<String, String> getMetaData() {
+    return metaData;
+  }
   /**
   * Builder for SurveyOption
   **/
@@ -55,6 +59,11 @@ public class SurveyOption {
 
     public SurveyOptionBuilder displayOrder(Integer value) {
       toBuild.displayOrder = value;
+      return this;
+    }
+
+    public SurveyOptionBuilder metaData(java.util.Map<String, String> value) {
+      toBuild.metaData = value;
       return this;
     }
   }
