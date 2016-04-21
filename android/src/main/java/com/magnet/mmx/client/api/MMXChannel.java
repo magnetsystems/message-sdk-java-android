@@ -493,7 +493,7 @@ public class MMXChannel implements Parcelable {
    * The name of the push configuration (match what on server side)
    * @return
    */
-  public String getPushConfigName() {
+  private String getPushConfigName() {
     return mPushConfigName;
   }
 
