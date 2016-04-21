@@ -359,7 +359,7 @@ public class MMXChannel implements Parcelable {
       mChannelIdentifier = new MMXChannelId(isPublic() ? null : mOwnerId, mName);
     }
 
-    return mChannelIdentifier.toString();
+    return mChannelIdentifier.getId();
   }
 
   /**
