@@ -63,6 +63,15 @@ public interface ChannelService {
       retrofit.Callback<ChannelSubscribeResponse> callback
   );
 
+  @POST("/api/com.magnet.server/channel/{channelId}/push/mute")
+  MagnetCall<Void> mute(@Path("channelId") String channelId,
+      @Body MuteChannelPushRequest muteChannelPushRequest,
+      Callback<Void> callback);
+
+  @POST("/api/com.magnet.server/channel/{channelId}/push/unmute")
+  MagnetCall<Void> unMute(@Path("channelId") String channelId,
+      Callback<Void> callback);
+
   class ChannelSubscribeRequest {
     //Set to true to if channel is private, false to make public.
     //Default to false

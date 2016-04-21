@@ -43,6 +43,7 @@ import com.magnet.mmx.client.internal.channel.BasicUserInfo;
 import com.magnet.mmx.client.internal.channel.ChannelService;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
+import com.magnet.mmx.client.internal.channel.MuteChannelPushRequest;
 import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.protocol.MMXChannelId;
 import com.magnet.mmx.protocol.MMXStatus;
@@ -277,7 +278,7 @@ public class MMXChannel implements Parcelable {
       return this;
     }
 
-    /** Package */ Builder isMuted(Boolean isMuted) {
+    public Builder isMuted(Boolean isMuted) {
       mChannel.mIsMuted = isMuted;
       return this;
     }
@@ -1956,16 +1957,44 @@ public class MMXChannel implements Parcelable {
    * @param utilDate
    * @param listener
    */
-  public void mute(Date utilDate, MMXChannel.OnFinishedListener<Void> listener) {
+  public void mute(Date utilDate, final MMXChannel.OnFinishedListener<Void> listener) {
+    getChannelService().mute(getIdentifier(), new MuteChannelPushRequest(getIdentifier(), utilDate),
+        new Callback<Void>() {
+          @Override public void onResponse(Response<Void> response) {
+            if(null != listener) {
+              listener.onSuccess(null);
+            }
+          }
 
+          @Override public void onFailure(Throwable throwable) {
+            Log.e(TAG, "Failed to mute channel " + mName, throwable);
+            if(null != listener) {
+              listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+            }
+          }
+        }).executeInBackground();
   }
 
   /**
    * Enable notification from this channel
    * @param listener
    */
-  public void unMute(MMXChannel.OnFinishedListener<Void> listener) {
+  public void unMute(final MMXChannel.OnFinishedListener<Void> listener) {
+    getChannelService().unMute(getIdentifier(),
+        new Callback<Void>() {
+          @Override public void onResponse(Response<Void> response) {
+            if(null != listener) {
+              listener.onSuccess(null);
+            }
+          }
 
+          @Override public void onFailure(Throwable throwable) {
+            Log.e(TAG, "Failed to unmute channel " + mName, throwable);
+            if(null != listener) {
+              listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+            }
+          }
+        }).executeInBackground();
   }
 
   private String getFullChannelName() {
@@ -2059,6 +2088,7 @@ public class MMXChannel implements Parcelable {
                 .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
                 .setPublic(!topic.isUserTopic())
                 .publishPermission(PublishPermission.fromPublisherType(info.getPublisherType()))
+                .isMuted(info.isPushMutedByUser())
                 .creationDate(info.getCreationDate())
                 .build());
       }
