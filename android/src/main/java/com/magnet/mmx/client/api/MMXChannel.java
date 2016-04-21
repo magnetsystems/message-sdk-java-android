@@ -927,15 +927,15 @@ public class MMXChannel implements Parcelable {
           }
 
           @Override public void onFailure(Throwable throwable) {
-            if(null != throwable && throwable.getMessage().equals("Channel already exists")) {
-              handleError(FailureCode.CHANNEL_EXISTS, throwable);
-            } else {
               handleError(-1, throwable);
-            }
           }
 
           private void handleError(Integer errorCode, Throwable throwable) {
-            handleError(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+            if(null != throwable && throwable.getMessage().equals("Channel already exists")) {
+              handleError(FailureCode.CHANNEL_EXISTS, throwable);
+            } else {
+              handleError(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+            }
           }
 
           private void handleError(FailureCode failureCode, Throwable throwable) {
