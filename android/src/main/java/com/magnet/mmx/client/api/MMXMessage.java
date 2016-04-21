@@ -281,6 +281,11 @@ public class MMXMessage implements Parcelable {
       return this;
     }
 
+    /**package*/ MMXMessage.Builder pushConfigName(String pushConfigName) {
+      mMessage.mPushConfigName = pushConfigName;
+      return this;
+    }
+
     /**
      * Validate and builds the MMXMessage
      *
@@ -341,6 +346,7 @@ public class MMXMessage implements Parcelable {
   private MMXTypedPayload mPayload;
   private String mReceiptId;
   private List<Attachment> mAttachments = new ArrayList<Attachment>();
+  private String mPushConfigName;
   // Map between type name to type class
   private static Map<String, Class> sTypeClassMapping;
   private static Map<Class, String> sClassTypeMapping;
@@ -645,6 +651,10 @@ public class MMXMessage implements Parcelable {
 
     for (Map.Entry<String, String> entry : mMeta.entrySet()) {
       payload.setMetaData(entry.getKey(), entry.getValue());
+    }
+
+    if(null != mPushConfigName) {
+      payload.setMmxMetaData("pushConfigName", mPushConfigName);
     }
 
     MMXTask<String> task = new MMXTask<String>(MMX.getMMXClient(),

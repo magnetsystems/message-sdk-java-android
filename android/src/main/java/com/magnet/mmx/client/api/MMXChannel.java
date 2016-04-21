@@ -859,64 +859,7 @@ public class MMXChannel implements Parcelable {
   public static void create(final String name, final String summary,
                             final boolean isPublic, final PublishPermission publishPermission,
                             final OnFinishedListener<MMXChannel> listener) {
-    MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
-        validateClient(mmxClient);
-
-        MMXPubSubManager psm = mmxClient.getPubSubManager();
-        MMXTopicOptions options = new MMXTopicOptions()
-                .setDescription(summary).setSubscribeOnCreate(true)
-                .setPublisherType(publishPermission == null ?
-                        TopicAction.PublisherType.anyone : publishPermission.type);
-        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserIdentifier());
-        return psm.createTopic(topic, options);
-      }
-
-      @Override
-      public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(
-                      FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
-      }
-
-      @Override
-      public void onResult(final MMXTopic createResult) {
-        if (listener != null) {
-          try {
-            MMXTopicInfo topicInfo = MMX.getMMXClient().getPubSubManager().getTopic(createResult);
-            ArrayList<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>();
-            topicInfos.add(topicInfo);
-            final List<MMXChannel> channels = fromTopicInfos(topicInfos, null);
-            if (channels.size() != 1) {
-              throw new IllegalStateException("Invalid number of results.");
-            }
-            MMX.getCallbackHandler().post(new Runnable() {
-              public void run() {
-                listener.onSuccess(channels.get(0));
-              }
-            });
-          } catch (Exception ex) {
-            Log.w(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
-                    "falling back to less-populated channel.", ex);
-            MMX.getCallbackHandler().post(new Runnable() {
-              public void run() {
-                listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                        .ownerId(MMX.getCurrentUser().getUserIdentifier())
-                        .summary(summary));
-              }
-            });
-          }
-
-        }
-      }
-    };
-    task.execute();
+    create(name, summary, isPublic, publishPermission, null, null, listener);
   }
 
   /**
@@ -936,9 +879,31 @@ public class MMXChannel implements Parcelable {
       final boolean isPublic, final PublishPermission publishPermission,
       final Set<String> subscribers,
       final OnFinishedListener<MMXChannel> listener) {
+    create(name, summary, isPublic, publishPermission, subscribers, null, listener);
+  }
+
+  /**
+   * Create a channel with predefined subscribers.  Upon successful completion, the current user
+   * automatically subscribes to the channel.
+   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+   *
+   * @param name the name of the channel
+   * @param summary the channel summary
+   * @param isPublic whether or not this channel is public
+   * @param publishPermission who can publish to this topic
+   * @param subscribers the user id of subscribers
+   * @param pushConfigName the push config name
+   * @param listener the listener for the newly created channel
+   */
+  public static void create(final String name, final String summary,
+      final boolean isPublic, final PublishPermission publishPermission,
+      final Set<String> subscribers,
+      final String pushConfigName,
+      final OnFinishedListener<MMXChannel> listener) {
     final String ownerId = User.getCurrentUserId();
     getChannelService().createChannel(
-        new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers),
+        new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers, pushConfigName),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {
@@ -949,6 +914,7 @@ public class MMXChannel implements Parcelable {
                   .ownerId(ownerId)
                   .setPublic(isPublic)
                   .publishPermission(publishPermission)
+                  .pushConfigName(pushConfigName)
                   .creationDate(currentDate)
                   .subscribed(true)
                   .lastTimeActive(currentDate)
@@ -1174,8 +1140,25 @@ public class MMXChannel implements Parcelable {
    */
   public String publish(Map<String, String> messageContent,
       final OnFinishedListener<String> listener) {
+    return publish(messageContent, null, listener);
+  }
+
+  /**
+   * Publishes a message to this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   *
+   * @param messageContent the message content to publish
+   * @param pushConfigName the push config name
+   * @param listener the listener for the message id
+   * @return the message id for this published message
+   */
+  public String publish(Map<String, String> messageContent,
+      final String pushConfigName,
+      final OnFinishedListener<String> listener) {
     if(null != messageContent && !messageContent.isEmpty()) {
-      MMXMessage message = new MMXMessage.Builder().channel(this).content(messageContent).build();
+      MMXMessage message = new MMXMessage.Builder().channel(this).content(messageContent).pushConfigName(pushConfigName).build();
       return message.publish(listener);
     } else {
       if(null != listener) {
