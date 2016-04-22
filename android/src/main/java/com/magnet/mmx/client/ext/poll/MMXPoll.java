@@ -109,6 +109,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             if(null != channel) {
               final MMXMessage message = new MMXMessage.Builder().channel(channel)
                   .payload(new MMXPollIdentifier(pollId))
+                  .metaData(PollConstants.KEY_QUESTION, PollConstants.DEFAULT_POLL_PUSH_CONFIG_NAME)
                   .build();
               publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
                 @Override public void onSuccess(String result) {
@@ -252,6 +253,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
           if(!hideResultsFromOthers) {
             final MMXMessage message = new MMXMessage.Builder().channel(channel)
                 .payload(pollAnswer)
+                .metaData(PollConstants.KEY_QUESTION, PollConstants.DEFAULT_POLL_ANSWER_PUSH_CONFIG)
                 .build();
             publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
               @Override public void onSuccess(String result) {
