@@ -23,7 +23,7 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
   private String pollId;
   private String optionId;
   private String text;
-  private long count;
+  private Long count;
   private Map<String, String> extras;
 
   //private List<UserProfile> voters;
@@ -37,7 +37,8 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
     this.extras = extras;
   }
 
-  /** Package */ static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption, SurveyChoiceResult surveyChoiceResult) {
+  /** Package */ static MMXPollOption fromSurveyOption(String pollId, SurveyOption surveyOption,
+      SurveyChoiceResult surveyChoiceResult) {
     MMXPollOption pollOption = new MMXPollOption(surveyOption.getValue());
     pollOption.setOptionId(surveyOption.getOptionId());
     if(null != surveyChoiceResult) {
@@ -91,7 +92,7 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
    * The voted count of this option
    * @return
    */
-  public long getCount() {
+  public Long getCount() {
     return count;
   }
 
