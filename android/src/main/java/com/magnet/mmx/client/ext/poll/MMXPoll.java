@@ -565,7 +565,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     for(int i = 0; i < survey.getSurveyDefinition().getQuestions().get(0).getChoices().size(); i++) {
       pollOptions.add(MMXPollOption.fromSurveyOption(
           survey.getId(), survey.getSurveyDefinition().getQuestions().get(0).getChoices().get(i),
-          null != results ? results.get(i) : null));
+          null != results && i < results.size() ? results.get(i) : null));
       if(myAnswerOptionIds.contains(pollOptions.get(i).getOptionId())) {
         myAnswerOptions.add(pollOptions.get(i));
       }
