@@ -153,6 +153,8 @@ public interface ChannelService {
     @SerializedName("userChannel")
     private boolean privateChannel;
     private String publishPermission;
+    private boolean pushMutedByUser;
+    private Date pushMutedUntil;
 
     public String getName() {
       return name;
@@ -182,6 +184,14 @@ public interface ChannelService {
       return publishPermission;
     }
 
+    public boolean isPushMutedByUser() {
+      return pushMutedByUser;
+    }
+
+    public Date getPushMutedUntil() {
+      return pushMutedUntil;
+    }
+
     public MMXChannel toMMXChannel() {
       return new MMXChannel.Builder()
           .name(name)
@@ -192,6 +202,7 @@ public interface ChannelService {
               TopicAction.PublisherType.valueOf(publishPermission)))
           .creationDate(creationDate)
           .subscribed(true)
+          .isMuted(pushMutedByUser)
           .lastTimeActive(modifiedDate)
           .build();
     }
