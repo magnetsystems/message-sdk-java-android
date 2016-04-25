@@ -97,7 +97,9 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
   }
 
   public void increaseCount(long delta) {
-    this.count += delta;
+    if(null != this.count) {
+      this.count += delta;
+    }
   }
 
   /**
