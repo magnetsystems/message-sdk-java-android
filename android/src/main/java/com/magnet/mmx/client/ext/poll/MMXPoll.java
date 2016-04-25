@@ -238,7 +238,10 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
         if(response.isSuccess()) {
           // Update result
           MMXPollAnswer pollAnswer = new MMXPollAnswer(pollId, name, question, chosenOptions, myVotes);
-          updateResults(pollAnswer);
+
+          if(canViewResult()) {
+            updateResults(pollAnswer);
+          }
 
           // Reset my votes
           if(null == myVotes) {
@@ -610,6 +613,11 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             .build())
         .metaData(poll.extras)
         .build();
+  }
+
+  private boolean canViewResult() {
+    return !hideResultsFromOthers ||
+        (hideResultsFromOthers && ownerId.equals(User.getCurrentUserId()));
   }
 
   @Override public int describeContents() {
