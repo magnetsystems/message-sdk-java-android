@@ -37,8 +37,8 @@ getProperty() {
 
 curdir=`pwd`
 
-MMX_SERVER_NAME="mmx-server-2.6.0-B-BUILD_NUMBER"
-MAX_SERVER_NAME="max-server-2.6.0-B-BUILD_NUMBER"
+MMX_SERVER_NAME="mmx-server-2.7.0-B-6"
+MAX_SERVER_NAME="max-server-2.7.0-B-6"
 
 seeddata_sql="$curdir/../test-conf/seed_testdata.sql"
 max_seeddata_sql=

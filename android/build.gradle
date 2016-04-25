@@ -35,7 +35,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'maven'
 
 archivesBaseName = 'magnet-mmx-client-android'
-version = "2.6.0-B-BUILD_NUMBER"
+version = "2.7.0-B-6"
 group = "com.magnet.mmx"
 
 task wrapper(type: Wrapper) {
@@ -62,19 +62,19 @@ sourceSets {
 dependencies {
 //    compile fileTree(dir: 'libs', include: ['*.jar'])       // use a local build from libs
 
-    compile 'com.magnet.mmx:mmx-common-api:2.6.0-B-BUILD_NUMBER'
+    compile 'com.magnet.mmx:mmx-common-api:2.7.0-B-6'
     compile 'com.magnet.mmx.ext:mmx-asmack-android-8:4.0.7p3'
     compile 'com.magnet.mmx.ext:mmx-dnsjava:2.1.6'
 
     // for javadoc generation
     jaxDoclet 'com.google.doclava:doclava:1.0.6'
 
-    compile ('com.magnet.max.android:magnet-max-android-core:2.6.0-B-BUILD_NUMBER@aar') {
+    compile ('com.magnet.max.android:magnet-max-android-core:2.7.0-B-6@aar') {
         transitive=true
     }
 
     // For testing
-//    androidTestCompile 'com.magnet.max.test:integration-test:2.6.0-B-BUILD_NUMBER'
+//    androidTestCompile 'com.magnet.max.test:integration-test:2.7.0-B-6'
     androidTestCompile 'com.squareup.assertj:assertj-android:1.1.1'
     androidTestCompile 'com.android.support.test:runner:0.4.1'
     androidTestCompile 'junit:junit:4.12'
@@ -88,7 +88,7 @@ android {
     defaultConfig {
         minSdkVersion 16
         versionCode 1
-        versionName "2.6.0-B-BUILD_NUMBER"
+        versionName "2.7.0-B-6"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
