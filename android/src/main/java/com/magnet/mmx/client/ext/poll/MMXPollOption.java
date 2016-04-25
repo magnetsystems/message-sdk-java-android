@@ -142,7 +142,7 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
     dest.writeString(this.pollId);
     dest.writeString(this.optionId);
     dest.writeString(this.text);
-    dest.writeLong(this.count);
+    dest.writeLong(null != this.count ? this.count : -1);
     dest.writeBundle(ParcelableHelper.stringMapToBundle(this.extras));
   }
 
@@ -151,6 +151,9 @@ public class MMXPollOption implements MMXTypedPayload, Parcelable {
     this.optionId = in.readString();
     this.text = in.readString();
     this.count = in.readLong();
+    if(-1 == this.count) {
+      this.count = null;
+    }
     this.extras = ParcelableHelper.stringMapfromBundle(in.readBundle(getClass().getClassLoader()));
   }
 
