@@ -31,9 +31,9 @@ genLocalProps() {
   "Darwin")
     rm -f $2;
     for iface in `ifconfig -l -u inet`; do
-      if [ "$iface" != "lo0" ]; then
+      if [[ "$iface" != "lo0" ]]; then
         IPADDR=`ifconfig "$iface" | sed -n -e '/inet /p' | awk '{ print $2 }'`
-        if [ "$IPADDR" != "" ]; then
+        if [[ -n "$IPADDR" ]]; then
           set +x
           echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
           echo "@"
@@ -50,9 +50,9 @@ genLocalProps() {
     rm -f $2;
     # running interface
     for iface in `ifconfig -s | tail -n +2 | grep R | cut -d' ' -f1`; do
-      if [ "$iface" != "lo" ]; then
+      if [[ "$iface" != "lo" ]]; then
         IPADDR=`ifconfig "$iface" | sed -n -e '/inet addr:/s/:/ /gp' | awk '{ print $3 }'`
-        if [ "$IPADDR" != "" ]; then
+        if [[ -n "$IPADDR" ]]; then
           set +x
           echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
           echo "@"
@@ -68,16 +68,17 @@ genLocalProps() {
   esac
 }
 
-while getopts "rae:w:" o; do
+while getopts "srae:w:" o; do
   case "${o}" in
   "a") TESTANDROID="android";;
   "e") export EXTERNAL_BUILD_DIR=${OPTARG};;
   "r") TESTREST="rest";;
+  "s") STARTSERVER_ONLY="y";;
   "w") export WAITTIME=${OPTARG};;
   *)   usage;;
   esac
 done
-if [ "${TESTANDROID}" = "" ]; then
+if [[ -z "${TESTANDROID}" ]]; then
   shift $((OPTIND-1))
   TESTANDROID=${1}
 fi
@@ -90,18 +91,27 @@ stop_server() {
   popd
 }
 
-# bootstrap and start then server
-pushd "$curdir/startserver"
-if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then
-  start_command="./init_mmx_test.sh start $EXTERNAL_BUILD_DIR"
-else
-  start_command="./init_mmx_test.sh start local"
+start_server() {
+  # bootstrap and start the server
+  pushd "$curdir/startserver"
+  if [[ -n "${EXTERNAL_BUILD_DIR}" ]]; then
+    start_command="./init_mmx_test.sh start $EXTERNAL_BUILD_DIR"
+  else
+    start_command="./init_mmx_test.sh start local"
+  fi
+  eval "$start_command"
+  popd
+}
+
+
+start_server
+if [[ -n "${STARTSERVER_ONLY}" ]]; then
+  echo "MMX server is bootstrapped and started"
+  exit 0;
 fi
-eval "$start_command"
-popd
 
 # Run REST API
-if [[ "$EXTERNAL_BUILD_DIR" != "" ]]; then
+if [[ -n "$EXTERNAL_BUILD_DIR" ]]; then
   echo "Running REST API functional tests for MMX external build..."
 else
   echo "Running REST API functional tests for MMX local build..."
@@ -115,7 +125,7 @@ if [[ "${TESTREST}" == "rest" ]]; then
   popd
 
   echo "REST API STATUS: $status"
-  if [ "$status" != "0" ]; then
+  if [[ "$status" != "0" ]]; then
     echo "FAILURE: REST API TEST FAILED"
     stop_server
     exit $status
@@ -128,7 +138,7 @@ if [[ "${TESTANDROID}" == "android" ]]; then
 
   # push localhost configuration to emulator
   genLocalProps ./test-conf/android_local.properties ./test-conf/local.properties
-  if [ -f ./test-conf/local.properties ]; then
+  if [[ -f ./test-conf/local.properties ]]; then
     adb_command="adb push ./test-conf/local.properties /sdcard/mmx-debug.properties"
   else
     adb_command="adb push ./test-conf/android_local.properties /sdcard/mmx-debug.properties"
@@ -136,6 +146,8 @@ if [[ "${TESTANDROID}" == "android" ]]; then
   eval "$adb_command"
 
   pushd "../android"
+#  This is for Android junit test
+#  run_android_test="./gradlew clean build connectedAndroidTest"
   run_android_test="./gradlew clean build connectedCheck"
   eval "$run_android_test"
   status=$?

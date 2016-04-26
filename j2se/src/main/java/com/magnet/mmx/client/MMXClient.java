@@ -25,6 +25,7 @@ import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.client.common.MMXGeoLogger;
 import com.magnet.mmx.client.common.MMXMessageListener;
 import com.magnet.mmx.client.common.MessageManager;
+import com.magnet.mmx.client.common.PrivacyManager;
 import com.magnet.mmx.client.common.PubSubManager;
 import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.DevReg;
@@ -32,6 +33,9 @@ import com.magnet.mmx.protocol.GeoLoc;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.OSType;
+import org.jivesoftware.smackx.privacy.PrivacyListManager;
+import org.jivesoftware.smackx.pubsub.Affiliation;
+import org.jivesoftware.smackx.pubsub.AffiliationsExtension;
 
 /**
  * This class is the main entry point of the MMX Java client API.  It allows
@@ -451,5 +455,22 @@ public class MMXClient implements IMMXClient {
   @Override
   public DeviceManager getDeviceManager() throws MMXException {
     return DeviceManager.getInstance(mCon);
+  }
+
+  /**
+   * Get the privacy manager.  The primary function is to manage the privacy
+   * list for blocking and unblocking of users.
+   */
+  @Override
+  public PrivacyManager getPrivacyManager() throws MMXException {
+    return PrivacyManager.getInstance(mCon);
+  }
+
+  public PrivacyListManager getPrivacyListManager() throws MMXException {
+    return PrivacyListManager.getInstanceFor(mCon.getXMPPConnection());
+  }
+
+  public MMXSettings getmSettings() {
+    return mSettings;
   }
 }

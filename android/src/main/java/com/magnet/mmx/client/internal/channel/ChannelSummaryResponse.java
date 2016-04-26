@@ -12,12 +12,13 @@ public class ChannelSummaryResponse {
 
   private String channelName;
 
+  private String userId;
+
   private int publishedItemCount;
 
   private String lastPublishedTime;
   
   private Integer subscriberCount;
-
   
   private java.util.List<BasicUserInfo> subscribers;
 
@@ -38,6 +39,10 @@ public class ChannelSummaryResponse {
 
   public String getChannelName() {
     return channelName;
+  }
+
+  public String getUserId() {
+    return userId;
   }
 
   public int getPublishedItemCount() {

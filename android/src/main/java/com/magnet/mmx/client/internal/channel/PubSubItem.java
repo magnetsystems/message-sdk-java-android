@@ -21,7 +21,7 @@ public class PubSubItem {
   private String itemId;
 
   
-  private java.util.Map<String, String> metaData;
+  private PubSubPayload metaData;
 
   
   private ItemPublisher publisher;
@@ -42,7 +42,7 @@ public class PubSubItem {
     return itemId;
   }
 
-  public java.util.Map<String, String> getMetaData() {
+  public PubSubPayload getMetaData() {
     return metaData;
   }
 
@@ -83,7 +83,7 @@ public class PubSubItem {
       return this;
     }
 
-    public PubSubItemBuilder metaData(java.util.Map<String, String> value) {
+    public PubSubItemBuilder metaData(PubSubPayload value) {
       toBuild.metaData = value;
       return this;
     }

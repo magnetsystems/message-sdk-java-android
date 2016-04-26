@@ -17,6 +17,7 @@ package com.magnet.mmx.restAssured.nonsecured;
 import com.jayway.restassured.RestAssured;
 import com.magnet.mmx.restAssured.utils.TestUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static com.jayway.restassured.RestAssured.given;
@@ -24,7 +25,11 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 
+/**
+ * User Tags tests are suppressed because MMS does not support it.
+ */
 public class TestUserTagsAPI {
+    @Ignore
     @Before
     public void setUp() {
         RestAssured.baseURI = TestUtils.HTTPBaseUrl;
@@ -33,6 +38,7 @@ public class TestUserTagsAPI {
       RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     }
 
+    @Ignore
     @Test
     public void test01Add_Get_DeleteUserTag() {
         String payload = "{\n" +

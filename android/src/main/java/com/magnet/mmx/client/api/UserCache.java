@@ -7,6 +7,7 @@ import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -28,7 +29,7 @@ final class UserCache {
 
   private static final String TAG = UserCache.class.getSimpleName();
   static final long DEFAULT_ACCEPTED_AGE = 8 * 60 * 60000; //8 hours
-  static final int DEFAULT_CACHE_ENTRIES = 128;
+  static final int DEFAULT_CACHE_ENTRIES = 300;
   static final int DEFAULT_USER_RETRIEVE_TIMEOUT = 10;
   private final LruCache<String, CachedUser> mUserCache;
   private static UserCache sInstance = null;
@@ -49,15 +50,25 @@ final class UserCache {
    * called from the main thread.
    *
    * @param userIds the userIds to lookup
-   * @param acceptedAgeMillis the allowed age in milliseconds
    */
-  void fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {
-    fillCacheHelper(userIds, acceptedAgeMillis);
+  Set<User> fillCacheByUserId(Set<String> userIds) {
+    return fillCacheHelper(userIds, DEFAULT_ACCEPTED_AGE);
   }
 
-  void fillCacheHelper(Set<String> keys, long acceptedAgeMillis) {
-    final ArrayList<String> retrieveList = new ArrayList<String>();
+  /**
+   * Fills the cache with the specified userIds.  This is a blocking call and should not be
+   * called from the main thread.
+   *
+   * @param userIds the userIds to lookup
+   * @param acceptedAgeMillis the allowed age in milliseconds
+   */
+  Set<User> fillCacheByUserId(Set<String> userIds, long acceptedAgeMillis) {
+    return fillCacheHelper(userIds, acceptedAgeMillis);
+  }
 
+  Set<User> fillCacheHelper(Set<String> keys, long acceptedAgeMillis) {
+    final ArrayList<String> retrieveList = new ArrayList<String>();
+    final Set<User> result = new HashSet<>();
     synchronized (this) {
       for (String key : keys) {
         CachedUser cachedUser = mUserCache.get(key);
@@ -68,6 +79,8 @@ final class UserCache {
           Log.v(TAG, "fillCache(): cache expired for user: " + key +  ", cachedUser=" + cachedUser);
           mUserCache.remove(key);
           retrieveList.add(key);
+        } else {
+          result.add(cachedUser.user);
         }
       }
     }
@@ -82,6 +95,7 @@ final class UserCache {
             CachedUser cachedUser = new CachedUser(user, timestamp);
             mUserCache.put(user.getUserIdentifier().toLowerCase(), cachedUser);
           }
+          result.addAll(users);
           latch.countDown();
         }
 
@@ -100,6 +114,8 @@ final class UserCache {
         }
       }
     }
+
+    return result;
   }
 
   /**

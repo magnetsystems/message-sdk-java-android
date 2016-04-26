@@ -21,6 +21,7 @@ import com.magnet.mmx.restAssured.utils.TestUtils;
 import junit.framework.TestCase;
 import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static com.jayway.restassured.RestAssured.given;
@@ -32,6 +33,7 @@ public class TestUsersManagementAPI extends TestCase {
   private static final String INVALID_CHAR_MESSAGE = "Invalid character specified in username";
   private static final String DUPLICATE_USER = "User with username:%s already exists";
   private static final String REVISED_USERS_RESOURCE = "mmxmgmt/api/v1/users";
+    @Override
     @Before
     public void setUp() {
         RestAssured.baseURI = TestUtils.HTTPBaseUrl;
@@ -40,6 +42,7 @@ public class TestUsersManagementAPI extends TestCase {
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     }
 
+    @Ignore
     @Test
     public void test01Create_Get() {
         TestUtils.mmxApiHeaders.put("X-mmx-app-owner", TestUtils.appOwner);
@@ -212,6 +215,7 @@ public class TestUsersManagementAPI extends TestCase {
                 assertThat().body("results.any {it.email == 'test03User@email.com'}", is(false));
     }
 
+    @Override
     @AfterClass
     public void tearDown() {
         RestAssured.port = 5220;

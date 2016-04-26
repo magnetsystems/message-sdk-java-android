@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.magnet.mmx</groupId>
     <artifactId>mmx-client-root</artifactId>
-    <version>2.5.0</version>
+    <version>2.7.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -16,13 +16,6 @@
   <name>Magnet Messaging Java APIs</name>
   <description>${project.name}</description>
   <dependencies>
-    <!--
-    <dependency>
-      <groupId>com.magnet.max.android</groupId>
-      <artifactId>magnet-max-android-sdk</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    -->
     <dependency>
       <groupId>com.magnet.mmx</groupId>
       <artifactId>mmx-client-common-api</artifactId>

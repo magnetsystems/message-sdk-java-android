@@ -49,6 +49,12 @@ public interface IMMXClient {
    */
   public MessageManager getMessageManager() throws MMXException;
   /**
+   * Get the Privacy Manager.
+   * @return
+   * @throws MMXException
+   */
+  public PrivacyManager getPrivacyManager() throws MMXException;
+  /**
    * Get the MMX ID of the current authenticated end-point (user and device.)
    * @return The MMX ID that represents the current authenticated end-point.
    * @throw MMXException Not connecting to MMX server

@@ -23,6 +23,7 @@ import com.magnet.max.android.Attachment;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.UserProfile;
+import com.magnet.max.android.rest.marshalling.Iso8601DateConverter;
 import com.magnet.max.android.util.EqualityUtil;
 import com.magnet.max.android.util.HashCodeBuilder;
 import com.magnet.max.android.util.StringUtil;
@@ -42,7 +43,9 @@ import com.magnet.mmx.client.internal.channel.BasicUserInfo;
 import com.magnet.mmx.client.internal.channel.ChannelService;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryRequest;
 import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
+import com.magnet.mmx.client.internal.channel.MuteChannelPushRequest;
 import com.magnet.mmx.client.internal.channel.PubSubItem;
+import com.magnet.mmx.protocol.MMXChannelId;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
 import com.magnet.mmx.protocol.MMXTopicOptions;
@@ -56,6 +59,7 @@ import com.magnet.mmx.util.TimeUtil;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -148,11 +152,16 @@ public class MMXChannel implements Parcelable {
     public static final FailureCode SUBSCRIPTION_ADD_FAILURE = new FailureCode(408, "SUBSCRIPTION_ADD_FAILURE");
     public static final FailureCode SUBSCRIPTION_REMOVE_FAILURE = new FailureCode(409, "SUBSCRIPTION_REMOVE_FAILURE");
     public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
+    public static final FailureCode CONTENT_EMPTY = new FailureCode(414, "CONTENT_IS_EMPTY");
     public static final FailureCode ATTACHMENT_FAILURE = new FailureCode(430, "ATTACHMENT_FAILURE");
     public static final FailureCode GENERIC_FAILURE = new FailureCode(500, "GENERIC_FAILURE");
 
     FailureCode(int value, String description) {
       super(value, description);
+    }
+
+    FailureCode(int value, String description, Throwable throwable) {
+      super(value, description, throwable);
     }
 
     FailureCode(MMX.FailureCode code) { super(code); }
@@ -269,6 +278,21 @@ public class MMXChannel implements Parcelable {
       return this;
     }
 
+    public Builder isMuted(Boolean isMuted) {
+      mChannel.mIsMuted = isMuted;
+      return this;
+    }
+
+    /**
+     * Set the push configuration for the channel
+     * @param pushConfigName
+     * @return
+     */
+    public Builder pushConfigName(String pushConfigName) {
+      mChannel.mPushConfigName = pushConfigName;
+      return this;
+    }
+
     /**
      * Set the public flag for this channel
      *
@@ -302,6 +326,9 @@ public class MMXChannel implements Parcelable {
      * @return the channel
      */
     public MMXChannel build() {
+      if(null == mChannel.getNumberOfMessages()) {
+        mChannel.numberOfMessages(0);
+      }
       return mChannel;
     }
   }
@@ -309,12 +336,15 @@ public class MMXChannel implements Parcelable {
   private String mName;
   private String mSummary;
   private String mOwnerId;
+  private MMXChannelId mChannelIdentifier;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private boolean mPublic;
   private PublishPermission mPublishPermission;
   private Boolean mSubscribed;
   private Date mCreationDate;
+  private boolean mIsMuted;
+  private String mPushConfigName;
 
   /**
    * Default constructor
@@ -341,6 +371,14 @@ public class MMXChannel implements Parcelable {
    */
   public String getName() {
     return mName;
+  }
+
+  public String getIdentifier() {
+    if(null == mChannelIdentifier) {
+      mChannelIdentifier = new MMXChannelId(isPublic() ? null : mOwnerId, mName);
+    }
+
+    return mChannelIdentifier.getId();
   }
 
   /**
@@ -441,6 +479,22 @@ public class MMXChannel implements Parcelable {
    */
   public Date getCreationDate() {
     return mCreationDate;
+  }
+
+  /**
+   * Is push notification muted for current user
+   * @return
+   */
+  public boolean isMuted() {
+    return mIsMuted;
+  }
+
+  /**
+   * The name of the push configuration (match what on server side)
+   * @return
+   */
+  private String getPushConfigName() {
+    return mPushConfigName;
   }
 
   /**
@@ -806,64 +860,7 @@ public class MMXChannel implements Parcelable {
   public static void create(final String name, final String summary,
                             final boolean isPublic, final PublishPermission publishPermission,
                             final OnFinishedListener<MMXChannel> listener) {
-    MMXTask<MMXTopic> task = new MMXTask<MMXTopic>(MMX.getMMXClient(), MMX.getHandler()) {
-      @Override
-      public MMXTopic doRun(MMXClient mmxClient) throws Throwable {
-        validateClient(mmxClient);
-
-        MMXPubSubManager psm = mmxClient.getPubSubManager();
-        MMXTopicOptions options = new MMXTopicOptions()
-                .setDescription(summary).setSubscribeOnCreate(true)
-                .setPublisherType(publishPermission == null ?
-                        TopicAction.PublisherType.anyone : publishPermission.type);
-        MMXTopic topic = getMMXTopic(isPublic, name, MMX.getCurrentUser().getUserIdentifier());
-        return psm.createTopic(topic, options);
-      }
-
-      @Override
-      public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(
-                      FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
-      }
-
-      @Override
-      public void onResult(final MMXTopic createResult) {
-        if (listener != null) {
-          try {
-            MMXTopicInfo topicInfo = MMX.getMMXClient().getPubSubManager().getTopic(createResult);
-            ArrayList<MMXTopicInfo> topicInfos = new ArrayList<MMXTopicInfo>();
-            topicInfos.add(topicInfo);
-            final List<MMXChannel> channels = fromTopicInfos(topicInfos, null);
-            if (channels.size() != 1) {
-              throw new IllegalStateException("Invalid number of results.");
-            }
-            MMX.getCallbackHandler().post(new Runnable() {
-              public void run() {
-                listener.onSuccess(channels.get(0));
-              }
-            });
-          } catch (Exception ex) {
-            Log.w(TAG, "create(): create succeeded, but unable to retrieve hydrated channel for onSuccess(), " +
-                    "falling back to less-populated channel.", ex);
-            MMX.getCallbackHandler().post(new Runnable() {
-              public void run() {
-                listener.onSuccess(MMXChannel.fromMMXTopic(createResult)
-                        .ownerId(MMX.getCurrentUser().getUserIdentifier())
-                        .summary(summary));
-              }
-            });
-          }
-
-        }
-      }
-    };
-    task.execute();
+    create(name, summary, isPublic, publishPermission, null, null, listener);
   }
 
   /**
@@ -883,9 +880,31 @@ public class MMXChannel implements Parcelable {
       final boolean isPublic, final PublishPermission publishPermission,
       final Set<String> subscribers,
       final OnFinishedListener<MMXChannel> listener) {
+    create(name, summary, isPublic, publishPermission, subscribers, null, listener);
+  }
+
+  /**
+   * Create a channel with predefined subscribers.  Upon successful completion, the current user
+   * automatically subscribes to the channel.
+   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
+   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+   *
+   * @param name the name of the channel
+   * @param summary the channel summary
+   * @param isPublic whether or not this channel is public
+   * @param publishPermission who can publish to this topic
+   * @param subscribers the user id of subscribers
+   * @param pushConfigName the push config name
+   * @param listener the listener for the newly created channel
+   */
+  public static void create(final String name, final String summary,
+      final boolean isPublic, final PublishPermission publishPermission,
+      final Set<String> subscribers,
+      final String pushConfigName,
+      final OnFinishedListener<MMXChannel> listener) {
     final String ownerId = User.getCurrentUserId();
     getChannelService().createChannel(
-        new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers),
+        new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers, pushConfigName),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {
@@ -896,6 +915,7 @@ public class MMXChannel implements Parcelable {
                   .ownerId(ownerId)
                   .setPublic(isPublic)
                   .publishPermission(publishPermission)
+                  .pushConfigName(pushConfigName)
                   .creationDate(currentDate)
                   .subscribed(true)
                   .lastTimeActive(currentDate)
@@ -907,12 +927,19 @@ public class MMXChannel implements Parcelable {
           }
 
           @Override public void onFailure(Throwable throwable) {
-            handleError(null, throwable);
+              handleError(null, throwable);
           }
 
           private void handleError(Integer errorCode, Throwable throwable) {
+            FailureCode failureCode = null;
+            if(null != throwable && throwable.getMessage().contains("Channel already exists")) {
+              failureCode = FailureCode.CHANNEL_EXISTS;
+            } else {
+              failureCode = new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage());
+            }
+
             Log.e(TAG, "Failed to create channel ", throwable);
-            listener.onFailure(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+            listener.onFailure(failureCode, throwable);
           }
         }).executeInBackground();
   }
@@ -1121,11 +1148,38 @@ public class MMXChannel implements Parcelable {
    */
   public String publish(Map<String, String> messageContent,
       final OnFinishedListener<String> listener) {
-    MMXMessage message = new MMXMessage.Builder()
-            .channel(this)
-            .content(messageContent)
-            .build();
-    return message.publish(listener);
+    return publish(messageContent, null, listener);
+  }
+
+  /**
+   * Publishes a message to this channel.  Possible failure codes are:
+   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   *
+   * @param messageContent the message content to publish
+   * @param pushConfigName the push config name
+   * @param listener the listener for the message id
+   * @return the message id for this published message
+   */
+  public String publish(Map<String, String> messageContent,
+      final String pushConfigName,
+      final OnFinishedListener<String> listener) {
+    if(null != messageContent && !messageContent.isEmpty()) {
+      MMXMessage message = new MMXMessage.Builder().channel(this).content(messageContent).pushConfigName(pushConfigName).build();
+      return message.publish(listener);
+    } else {
+      if(null != listener) {
+        MMX.getCallbackHandler().post(new Runnable() {
+          @Override
+          public void run() {
+            listener.onFailure(FailureCode.CONTENT_EMPTY, null);
+          }
+        });
+      }
+
+      return null;
+    }
   }
 
   /**
@@ -1399,17 +1453,21 @@ public class MMXChannel implements Parcelable {
                             final OnFinishedListener<MMXChannel> listener) {
     getChannel(name, false, listener);
   }
-  
+
+  public static void getChannel(final String name, final boolean publicOnly,
+      final OnFinishedListener<MMXChannel> listener) {
+    getChannel(name, publicOnly, User.getCurrentUserId(), listener);
+  }
+
   // Get a public or private channel by its name.
-  private static void getChannel(final String name, final boolean publicOnly,
+  public static void getChannel(final String name, final boolean publicOnly, final String ownerId,
                   final OnFinishedListener<MMXChannel> listener) {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
         validateClient(mmxClient);
         MMXPubSubManager psm = mmxClient.getPubSubManager();
-        MMXTopicInfo info = psm.getTopic(publicOnly ? 
-            new MMXGlobalTopic(name) : new MMXPersonalTopic(name));
+        MMXTopicInfo info = psm.getTopic(getMMXTopic(publicOnly, name, ownerId));
         List<MMXTopicInfo> infos = Arrays.asList(new MMXTopicInfo[] { info });
         return fromTopicInfos(infos, null).get(0);
       }
@@ -1686,7 +1744,7 @@ public class MMXChannel implements Parcelable {
   }
 
   /**
-   * Get detail for channels
+   * Get details @{link ChannelDetail} for channels
    * @param channels
    * @param options
    * @param listener
@@ -1711,16 +1769,37 @@ public class MMXChannel implements Parcelable {
                   List<ChannelDetail> channelDetails = null;
                   if(null != summaryResponses) {
                     channelDetails = new ArrayList<ChannelDetail>(summaryResponses.size());
+
+                    //Pre-populate user cache using batch api
+                    Set<String> userIds = new HashSet<>();
+                    for(ChannelSummaryResponse cr : summaryResponses) {
+                      if(null != cr.getMessages()) {
+                        for (PubSubItem item : cr.getMessages()) {
+                          if (null != item.getPublisher() && StringUtil.isNotEmpty(
+                              item.getPublisher().getUserId())) {
+                            userIds.add(item.getPublisher().getUserId());
+                          }
+                        }
+                      }
+                      //Owner
+                      if(null != cr.getUserId()) {
+                        userIds.add(cr.getUserId());
+                      }
+                    }
+                    UserCache.getInstance().fillCacheByUserId(userIds);
+
                     for(int i = 0; i < summaryResponses.size(); i++) {
                       ChannelSummaryResponse r = summaryResponses.get(i);
 
                       //convert messages
                       List<PubSubItem> pubsubItems = r.getMessages();
-                      List<MMXMessage> mmxMessages = null;
+                      List<MMXMessage> mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                       if(null != pubsubItems) {
-                        mmxMessages = new ArrayList<MMXMessage>(pubsubItems.size());
                         for(PubSubItem item : pubsubItems) {
-                          mmxMessages.add(MMXMessage.fromPubSubItem(item));
+                          MMXMessage message = MMXMessage.fromPubSubItem(item);
+                          if(null != message) {
+                            mmxMessages.add(message);
+                          }
                         }
                       }
 
@@ -1728,12 +1807,40 @@ public class MMXChannel implements Parcelable {
                       if(null != r.getSubscribers()) {
                         userProfiles = new ArrayList<UserProfile>(r.getSubscribers().size());
                         for(BasicUserInfo ui : r.getSubscribers()) {
-                          userProfiles.add(ui.toUserProfile());
+                          // Try to get from cache first
+                          User u = UserCache.getInstance().getByUserId(ui.getUserId());
+                          if(null != u){
+                            userProfiles.add(new UserProfile.Builder().identifier(u.getUserIdentifier())
+                                .firstName(u.getFirstName()).lastName(u.getLastName()).hasAvatar(null != u.getAvatarUrl()).build());
+                          } else {
+                            userProfiles.add(ui.toUserProfile());
+                          }
                         }
                       }
-                      channelDetails.add(new ChannelDetail.Builder().channel(channels.get(i)).messages(mmxMessages)
-                          .subscribers(userProfiles).totalMessages(r.getPublishedItemCount())
-                          .totalSubscribers(r.getSubscriberCount()).build());
+
+                      //FIXME : have to lookup because the order sometimes doesn't match in request/response
+                      MMXChannel forChannel = null;
+                      for(MMXChannel c : channels) {
+                        if((null == r.getUserId() || c.getOwnerId().equals(r.getUserId()))
+                            && c.getName().equals(r.getChannelName())) {
+                          forChannel = c;
+                          break;
+                        }
+                      }
+                      if(null != forChannel) {
+                        ChannelDetail.Builder cb = new ChannelDetail.Builder().channel(forChannel)
+                            .messages(mmxMessages)
+                            .subscribers(userProfiles)
+                            .totalMessages(r.getPublishedItemCount())
+                            .totalSubscribers(r.getSubscriberCount())
+                            .owner(UserCache.getInstance().getByUserId(forChannel.getOwnerId()));
+                        if(StringUtil.isNotEmpty(r.getLastPublishedTime())) {
+                          cb.lastPublishedTime(Iso8601DateConverter.fromString(r.getLastPublishedTime()));
+                        }
+                        channelDetails.add(cb.build());
+                      } else {
+                        Log.e(TAG, "Couldn't find channel detail for channel " + channels.get(i));
+                      }
                     }
                   } else {
                     channelDetails = Collections.EMPTY_LIST;
@@ -1832,6 +1939,79 @@ public class MMXChannel implements Parcelable {
     return Attachment.createDownloadUrl(getFullChannelName(), mOwnerId);
   }
 
+  /**
+   * Mute push notification from this channel
+   * @param listener
+   */
+  public void mute(MMXChannel.OnFinishedListener<Void> listener) {
+    mute(0, listener);
+  }
+
+  /**
+   * Mute push notification from this channel for specified minutes
+   * @param timeInMinute
+   * @param listener
+   */
+  public void mute(int timeInMinute, MMXChannel.OnFinishedListener<Void> listener) {
+    Date untilDate = null;
+    if(timeInMinute > 0) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(new Date());
+      c.add(timeInMinute, Calendar.MINUTE);
+      untilDate = c.getTime();
+    }
+    mute(untilDate, listener);
+  }
+
+  /**
+   * Mute push notification from this channel until a specified date
+   * @param utilDate
+   * @param listener
+   */
+  public void mute(Date utilDate, final MMXChannel.OnFinishedListener<Void> listener) {
+    getChannelService().mute(getIdentifier(), new MuteChannelPushRequest(getIdentifier(), utilDate),
+        new Callback<Void>() {
+          @Override public void onResponse(Response<Void> response) {
+            if(response.isSuccess()) {
+              mIsMuted = true;
+              if (null != listener) {
+                listener.onSuccess(null);
+              }
+            } else {
+              handleError("Failed to mute channel " + mName, new Exception(response.message()), listener);
+            }
+          }
+
+          @Override public void onFailure(Throwable throwable) {
+            handleError("Failed to mute channel " + mName, throwable, listener);
+          }
+        }).executeInBackground();
+  }
+
+  /**
+   * Enable notification from this channel
+   * @param listener
+   */
+  public void unMute(final MMXChannel.OnFinishedListener<Void> listener) {
+    getChannelService().unMute(getIdentifier(),
+        new Callback<Void>() {
+          @Override public void onResponse(Response<Void> response) {
+            if(response.isSuccess()) {
+              mIsMuted = false;
+              if (null != listener) {
+                listener.onSuccess(null);
+              }
+            } else {
+              handleError("Failed to unmute channel " + mName, new Exception(response.message()), listener);
+            }
+          }
+
+          @Override public void onFailure(Throwable throwable) {
+            handleError("Failed to unmute channel " + mName, throwable, listener);
+          }
+        }).executeInBackground();
+  }
+
   private String getFullChannelName() {
     return mPublic ? mName : (mOwnerId + "_" + mName);
   }
@@ -1923,6 +2103,7 @@ public class MMXChannel implements Parcelable {
                 .summary(description.equals(" ") ? null : description) //this is because of weirdness in mysql.  If it is created with null, it returns with a SPACE.
                 .setPublic(!topic.isUserTopic())
                 .publishPermission(PublishPermission.fromPublisherType(info.getPublisherType()))
+                .isMuted(info.isPushMutedByUser())
                 .creationDate(info.getCreationDate())
                 .build());
       }
@@ -1937,6 +2118,13 @@ public class MMXChannel implements Parcelable {
 
   private static ChannelService getChannelService() {
     return MaxCore.create(ChannelService.class);
+  }
+
+  private void handleError(String message, Throwable throwable, OnFinishedListener listener) {
+    Log.e(TAG, message, throwable);
+    if(null != listener) {
+      listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+    }
   }
 
   // ***************************
@@ -2299,8 +2487,8 @@ public class MMXChannel implements Parcelable {
         StringUtil.isStringValueEqual(mOwnerId, theOther.getOwnerId()) &&
         mPublic == theOther.isPublic() &&
         mPublishPermission == theOther.getPublishPermission() &&
-        StringUtil.isStringValueEqual(mName, theOther.getName()) &&
-        (null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
+        StringUtil.isStringValueEqual(mName, theOther.getName());
+        //(null != mCreationDate ? mCreationDate.equals(theOther.getCreationDate()) : null == theOther.getCreationDate());
   }
 
   @Override

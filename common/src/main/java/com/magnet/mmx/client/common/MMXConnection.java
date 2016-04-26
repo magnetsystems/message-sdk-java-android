@@ -934,7 +934,7 @@ public class MMXConnection implements ConnectionListener {
     return mCon.getServiceName();
   }
 
-  MagnetXMPPConnection getXMPPConnection() {
+  public MagnetXMPPConnection getXMPPConnection() {
     return mCon;
   }
 

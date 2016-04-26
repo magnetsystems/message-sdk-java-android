@@ -38,8 +38,9 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
   public static final String PROP_MMSDEVUSER = "mmsDevUser";
   public static final String PROP_MMSDEVPASSWD = "mmsDevPasswd";
   public static final String PROP_MMSUSERID = "mmsUserId";
-//  public static final String PROP_MMSOAUTHCLIENTID = "mmsOauthClientId";
-//  public static final String PROP_MMSOAUTHSECRET = "mmsOauthSecret";
+  public static final String PROP_MMSDEVTOKEN = "mmsDevToken";
+  public static final String PROP_MMSOAUTHCLIENTID = "mmsOauthClientId";
+  public static final String PROP_MMSOAUTHSECRET = "mmsOauthSecret";
 
   /**
    * Auto Registering Device is needed for V1 support

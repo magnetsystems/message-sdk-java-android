@@ -14,6 +14,21 @@
 #   limitations under the License.
 #
 
+# Pretty print
+pprint() {
+  echo
+  printblk
+  printline "$@"
+  printblk
+}
+
+printblk() {
+  echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+}
+
+printline() {
+  echo "+ $@"
+}
 
 # get the value from "name=value" in a file
 getProperty() {
@@ -22,8 +37,11 @@ getProperty() {
 
 curdir=`pwd`
 
-MMX_SERVER_NAME="mmx-server-2.5.0"
-MAX_SERVER_NAME="max-server-2.5.0"
+MMX_SERVER_NAME="mmx-server-2.7.0"
+MAX_SERVER_NAME="max-server-2.7.0"
+
+seeddata_sql="$curdir/../test-conf/seed_testdata.sql"
+max_seeddata_sql=
 
 cleanup_sql="$curdir/../test-conf/clean_testdata.sql"
 max_cleanup_sql="$curdir/../test-conf/max_clean_testdata.sql"
@@ -67,11 +85,11 @@ MAX_MYSQL_PWD=`getProperty $datasource_properties javax.persistence.jdbc.passwor
 #echo MAX_MYSQL_PWD=$MAX_MYSQL_PWD
 
 mysql_command="mysql -u $MMX_MYSQL_USR"
-if [ -n "$MMX_MYSQL_PWD" ] ; then
+if [[ -n "$MMX_MYSQL_PWD" ]] ; then
   mysql_command="$mysql_command -p $MMX_MYSQL_PWD"
 fi
 max_mysql_command="mysql -u $MAX_MYSQL_USR"
-if [ -n "$MMX_MYSQL_PWD" ] ; then
+if [[ -n "$MMX_MYSQL_PWD" ]] ; then
   max_mysql_command="$max_mysql_command -p $MAX_MYSQL_PWD"
 fi
 
@@ -88,7 +106,7 @@ sleepAndEcho() {
 # remove existing test binaries
 
 cleanup() {
-    if [ -e $sandbox_dir/bin/mmx.pid ]; then
+    if [[ -e $sandbox_dir/bin/mmx.pid ]]; then
         echo "Attemp to stop existing MMX server..."
         stop
         sleep 5
@@ -97,7 +115,7 @@ cleanup() {
     delete_command="rm -rf $sandbox_dir *.zip"
     eval "$delete_command"
 
-    # Remove the MAX 
+    # Remove the MAX
     echo "Deleting max-server bits..."
     delete_command="rm -rf $max_sandbox_dir"
     eval "$delete_command"
@@ -142,55 +160,74 @@ start_external() {
 }
 
 check_dbsetup() {
-  $mysql_command $1 <<EOF
-select count(*) from mmxApp;
+  $mysql_command $1 2>/dev/null <<EOF
+select count(*) from mmxTopicRole;
 EOF
 }
 
 start() {
+    # stop server (just in case)
+    stop
+
     # copy test configuration
-    echo "Copying MMX test startup.properties"
+    pprint "Copying MMX test startup.properties"
     copy_command="cp $startup_properties $conf_dir"
     echo "$copy_command"
     eval "$copy_command"
 
-    echo "Copying MAX test datasource_mysql.properties"
+    pprint "Copying MAX test datasource_mysql.properties"
     copy_command="cp $datasource_properties $max_conf_dir"
     echo "$copy_command"
     eval "$copy_command"
 
     # cleanup existing data
     cleanup_db_command="$mysql_command < $cleanup_sql"
-    echo "Deleting existing MMX test data..."
+    pprint "Deleting existing MMX test data..."
     echo "$cleanup_db_command"
     eval "$cleanup_db_command"
 
     cleanup_db_command="$max_mysql_command < $max_cleanup_sql"
-    echo "Deleting existing MAX test data..."
+    pprint "Deleting existing MAX test data..."
     echo "$cleanup_db_command"
     eval "$cleanup_db_command"
-
-    # stop server
-    stop
 
     # start MMX
     pushd $bin_dir
     echo `pwd`
     start_command="./mmx-server.sh start"
-    echo "Starting MMX..."
+    pprint "Starting MMX..."
     echo "$start_command"
     eval "$start_command"
 
     # wait until all tables were created.
-    echo "Waiting for DB $MMX_DB initialized..."
+    pprint "Setting up DB $MMX_DB and waiting for the completion..."
     until [[ `check_dbsetup $MMX_DB` ]]; do
       /bin/echo -n .
       sleep 5
     done
+    sleep 3
     popd
 
+    # stop the servers again before seeding the data
+    stop
+
+    pprint "Seeding MMX test data..."
+    seed_data="$mysql_command $MMX_DB < $seeddata_sql"
+    echo "$seed_data"
+    eval "$seed_data"
+    if [[ $@ -eq 0 ]]; then
+      pprint "Restarting MMX..."
+      echo "$start_command"
+      pushd $bin_dir
+      eval "$start_command"
+      popd
+    else
+      pprint "Seeding MMX test data failed"
+      exit 1
+    fi
+
     # start MAX
-    echo "Starting MAX..."
+    pprint "Starting MAX..."
     start_command="bin/start.sh &"
     pushd $max_sandbox_dir
     echo "$start_command"
@@ -221,7 +258,7 @@ usage() {
 
 case "$1" in
     start)
-        if [ $# -le 1 ]; then
+        if [[ $# -le 1 ]]; then
             usage
             exit 1
         fi

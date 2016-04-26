@@ -15,14 +15,21 @@
 package com.magnet.mmx.protocol;
 
 /**
- * App Creation request object.
+ * App Info for creation and update app requests.  It is copied from
+ * com.magnet.mmx.server.plugin.mmxmgmt.servlet.AppInfo class.
  */
-public class AppCreateRequest {
+public class AppInfo {
   String name;
   String ownerId;
-  String guestSecret;
-  String ownerEmail;
+  String appId;
+  String apiKey;
   String googleApiKey;
+  String googleProjectId;
+  String apnsCertPassword;
+  String ownerEmail;
+  String guestSecret;
+  String serverUserId;
+  boolean apnsCertProduction;
 
   public String getName() {
     return name;
@@ -63,4 +70,53 @@ public class AppCreateRequest {
   public void setGoogleApiKey(String googleApiKey) {
     this.googleApiKey = googleApiKey;
   }
+
+  public String getAppId() {
+    return appId;
+  }
+
+  public void setAppId(String appId) {
+    this.appId = appId;
+  }
+
+  public String getApiKey() {
+    return apiKey;
+  }
+
+  public void setApiKey(String apiKey) {
+    this.apiKey = apiKey;
+  }
+
+  public String getGoogleProjectId() {
+    return googleProjectId;
+  }
+
+  public void setGoogleProjectId(String googleProjectId) {
+    this.googleProjectId = googleProjectId;
+  }
+
+  public String getApnsCertPassword() {
+    return apnsCertPassword;
+  }
+
+  public void setApnsCertPassword(String apnsCertPassword) {
+    this.apnsCertPassword = apnsCertPassword;
+  }
+
+  public String getServerUserId() {
+    return serverUserId;
+  }
+
+  public void setServerUserId(String serverUserId) {
+    this.serverUserId = serverUserId;
+  }
+
+  public boolean isApnsCertProduction() {
+    return apnsCertProduction;
+  }
+
+  public void setApnsCertProduction(boolean apnsCertProduction) {
+    this.apnsCertProduction = apnsCertProduction;
+  }
+
 }

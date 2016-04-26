@@ -71,7 +71,7 @@ public class MessageManager implements Closeable {
   private static final String TAG = "MessageManager";
   private int mAckErrors;
   private int mAckCounters;
-  private MMXConnection mCon;
+  private final MMXConnection mCon;
   private QueueExecutor mAckExecutor;
   private final static Creator sCreator = new Creator() {
     @Override
@@ -80,14 +80,12 @@ public class MessageManager implements Closeable {
     }
   };
 
-  private PacketListener mEventPacketListener = new PacketListener() {
+  private final PacketListener mEventPacketListener = new PacketListener() {
     @Override
     public void processPacket(Packet packet) throws NotConnectedException {
 //      mCon.getContext().log(TAG, "Event processPacket() pkt="+packet.toXML());
       final MMXMessageListener listener = mCon.getMessageListener();
       if (listener != null) {
-//        String[] tokens = parsePubSubMsgId(packet.getPacketID());
-//        final String from = (tokens == null) ? packet.getFrom() : tokens[1];
         final String from = packet.getFrom();
         final String to = packet.getTo();
         EventElement event = packet.getExtension("event", PubSubNamespace.EVENT.getXmlns());
@@ -137,7 +135,7 @@ public class MessageManager implements Closeable {
     }
   };
 
-  private PacketListener mErrorMsgPacketListener = new PacketListener() {
+  private final PacketListener mErrorMsgPacketListener = new PacketListener() {
     @Override
     public void processPacket(Packet packet) {
       final MMXMessageListener listener = mCon.getMessageListener();
@@ -153,7 +151,7 @@ public class MessageManager implements Closeable {
     }
   };
 
-  private PacketListener mMsgPayloadPacketListener = new PacketListener() {
+  private final PacketListener mMsgPayloadPacketListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
       final Message xmppmsg = (Message) packet;
@@ -193,7 +191,6 @@ public class MessageManager implements Closeable {
                   listener.onMessageReceived(msg, msg.getReceiptId());
                   // Only reliable messages (non-normal type with a body) will trigger
                   // an ACK to be sent.
-//        if (xmppmsg.getType() != Type.normal && ".".equals(xmppmsg.getBody())) {
                   if (xmppmsg.getType() != Type.normal) {
                     // Must run in a thread because IQ is a blocking call.
                     mAckExecutor.post(new SendAck(packet));
@@ -214,7 +211,7 @@ public class MessageManager implements Closeable {
   };
 
   // Reliable message sent callback
-  private PacketListener mMsgSignalPacketListener = new PacketListener() {
+  private final PacketListener mMsgSignalPacketListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
       mCon.getExecutor().post(new Runnable() {
@@ -253,7 +250,7 @@ public class MessageManager implements Closeable {
 //  };
 
   // Unreliable message sent callback
-  private PacketListener mMsgPayloadSentListener = new PacketListener() {
+  private final PacketListener mMsgPayloadSentListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
       if (mCon.getMessageListener() != null) {
@@ -267,7 +264,7 @@ public class MessageManager implements Closeable {
     }
   };
 
-  private PacketListener mMsgPayloadFailedListener = new PacketListener() {
+  private final PacketListener mMsgPayloadFailedListener = new PacketListener() {
     @Override
     public void processPacket(final Packet packet) throws NotConnectedException {
       if (mCon.getMessageListener() != null) {
@@ -317,7 +314,7 @@ public class MessageManager implements Closeable {
   }
 
   private class SendAck implements Runnable {
-    private Packet mPacket;
+    private final Packet mPacket;
 
     public SendAck(Packet packet) {
       mPacket = packet;
@@ -337,7 +334,7 @@ public class MessageManager implements Closeable {
   }
 
   private static class PacketCopy extends Packet {
-    private CharSequence text;
+    private final CharSequence text;
 
     /**
      * Create a copy of a packet with the text to send. The passed text must be
@@ -627,16 +624,6 @@ public class MessageManager implements Closeable {
     }
     return result;
   }
-
-//  // This is specific to Openfire implementation.  Its pubsub msg ID format is:
-//  // nodeID__subscriberBaredJID__uniqeID
-//  private static String[] parsePubSubMsgId(String msgId) {
-//    if (msgId == null) {
-//      return null;
-//    }
-//    String[] tokens = msgId.split("__");
-//    return ((tokens == null) || (tokens.length != 3)) ? null : tokens;
-//  }
 
   // Generate a delivery receipt ID based on the sender XID and msg ID.
   static String genReceiptId(String from, String msgId) {

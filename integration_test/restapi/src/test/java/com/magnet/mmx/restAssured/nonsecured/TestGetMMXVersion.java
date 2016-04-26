@@ -24,11 +24,12 @@ import static com.jayway.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.equalTo;
 
 public class TestGetMMXVersion extends TestCase{
+    @Override
     @Before
     public void setUp() {
         RestAssured.baseURI = TestUtils.HTTPBaseUrl;
         RestAssured.port = 5220;
-        RestAssured.basePath = "/mmxmgmt/api/v1/";
+        RestAssured.basePath = "/mmxmgmt/api/v2/";
     }
 
     @Test
@@ -36,12 +37,11 @@ public class TestGetMMXVersion extends TestCase{
         String response =
                 given().log().all().
                         contentType(TestUtils.JSON).
-                        headers(TestUtils.toHeaders(TestUtils.mmxApiHeaders)).
                 when().
                         get("mmx/version").
                 then().
                         statusCode(200).
-                        body("version", equalTo("2.5.0")).
+                        body("version", equalTo("2.7.0")).
                         extract().asString();
     }
 }

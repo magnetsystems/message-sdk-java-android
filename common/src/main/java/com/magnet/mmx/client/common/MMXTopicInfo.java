@@ -40,6 +40,8 @@ public class MMXTopicInfo implements Serializable {
   private PublisherType mPublisherType;
   private MMXid mCreator;
   private boolean mSubscriptionEnabled;
+  private boolean mPushMutedByUser;
+  private Date mPushMutedUntil;
 
   /**
    * @hide
@@ -56,6 +58,8 @@ public class MMXTopicInfo implements Serializable {
     mPublisherType = topicInfo.getPublisherType();
     mCreator = XIDUtil.toXid(topicInfo.getCreator(), null);
     mSubscriptionEnabled = topicInfo.isSubscriptionEnabled();
+    mPushMutedByUser = topicInfo.isPushMutedByUser();
+    mPushMutedUntil = topicInfo.getPushMutedUntil();
   }
 
   /**
@@ -150,6 +154,14 @@ public class MMXTopicInfo implements Serializable {
   }
 
   /**
+   * Is push muted by user for this topic?
+   * @return
+   */
+  public boolean isPushMutedByUser() {
+    return mPushMutedByUser;
+  }
+
+  /**
    * Get the topic information in string format for debug purpose.
    * @return Informative data about the topic.
    */
@@ -157,6 +169,15 @@ public class MMXTopicInfo implements Serializable {
   public String toString() {
     return "[topic="+mTopic+", desc="+mDescription+", sub="+mSubscriptionEnabled+
         ", maxItems="+mMaxItems+", maxSize="+mMaxPayloadSize+", pubtype="+mPublisherType+
-        ", create="+mCreationDate+", mod="+mModifiedDate+", creator="+mCreator+"]";
+        ", create="+mCreationDate+", mod="+mModifiedDate+", creator="+mCreator+ ", isPushMutedByUser="+mPushMutedByUser+"]";
+  }
+
+  public Date getPushMutedUntil() {
+    return mPushMutedUntil;
+  }
+
+  public MMXTopicInfo setPushMutedUntil(Date mPushMutedUntil) {
+    this.mPushMutedUntil = mPushMutedUntil;
+    return this;
   }
 }

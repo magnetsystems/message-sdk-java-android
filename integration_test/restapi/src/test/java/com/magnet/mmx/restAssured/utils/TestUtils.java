@@ -23,26 +23,28 @@ import java.util.List;
 import java.util.Map;
 
 public class TestUtils {
-  public static String HTTPBaseUrl = "http://localhost";
-  public static String HTTPSBaseUrl = "https://localhost";
+  public final static String HTTPBaseUrl = "http://localhost";
+  public final static String HTTPSBaseUrl = "https://localhost";
 
-  public static String user = "admin";
-  public static String pass = "admin";
+  public final static String user = "admin";
+  public final static String pass = "admin";
 
-  public static String appId = "n9ci8ffoitr";
-  public static String appKey = "55cff1f0-be33-4ba5-b76f-231954ab369f";
-  public static String appOwner = "f7758430-e198-11e4-bce8-617dbe9255aa";
+  public final static String serveruser = "serveruser";
 
-  public static String HEADER_APPID = "X-mmx-app-id";
-  public static String HEADER_APPKEY = "X-mmx-api-key";
+  public final static String appId = "n9ci8ffoitr";
+  public final static String appKey = "55cff1f0-be33-4ba5-b76f-231954ab369f";
+  public final static String appOwner = "f7758430-e198-11e4-bce8-617dbe9255aa";
 
-  public static String SIZE_PARAM = "size";
-  public static String OFFSET_PARAM = "offset";
+  public final static String HEADER_APPID = "X-mmx-app-id";
+  public final static String HEADER_APPKEY = "X-mmx-api-key";
+
+  public final static String SIZE_PARAM = "size";
+  public final static String OFFSET_PARAM = "offset";
 
 
-  public static String JSON = "application/json";
-  public static Map<String, String> mmxApiHeaders = new HashMap<String, String>();
-  public static Map<String, String> mmxApiBadHeaders = new HashMap<String, String>();
+  public final static String JSON = "application/json";
+  public final static Map<String, String> mmxApiHeaders = new HashMap<String, String>();
+  public final static Map<String, String> mmxApiBadHeaders = new HashMap<String, String>();
 
   static {
     mmxApiHeaders.put(HEADER_APPID, appId);
@@ -65,10 +67,10 @@ public class TestUtils {
     return new Headers(headers);
   }
 
-  public static String DEVICE_ID_1 = "test-client1-devId-1429039847558";
-  public static String DEVICE_ID_2 = "test-client2-devId-1429039847558";
+  public final static String DEVICE_ID_1 = "test-client1-devId-1429039847558";
+  public final static String DEVICE_ID_2 = "test-client2-devId-1429039847558";
 
-  public static String USER_ID_1 = "mmxclienttest1";
-  public static String USER_ID_2 = "mmxclienttest2";
+  public final static String USER_ID_1 = "mmxclienttest1";
+  public final static String USER_ID_2 = "mmxclienttest2";
 }
 
