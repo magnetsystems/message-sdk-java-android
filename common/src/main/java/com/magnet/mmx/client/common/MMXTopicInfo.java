@@ -41,6 +41,7 @@ public class MMXTopicInfo implements Serializable {
   private MMXid mCreator;
   private boolean mSubscriptionEnabled;
   private boolean mPushMutedByUser;
+  private Date mPushMutedUntil;
 
   /**
    * @hide
@@ -58,6 +59,7 @@ public class MMXTopicInfo implements Serializable {
     mCreator = XIDUtil.toXid(topicInfo.getCreator(), null);
     mSubscriptionEnabled = topicInfo.isSubscriptionEnabled();
     mPushMutedByUser = topicInfo.isPushMutedByUser();
+    mPushMutedUntil = topicInfo.getPushMutedUntil();
   }
 
   /**
@@ -168,5 +170,14 @@ public class MMXTopicInfo implements Serializable {
     return "[topic="+mTopic+", desc="+mDescription+", sub="+mSubscriptionEnabled+
         ", maxItems="+mMaxItems+", maxSize="+mMaxPayloadSize+", pubtype="+mPublisherType+
         ", create="+mCreationDate+", mod="+mModifiedDate+", creator="+mCreator+ ", isPushMutedByUser="+mPushMutedByUser+"]";
+  }
+
+  public Date getPushMutedUntil() {
+    return mPushMutedUntil;
+  }
+
+  public MMXTopicInfo setPushMutedUntil(Date mPushMutedUntil) {
+    this.mPushMutedUntil = mPushMutedUntil;
+    return this;
   }
 }

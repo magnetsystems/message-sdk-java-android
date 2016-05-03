@@ -5,6 +5,8 @@
 
 package com.magnet.mmx.client.internal.survey.model;
 
+import com.magnet.max.android.User;
+
 public class Survey {
 
   
@@ -55,6 +57,11 @@ public class Survey {
     return metaData;
   }
 
+  public boolean hasResultsAccess() {
+    return surveyDefinition.getResultAccessModel() == SurveyParticipantModel.PUBLIC ||
+        (surveyDefinition.getResultAccessModel() == SurveyParticipantModel.PRIVATE &&
+         owners.contains(User.getCurrentUserId()));
+  }
 
   /**
   * Builder for Survey
