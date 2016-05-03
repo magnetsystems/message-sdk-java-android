@@ -65,6 +65,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     AtomicBoolean isConnected = new AtomicBoolean(false);
     AtomicBoolean isReceiptReceived = new AtomicBoolean(false);
 
+    @Override
     public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
       Log.d(TAG, "connection event=" + event);
       boolean notify = false;
@@ -83,6 +84,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       }
     }
 
+    @Override
     public void onMessageReceived(MMXClient client, MMXMessage message, String receiptId) {
       Log.d(TAG, "onMessageReceived message=" + message.toString());
       receivedMessage = message;
@@ -91,10 +93,12 @@ public class MMXClientTest extends InstrumentationTestCase {
       }
     }
 
+    @Override
     public void onSendFailed(MMXClient client, String msgId) {
       Log.d(TAG, "onSendFailed message Id=" + msgId);
     }
 
+    @Override
     public void onMessageDelivered(MMXClient client, MMXid recipient, String messageId) {
       Log.d(TAG, "onMessageDelivered message=" + messageId.toString());
       isReceiptReceived.set(true);
@@ -102,15 +106,18 @@ public class MMXClientTest extends InstrumentationTestCase {
         isReceiptReceived.notify();
       }
     }
-    
+
+    @Override
     public void onMessageSubmitted(MMXClient client, String messageId) {
       Log.d(TAG, "onMessageSubmitted message id =" + messageId);
     }
-    
+
+    @Override
     public void onMessageAccepted(MMXClient client, List<MMXid> invalidRecipients, String messageId) {
       Log.d(TAG, "onMessageAccepted message id =" + messageId);
     }
 
+    @Override
     public void onPubsubItemReceived(MMXClient client, MMXTopic topic, MMXMessage message) {
       Log.d(TAG, "onPubsubItemReceived topic=" + topic.getName() + ";message=" + message.getPayload().getDataAsText());
       isPubSubItemReceived.set(true);
@@ -167,11 +174,12 @@ public class MMXClientTest extends InstrumentationTestCase {
       super(context);
     }
 
+    @Override
     public String getDeviceId() {
       return "VIN-1234";
     }
   }
-  
+
   public void testMMXid() {
     MMXid user1 = new MMXid("user1", null, null);
     MMXid uuser1 = new MMXid("USER1", null, null);
@@ -184,7 +192,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     assertTrue(user1.equalsTo(uuser1));
     assertEquals(user1dev1, uuser1dev1);
     assertTrue(user1dev1.equalsTo(uuser1dev1));
-    
+
     // logically equal and user ID is case insensitive
     assertTrue(user1.equalsTo(user1dev1));
     assertTrue(user1.equalsTo(uuser1dev1));
@@ -192,34 +200,34 @@ public class MMXClientTest extends InstrumentationTestCase {
     // physically not equal, but user ID is case insensitive.
     assertFalse(user1.equals(user1dev1));
     assertFalse(user1.equals(uuser1dev1));
-    
+
     // logical and physical not equal
     assertFalse(user1dev1.equals(user1dev2));
     assertFalse(user1dev1.equalsTo(user1dev2));
-    
+
     MMXid user1_dev1 = new MMXid("user1", "dev1", null);
     HashSet<MMXid> xids = new HashSet<MMXid>();
     assertTrue(xids.add(user1dev1));
     assertFalse(xids.add(user1_dev1));
     assertFalse(xids.add(uuser1dev1));
   }
-  
+
   public void testMMXTopicId() {
-    MMXTopicId topic1 = new MMXTopicId("topic1");
-    MMXTopicId uctopic1 = new MMXTopicId("TOPIC1");
+    MMXTopicId topic1 = new MMXTopicId(null, "topic1");
+    MMXTopicId uctopic1 = new MMXTopicId(null, "TOPIC1");
     MMXTopicId utopic1 = new MMXTopicId("user1", "topic1");
     MMXTopicId ucutopic1 = new MMXTopicId("USER1", "TOPIC1");
-    
+
     assertEquals(topic1, uctopic1);
     assertEquals(utopic1, ucutopic1);
-    
+
     HashSet<MMXTopicId> topicIds = new HashSet<MMXTopicId>();
     assertTrue(topicIds.add(topic1));
     assertFalse(topicIds.add(uctopic1));
     assertTrue(topicIds.add(utopic1));
     assertFalse(topicIds.add(ucutopic1));
   }
-  
+
   public void testConnectWithCustomDeviceId() {
     MMXClientConfig clientConfig = new CustomClientTestConfig(this.getInstrumentation().getTargetContext());
     MMXClient client = MMXClient.getInstance("CustomConfig", this.getInstrumentation().getTargetContext(), clientConfig);
@@ -342,14 +350,14 @@ public class MMXClientTest extends InstrumentationTestCase {
     // Test for invalid message ID
     List<MMXMessageStatus> list = client1.getMessageManager().getMessageState("NoSuchMsgId");
     assertEquals(Constants.MessageState.UNKNOWN, list.get(0).getState());
-    
+
     // Test for invalid message ID's
     Map<String, List<MMXMessageStatus>> map = client1.getMessageManager().
         getMessagesState(Arrays.asList(new String[] { "NoSuchMsgId1", "NoSuchMsgId2" }));
     assertNotNull(map);
     assertEquals(Constants.MessageState.UNKNOWN, map.get("NoSuchMsgId1").get(0).getState());
     assertEquals(Constants.MessageState.UNKNOWN, map.get("NoSuchMsgId2").get(0).getState());
-    
+
     //send message
     MMXPayload payload = new MMXPayload("foobar")
       .setMetaData("meta1", "value1");
@@ -434,7 +442,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       }
     }
   }
-  
+
   private MMXMessageStatus findRecipient(List<MMXMessageStatus> list, String userId) {
     for (MMXMessageStatus recipient: list) {
       if (userId.equalsIgnoreCase(recipient.getRecipient().getUserId())) {
@@ -448,7 +456,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     ClientTestListener listener = new ClientTestListener();
     connect(USER1, listener);
     assertTrue(mmxClient.isConnected());
-    
+
     int maxSize = MMXPayload.getMaxSizeAllowed();
     CharBuffer data = CharBuffer.allocate(maxSize);
     Arrays.fill(data.array(), 'A');
@@ -464,7 +472,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       disconnect(false, listener);
     }
   }
-  
+
   public void testMessageCancel() throws MMXException {
     ClientTestListener listener = new ClientTestListener();
     connect(USER1, listener);
@@ -536,7 +544,7 @@ public class MMXClientTest extends InstrumentationTestCase {
       assertNotNull(newAccountInfo);
       assertEquals(EMAIL, newAccountInfo.getEmail());
       assertEquals(DISPLAYNAME, newAccountInfo.getDisplayName());
-      
+
       // Restore to the original email and display name.
       acctMgr.updateAccount(origAccountInfo);
     } catch (MMXException e) {
@@ -556,10 +564,10 @@ public class MMXClientTest extends InstrumentationTestCase {
       UserInfo accountInfo = acctMgr.getUserInfo();
       accountInfo.setEmail(USER1.toLowerCase() + "@magnet.com");
       acctMgr.updateAccount(accountInfo);
-      
+
       accountInfo = acctMgr.getUserInfo();
       assertNotNull(accountInfo.getEmail());
-      
+
       UserQuery.Search search = new UserQuery.Search();
       search.setEmail(accountInfo.getEmail(), SearchAction.Match.EXACT);
 
@@ -577,7 +585,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     }
     disconnect(false, listener);
   }
-  
+
   public void testAnonymous() {
     assertFalse(mmxClient.isConnected());
     ClientTestListener listener = new ClientTestListener();
@@ -609,7 +617,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     assertEquals(randomUser, info.username);
     disconnect(true, listener);
   }
-  
+
   public void testCreateEmailUserId() {
     String randomUser = "u" + System.currentTimeMillis()+"@host";
     ClientTestListener listener = new ClientTestListener();
@@ -638,6 +646,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     MMXClient client = MMXClient.getInstance("relaxed",
             this.getInstrumentation().getTargetContext(),
             new ClientTestConfigImpl(this.getInstrumentation().getTargetContext()) {
+              @Override
               public MMXClient.SecurityLevel getSecurityLevel() {
                 return MMXClient.SecurityLevel.STRICT;
               }
@@ -654,6 +663,7 @@ public class MMXClientTest extends InstrumentationTestCase {
     }
     assertFalse(client.isConnected());
     client.applyConfig(new ClientTestConfigImpl(this.getInstrumentation().getTargetContext()) {
+      @Override
       public MMXClient.SecurityLevel getSecurityLevel() {
         return MMXClient.SecurityLevel.RELAXED;
       }
@@ -721,18 +731,18 @@ public class MMXClientTest extends InstrumentationTestCase {
         fail("Topic already exists: " + topicName);
       }
       assertNotNull(topic);
-      
+
       MMXTopicInfo info = mmxClient.getPubSubManager().getTopic(topic);
       assertNotNull(info);
       assertEquals(USER1.toLowerCase(), info.getCreator().getUserId());
-      
+
       try {
         mmxClient.getPubSubManager().getTopic(new MMXGlobalTopic("ThisTopicShouldNotExist"));
         assertFalse(false);
       } catch (MMXException ex) {
         assertTrue(ex instanceof TopicNotFoundException);
       }
-      
+
       mmxClient.getPubSubManager().subscribe(topic, false);
       disconnect(false, listener);
 

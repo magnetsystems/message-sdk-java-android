@@ -111,7 +111,7 @@ public class MMXOsTopicHelper {
     }
 
     PubSubManager pubsubMgr = client.getPubSubManager();
-    MMXTopicId topic = new MMXTopicId(TopicHelper.makeOSTopic(os, version));
+    MMXTopicId topic = new MMXTopicId(null, TopicHelper.makeOSTopic(os, version));
     boolean redo;
     do {
       try {
@@ -172,7 +172,7 @@ public class MMXOsTopicHelper {
     validateVersion(version);
     PubSubManager pubsubMgr = client.getPubSubManager();
     String topic = TopicHelper.makeOSTopic(os, version);
-    return pubsubMgr.subscribe(new MMXTopicId(topic), true);
+    return pubsubMgr.subscribe(new MMXTopicId(null, topic), true);
   }
 
   /**
@@ -194,7 +194,7 @@ public class MMXOsTopicHelper {
     }
     PubSubManager pubsubMgr = client.getPubSubManager();
     String topic = TopicHelper.makeOSTopic(os, version);
-    return pubsubMgr.unsubscribe(new MMXTopicId(topic), subscriptionId);
+    return pubsubMgr.unsubscribe(new MMXTopicId(null, topic), subscriptionId);
   }
 
   // Validate the version value.

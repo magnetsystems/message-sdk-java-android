@@ -189,9 +189,8 @@ public class MessageManager implements Closeable {
               public void run() {
                 try {
                   listener.onMessageReceived(msg, msg.getReceiptId());
-                  // Only reliable messages (non-normal type with a body) will trigger
-                  // an ACK to be sent.
-                  if (xmppmsg.getType() != Type.normal) {
+                  // Only non fire-and-forget message will trigger an ACK to be sent.
+                  if (xmppmsg.getType() != Type.headline) {
                     // Must run in a thread because IQ is a blocking call.
                     mAckExecutor.post(new SendAck(packet));
                   }
@@ -489,10 +488,10 @@ public class MessageManager implements Closeable {
     payload.setTo(to);
 
     msg.addExtension(new MMXPacketExtension(payload));
-    // The normal type and an empty body will disable off-line storage for this
-    // message in MMX server.  The "." is just the smallest body
+    // The headline type will disable off-line storage, message state tracking
+    // and receive-ack.
     if (options != null && options.isDroppable()) {
-      msg.setType(Message.Type.normal);
+      msg.setType(Message.Type.headline);
     } else {
       msg.setType(Message.Type.chat);
     }

@@ -17,6 +17,11 @@
   <description>${project.name}</description>
   <dependencies>
     <dependency>
+      <groupId>com.magnet.max.test</groupId>
+      <artifactId>integration-test</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>com.magnet.mmx</groupId>
       <artifactId>mmx-client-common-api</artifactId>
       <version>${project.version}</version>

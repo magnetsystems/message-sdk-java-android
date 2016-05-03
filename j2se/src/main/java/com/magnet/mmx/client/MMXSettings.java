@@ -33,12 +33,10 @@ import com.magnet.mmx.client.common.Log;
 public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
                                         MMXPersistable {
 
-  public static final String PROP_APPNAME = "appName";
   public static final String PROP_MMSBASEURL = "mmsBaseUrl";
   public static final String PROP_MMSDEVUSER = "mmsDevUser";
   public static final String PROP_MMSDEVPASSWD = "mmsDevPasswd";
   public static final String PROP_MMSUSERID = "mmsUserId";
-  public static final String PROP_MMSDEVTOKEN = "mmsDevToken";
   public static final String PROP_MMSOAUTHCLIENTID = "mmsOauthClientId";
   public static final String PROP_MMSOAUTHSECRET = "mmsOauthSecret";
 
@@ -230,5 +228,10 @@ public class MMXSettings implements com.magnet.mmx.client.common.MMXSettings,
         }
       }
     }
+  }
+
+  @Override
+  public String toString() {
+    return mProps.toString();
   }
 }

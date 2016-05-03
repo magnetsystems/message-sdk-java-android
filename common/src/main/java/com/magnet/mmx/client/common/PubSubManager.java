@@ -792,7 +792,7 @@ public class PubSubManager {
     }
   }
 
-  private ConfigureForm optionsToFormSkipNull(String topicName, MMXTopicOptions options) {
+  private ConfigureForm optionsToFormSkipNull(MMXTopicOptions options) {
     ConfigureForm form = new ConfigureForm(FormType.submit);
     if (options.getPublisherType() != null) {
       form.setPublishModel(typeToModel(options.getPublisherType()));
@@ -801,21 +801,15 @@ public class PubSubManager {
       form.setMaxItems(options.getMaxItems());
       form.setPersistentItems(options.getMaxItems() != 0);
     }
-    form.setTitle(topicName);
+    if (options.getDisplayName() != null) {
+      form.setTitle(options.getDisplayName());
+    }
     if (options.getDescription() != null) {
       FormField field = new FormField(FIELD_DESCRIPTION);
       field.addValue(options.getDescription());
       field.setType(FormField.TYPE_TEXT_SINGLE);
       form.addField(field);
     }
-//    if (options.getWhiteList() != null) {
-//      form.setChildrenAssociationPolicy(ChildrenAssociationPolicy.whitelist);
-//      List<String> jids = new ArrayList<String>(options.getWhiteList().size());
-//      for (MMXid xid : options.getWhiteList()) {
-//        jids.add(XIDUtil.toJID(xid, mCon.getAppId(), mCon.getDomain()));
-//      }
-//      form.setChildrenAssociationWhitelist(jids);
-//    }
     return form;
   }
 
@@ -872,7 +866,7 @@ public class PubSubManager {
         makeMyTopic(topicName) : makeAppTopic(topicName);
     try {
       LeafNode leaf = getNode(realTopic, topicName);
-      ConfigureForm form = optionsToFormSkipNull(topicName, options);
+      ConfigureForm form = optionsToFormSkipNull(options);
       leaf.sendConfigurationForm(form);
       return new MMXStatus().setCode(StatusCode.SUCCESS);
     } catch (MMXException e) {
