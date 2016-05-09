@@ -4,6 +4,8 @@
 package com.magnet.mmx.client.utils;
 
 import android.util.Log;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.Attachment;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.ChannelDetail;
@@ -13,7 +15,6 @@ import com.magnet.mmx.client.api.ListResult;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXChannel;
 import com.magnet.mmx.client.api.MMXMessage;
-import com.magnet.mmx.client.internal.channel.ChannelSummaryResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -35,27 +36,27 @@ public class ChannelHelper {
   public static MMXChannel create(String name, String summary, boolean isPublic, Set<User> subscribers) {
     final ExecMonitor<MMXChannel, Void> createResult = new ExecMonitor<MMXChannel, Void>();
     if(null == subscribers) {
-      MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE, new MMXChannel.OnFinishedListener<MMXChannel>() {
-        public void onSuccess(MMXChannel result) {
-          Log.e(TAG, "helpCreate.onSuccess ");
+      MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE, new ApiCallback<MMXChannel>() {
+        public void success(MMXChannel result) {
+          Log.e(TAG, "helpCreate.success ");
           createResult.invoked(result);
         }
 
-        public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-          Log.e(TAG, "Exception caught: " + code, ex);
+        public void failure(final ApiError apiError) {
+          Log.e(TAG, "Exception caught: " + apiError);
           createResult.invoked(null);
         }
       });
     } else {
       MMXChannel.create(name, summary, isPublic, MMXChannel.PublishPermission.ANYONE, userSetToIds(subscribers),
-          new MMXChannel.OnFinishedListener<MMXChannel>() {
-            public void onSuccess(MMXChannel result) {
-              Log.e(TAG, "helpCreate.onSuccess ");
+          new ApiCallback<MMXChannel>() {
+            public void success(MMXChannel result) {
+              Log.e(TAG, "helpCreate.success ");
               createResult.invoked(result);
             }
 
-            public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-              Log.e(TAG, "Exception caught: " + code, ex);
+            public void failure(final ApiError apiError) {
+              Log.e(TAG, "Exception caught: " + apiError);
               createResult.invoked(null);
             }
           });
@@ -81,18 +82,18 @@ public class ChannelHelper {
     return create(name, summary, isPublic, null);
   }
 
-  public static void createError(MMXChannel channel, final MMXChannel.FailureCode expected) {
-    final ExecMonitor<MMXChannel.FailureCode, String> obj = new ExecMonitor<MMXChannel.FailureCode, String>();
+  public static void createError(MMXChannel channel, final ApiError expected) {
+    final ExecMonitor<ApiError, String> obj = new ExecMonitor<ApiError, String>();
     MMXChannel.create(channel.getName(), channel.getSummary(), channel.isPublic(), channel.getPublishPermission(),
-        new MMXChannel.OnFinishedListener<MMXChannel>() {
+        new ApiCallback<MMXChannel>() {
           @Override
-          public void onSuccess(MMXChannel result) {
+          public void success(MMXChannel result) {
             obj.failed("Unexpected success on creating an existing channel");
           }
 
           @Override
-          public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-            obj.invoked(code);
+          public void failure(ApiError error) {
+            obj.invoked(error);
           }
         });
     if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
@@ -104,16 +105,16 @@ public class ChannelHelper {
 
   public static void find(String channelName, int expectedCount) {
     //find
-    final ExecMonitor<Integer, MMXChannel.FailureCode> findResult = new ExecMonitor<Integer, MMXChannel.FailureCode>();
-    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
-      public void onSuccess(ListResult<MMXChannel> result) {
+    final ExecMonitor<Integer, ApiError> findResult = new ExecMonitor<Integer, ApiError>();
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new ApiCallback<ListResult<MMXChannel>>() {
+      public void success(ListResult<MMXChannel> result) {
         findResult.invoked(result.totalCount);
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        findResult.failed(code);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        findResult.failed(apiError);
       }
     });
     ExecMonitor.Status status = findResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
@@ -127,14 +128,14 @@ public class ChannelHelper {
 
   public static void findError(String channelName, final int expected) {
     final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
-    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new ApiCallback<ListResult<MMXChannel>>() {
       @Override
-      public void onSuccess(ListResult<MMXChannel> result) {
+      public void success(ListResult<MMXChannel> result) {
         obj.invoked(result);
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+      public void failure(final ApiError apiError) {
         obj.failed("Unexpected failure on finding a non-existing channel");
       }
     });
@@ -151,14 +152,14 @@ public class ChannelHelper {
     //subscribe
     final CountDownLatch subScribeLatch = new CountDownLatch(1);
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    channel.subscribe(new MMXChannel.OnFinishedListener<String>() {
-      public void onSuccess(String result) {
+    channel.subscribe(new ApiCallback<String>() {
+      public void success(String result) {
         subScribeLatch.countDown();
       }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        errorRef.set(ex);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        errorRef.set(apiError);
         //fail("channel.subscribe failed due to " + ex.getMessage());
         subScribeLatch.countDown();
       }
@@ -173,16 +174,16 @@ public class ChannelHelper {
 
     final CountDownLatch getSubScribesLatch = new CountDownLatch(1);
     errorRef.set(null);
-    channel.getAllSubscribers(0, 100, new MMXChannel.OnFinishedListener<ListResult<User>>() {
-      public void onSuccess(ListResult<User> result) {
+    channel.getAllSubscribers(0, 100, new ApiCallback<ListResult<User>>() {
+      public void success(ListResult<User> result) {
         assertThat(result.totalCount).isEqualTo(expectedSubscriberCount);
         getSubScribesLatch.countDown();
       }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
         //fail("channel.getAllSubscribers failed due to " + ex.getMessage());
-        errorRef.set(ex);
+        errorRef.set(apiError);
         getSubScribesLatch.countDown();
       }
     });
@@ -194,22 +195,22 @@ public class ChannelHelper {
     assertThat(errorRef.get()).isNull();
   }
 
-  public static void subscribeError(MMXChannel channel, final MMXChannel.FailureCode expected) {
-    final ExecMonitor<MMXChannel.FailureCode, String> obj = new ExecMonitor<MMXChannel.FailureCode, String>();
-    channel.subscribe(new MMXChannel.OnFinishedListener<String>() {
+  public static void subscribeError(MMXChannel channel, final ApiError expected) {
+    final ExecMonitor<ApiError, String> obj = new ExecMonitor<ApiError, String>();
+    channel.subscribe(new ApiCallback<String>() {
       @Override
-      public void onSuccess(String result) {
+      public void success(String result) {
         obj.failed("Unexpected success on subscribing a non-existing channel");
       }
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        obj.invoked(code);
+      public void failure(ApiError apiError) {
+        obj.invoked(apiError);
       }
     });
     if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
-      assertThat(obj.getReturnValue()).isEqualTo(expected);
+      assertThat(obj.getReturnValue().getKind()).isEqualTo(expected.getKind());
   }
 
   public static MMXMessage publish(MMXChannel channel) {
@@ -255,15 +256,15 @@ public class ChannelHelper {
       messageBuilder.attachments(attachment);
     }
     MMXMessage message = messageBuilder.build();
-    String id = channel.publish(message, new MMXChannel.OnFinishedListener<String>() {
-      public void onSuccess(String result) {
+    String id = channel.publish(message, new ApiCallback<String>() {
+      public void success(String result) {
         pubId.append(result);
         sendMessageLatch.countDown();
       }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        fail("channel.publish failed due to " + ex.getMessage());
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        fail("channel.publish failed due to " + apiError.getMessage());
       }
     });
     try {
@@ -288,25 +289,25 @@ public class ChannelHelper {
     return message;
   }
 
-  public static void publishError(MMXChannel channel, final MMXChannel.FailureCode expected) {
-    final ExecMonitor<MMXChannel.FailureCode, String> obj = new ExecMonitor<MMXChannel.FailureCode, String>();
+  public static void publishError(MMXChannel channel, final ApiError expected) {
+    final ExecMonitor<ApiError, String> obj = new ExecMonitor<ApiError, String>();
     HashMap<String, String> content = new HashMap<String, String>();
     content.put("foo", "bar");
-    String id = channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
+    String id = channel.publish(content, new ApiCallback<String>() {
       @Override
-      public void onSuccess(String result) {
+      public void success(String result) {
         obj.failed("Unexpected success on publishing to a non-existing channel");
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        obj.invoked(code);
+      public void failure(ApiError apiError) {
+        obj.invoked(apiError);
       }
     });
     if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
-      assertThat(obj.getReturnValue()).isEqualTo(expected);
+      assertThat(obj.getReturnValue().getKind()).isEqualTo(expected.getKind());
   }
 
   public static void getChannelSummary(String channelName, final int expectedChannelCount, final int expectedItemCount) {
@@ -315,17 +316,17 @@ public class ChannelHelper {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<ListResult<MMXChannel>> resultRef = new AtomicReference<>();
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new ApiCallback<ListResult<MMXChannel>>() {
       @Override
-      public void onSuccess(ListResult<MMXChannel> result) {
+      public void success(ListResult<MMXChannel> result) {
         resultRef.set(result);
         latch.countDown();
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught in MMXChannel.findPublicChannelsByName : " + code, ex);
-        errorRef.set(ex);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught in MMXChannel.findPublicChannelsByName : " + apiError);
+        errorRef.set(apiError);
       }
     });
 
@@ -349,14 +350,14 @@ public class ChannelHelper {
 
   public static void getChannelSummaryError(String channelName, int expected) {
     final ExecMonitor<ListResult<MMXChannel>, String> obj = new ExecMonitor<ListResult<MMXChannel>, String>();
-    MMXChannel.findPublicChannelsByName(channelName, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+    MMXChannel.findPublicChannelsByName(channelName, null, null, new ApiCallback<ListResult<MMXChannel>>() {
       @Override
-      public void onSuccess(ListResult<MMXChannel> result) {
+      public void success(ListResult<MMXChannel> result) {
         obj.invoked(result);
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
+      public void failure(ApiError apiError) {
         obj.failed("Unexpected failure on channel summary of a non-existing channel");
       }
     });
@@ -372,17 +373,17 @@ public class ChannelHelper {
 
   public static void unsubscribe(MMXChannel channel) {
     //unsubscribe
-    final ExecMonitor<Boolean, MMXChannel.FailureCode> unsubResult = new ExecMonitor<Boolean, MMXChannel.FailureCode>();
-    channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
+    final ExecMonitor<Boolean, ApiError> unsubResult = new ExecMonitor<Boolean, ApiError>();
+    channel.unsubscribe(new ApiCallback<Boolean>() {
       @Override
-      public void onSuccess(Boolean result) {
+      public void success(Boolean result) {
         unsubResult.invoked(result);
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        unsubResult.failed(code);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        unsubResult.failed(apiError);
       }
     });
     ExecMonitor.Status status = unsubResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
@@ -396,38 +397,38 @@ public class ChannelHelper {
     assertThat(channel.isSubscribed()).isFalse();
   }
 
-  public static void unsubscribeError(MMXChannel channel, final MMXChannel.FailureCode expected) {
-    final ExecMonitor<MMXChannel.FailureCode, String> obj = new ExecMonitor<MMXChannel.FailureCode, String>();
-    channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
+  public static void unsubscribeError(MMXChannel channel, final ApiError expected) {
+    final ExecMonitor<ApiError, String> obj = new ExecMonitor<ApiError, String>();
+    channel.unsubscribe(new ApiCallback<Boolean>() {
       @Override
-      public void onSuccess(Boolean result) {
+      public void success(Boolean result) {
         obj.failed("Unexpected success on unsubscribing a non-existing channel");
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        obj.invoked(code);
+      public void failure(ApiError apiError) {
+        obj.invoked(apiError);
       }
     });
     if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
-      assertThat(obj.getReturnValue()).isEqualTo(expected);
+      assertThat(obj.getReturnValue().getKind()).isEqualTo(expected.getKind());
   }
 
 
   public static void delete(MMXChannel channel) {
     //delete
     final ExecMonitor<Boolean, Void> deleteResult = new ExecMonitor<Boolean, Void>();
-    channel.delete(new MMXChannel.OnFinishedListener<Void>() {
+    channel.delete(new ApiCallback<Void>() {
       @Override
-      public void onSuccess(Void result) {
+      public void success(Void result) {
         deleteResult.invoked(true);
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
         deleteResult.invoked(false);
       }
     });
@@ -437,23 +438,23 @@ public class ChannelHelper {
       fail("Channel deletion timed out");
   }
 
-  public static void deleteError(MMXChannel channel, final MMXChannel.FailureCode expected) {
-    final ExecMonitor<MMXChannel.FailureCode, String> obj = new ExecMonitor<MMXChannel.FailureCode, String>();
-    channel.delete(new MMXChannel.OnFinishedListener<Void>() {
+  public static void deleteError(MMXChannel channel, final ApiError expected) {
+    final ExecMonitor<ApiError, String> obj = new ExecMonitor<ApiError, String>();
+    channel.delete(new ApiCallback<Void>() {
       @Override
-      public void onSuccess(Void result) {
+      public void success(Void result) {
         obj.failed("Unexpected success on deleting a non-existing channel");
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        obj.invoked(code);
+      public void failure(ApiError apiError) {
+        obj.invoked(apiError);
       }
     });
     if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
       fail(obj.getFailedValue());
     else
-      assertThat(obj.getReturnValue()).isEqualTo(expected);
+      assertThat(obj.getReturnValue().getKind()).isEqualTo(expected.getKind());
   }
 
   public static void fetch(MMXChannel channel, final int expectedCount) {
@@ -466,17 +467,17 @@ public class ChannelHelper {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<ListResult<MMXMessage>> resultRef = new AtomicReference<>();
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    channel.getMessages(null, null, null, null, true, new MMXChannel.OnFinishedListener<ListResult<MMXMessage>>() {
+    channel.getMessages(null, null, null, null, true, new ApiCallback<ListResult<MMXMessage>>() {
       @Override
-      public void onSuccess(ListResult<MMXMessage> result) {
+      public void success(ListResult<MMXMessage> result) {
         resultRef.set(result);
         latch.countDown();
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        errorRef.set(ex);
-        Log.e(TAG, "Exception caught channel.getMessages : " + code, ex);
+      public void failure(final ApiError apiError) {
+        errorRef.set(apiError);
+        Log.e(TAG, "Exception caught channel.getMessages : " + apiError);
         //fail("channel.getMessages failed due to " + ex.getMessage());
       }
     });
@@ -509,25 +510,25 @@ public class ChannelHelper {
   }
 
   public static void getChannel(String name, boolean isPublic, int expectedMsgs) {
-    final ExecMonitor<MMXChannel, MMXChannel.FailureCode> getRes = new ExecMonitor<MMXChannel, MMXChannel.FailureCode>();
+    final ExecMonitor<MMXChannel, ApiError> getRes = new ExecMonitor<MMXChannel, ApiError>();
     if(isPublic) {
-      MMXChannel.getPublicChannel(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
-        public void onSuccess(MMXChannel result) {
+      MMXChannel.getPublicChannel(name, new ApiCallback<MMXChannel>() {
+        public void success(MMXChannel result) {
           getRes.invoked(result);
         }
 
-        public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-          getRes.failed(code);
+        public void failure(final ApiError apiError) {
+          getRes.failed(apiError);
         }
       });
     } else {
-      MMXChannel.getPrivateChannel(name, new MMXChannel.OnFinishedListener<MMXChannel>() {
-        public void onSuccess(MMXChannel result) {
+      MMXChannel.getPrivateChannel(name, new ApiCallback<MMXChannel>() {
+        public void success(MMXChannel result) {
           getRes.invoked(result);
         }
 
-        public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-          getRes.failed(code);
+        public void failure(final ApiError apiError) {
+          getRes.failed(apiError);
         }
       });
     }
@@ -546,8 +547,8 @@ public class ChannelHelper {
     final CountDownLatch getSubLatch = new CountDownLatch(1);
     final List<User> subscribers = new ArrayList<>();
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    channel.getAllSubscribers(10, 0, new MMXChannel.OnFinishedListener<ListResult<User>>() {
-      @Override public void onSuccess(ListResult<User> result) {
+    channel.getAllSubscribers(10, 0, new ApiCallback<ListResult<User>>() {
+      @Override public void success(ListResult<User> result) {
         subscribers.addAll(result.items);
         //assertThat(result.totalCount).isEqualTo(userIds.size());
         //for(User u : result.items) {
@@ -556,8 +557,8 @@ public class ChannelHelper {
         getSubLatch.countDown();
       }
 
-      @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        errorRef.set(throwable);
+      @Override public void failure(ApiError apiError) {
+        errorRef.set(apiError);
         getSubLatch.countDown();
         //fail("Failed to get subscriber due to: " + throwable.getMessage());
         //getSubLatch.countDown();
@@ -587,14 +588,14 @@ public class ChannelHelper {
   public static void addSubscriber(MMXChannel channel, Set<User> users) {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    channel.addSubscribers(users, new MMXChannel.OnFinishedListener<List<String>>() {
-      @Override public void onSuccess(List<String> result) {
+    channel.addSubscribers(users, new ApiCallback<List<String>>() {
+      @Override public void success(List<String> result) {
         assertThat(result).isEmpty();
         latch.countDown();
       }
 
-      @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        errorRef.set(throwable);
+      @Override public void failure(ApiError apiError) {
+        errorRef.set(apiError);
         //fail("Failed to add subscriber due to: " + throwable.getMessage());
         latch.countDown();
       }
@@ -611,14 +612,14 @@ public class ChannelHelper {
   public static void removeSubscriber(MMXChannel channel, Set<User> users) {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    channel.removeSubscribers(users, new MMXChannel.OnFinishedListener<List<String>>() {
-      @Override public void onSuccess(List<String> result) {
+    channel.removeSubscribers(users, new ApiCallback<List<String>>() {
+      @Override public void success(List<String> result) {
         assertThat(result).isEmpty();
         latch.countDown();
       }
 
-      @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        errorRef.set(throwable);
+      @Override public void failure(ApiError apiError) {
+        errorRef.set(apiError);
         latch.countDown();
       }
     });
@@ -636,14 +637,14 @@ public class ChannelHelper {
 
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    MMXChannel.findChannelsBySubscribers(users, ChannelMatchType.EXACT_MATCH, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
-      @Override public void onSuccess(ListResult<MMXChannel> result) {
+    MMXChannel.findChannelsBySubscribers(users, ChannelMatchType.EXACT_MATCH, new ApiCallback<ListResult<MMXChannel>>() {
+      @Override public void success(ListResult<MMXChannel> result) {
         channels.addAll(result.items);
         latch.countDown();
       }
 
-      @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-        errorRef.set(throwable);
+      @Override public void failure(ApiError apiError) {
+        errorRef.set(apiError);
         latch.countDown();
       }
     });
@@ -668,15 +669,15 @@ public class ChannelHelper {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<List<MMXChannel>> resultRef = new AtomicReference<>();
     final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    MMXChannel.getAllSubscriptions(new MMXChannel.OnFinishedListener<List<MMXChannel>>() {
-      public void onSuccess(List<MMXChannel> result) {
+    MMXChannel.getAllSubscriptions(new ApiCallback<List<MMXChannel>>() {
+      public void success(List<MMXChannel> result) {
         resultRef.set(result);
         latch.countDown();
       }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        errorRef.set(ex);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        errorRef.set(apiError);
         latch.countDown();
       }
     });
@@ -705,18 +706,18 @@ public class ChannelHelper {
   public static List<ChannelDetail> getChannelDetail(MMXChannel channel) {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicReference<List<ChannelDetail>> resultRef = new AtomicReference<>();
-    final AtomicReference<MMXChannel.FailureCode> errorRef = new AtomicReference<>();
-    MMXChannel.getChannelDetail(Arrays.asList(channel),new ChannelDetailOptions.Builder().numOfMessages(10).numOfSubcribers(5).build(),  new MMXChannel.OnFinishedListener<List<ChannelDetail>>() {
+    final AtomicReference<ApiError> errorRef = new AtomicReference<>();
+    MMXChannel.getChannelDetail(Arrays.asList(channel),new ChannelDetailOptions.Builder().numOfMessages(10).numOfSubcribers(5).build(),  new ApiCallback<List<ChannelDetail>>() {
       @Override
-      public void onSuccess(List<ChannelDetail> result) {
+      public void success(List<ChannelDetail> result) {
         resultRef.set(result);
         latch.countDown();
       }
 
       @Override
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught in MMXChannel.getChannelDetail : " + code, ex);
-        errorRef.set(code);
+      public void failure(final ApiError apiError) {
+        Log.e(TAG, "Exception caught in MMXChannel.getChannelDetail : " + apiError);
+        errorRef.set(apiError);
       }
     });
 

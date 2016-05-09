@@ -3,13 +3,13 @@
  */
 package com.magnet.mmx.client.utils;
 
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.AssertionUtils;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXMessage;
 import com.magnet.mmx.client.common.Log;
-import java.util.Map;
-import junit.framework.Assert;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
@@ -20,9 +20,9 @@ public class MessageHelper {
   private static final String TAG = MessageHelper.class.getSimpleName();
 
   public static void sendMessage(final MMXMessage message,
-      final ExecMonitor<String, FailureDescription> sendMonitor, final ExecMonitor.Status expectedSendStatus,
-      final ExecMonitor<MMXMessage, FailureDescription> receiveMonitor, final ExecMonitor.Status expectedReceiveStatus,
-      final ExecMonitor<Boolean, FailureDescription> ackSend, final ExecMonitor<String, Void> ackReceiveMonitor) {
+      final ExecMonitor<String, ApiError> sendMonitor, final ExecMonitor.Status expectedSendStatus,
+      final ExecMonitor<MMXMessage, ApiError> receiveMonitor, final ExecMonitor.Status expectedReceiveStatus,
+      final ExecMonitor<Boolean, ApiError> ackSend, final ExecMonitor<String, Void> ackReceiveMonitor) {
     //assertTrue(MMX.getMMXClient().isConnected());
     MMX.start();
     MMX.EventListener messageListener = new MMX.EventListener() {
@@ -39,10 +39,9 @@ public class MessageHelper {
       }
 
       @Override
-      public boolean onMessageSendError(String messageId,
-          MMXMessage.FailureCode code, String text) {
-        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+code+", text="+text);
-        if(null != receiveMonitor)  receiveMonitor.failed(new FailureDescription(code, new Exception(text)));
+      public boolean onMessageSendError(String messageId, ApiError apiError, String text) {
+        Log.d(TAG, "onMessageSendError(): msgId="+messageId+", code="+apiError+", text="+text);
+        if(null != receiveMonitor)  receiveMonitor.failed(apiError);
         return false;
       }
 
@@ -54,15 +53,15 @@ public class MessageHelper {
     };
     MMX.registerListener(messageListener);
 
-    final String messageId = message.send(new MMXMessage.OnFinishedListener<String>() {
-      public void onSuccess(String result) {
-        Log.d(TAG, "sendMessage(): onSuccess() msgId=" + result);
+    final String messageId = message.send(new ApiCallback<String>() {
+      public void success(String result) {
+        Log.d(TAG, "sendMessage(): success() msgId=" + result);
         sendMonitor.invoked(result);
       }
 
-      public void onFailure(MMXMessage.FailureCode code, Throwable ex) {
-        Log.e(TAG, "sendMessage(): onFailure() failureCode=" + code, ex);
-        sendMonitor.failed(new FailureDescription(code, ex));
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "sendMessage(): failure() failureCode=" + apiError);
+        sendMonitor.failed(apiError);
       }
     });
 
@@ -88,15 +87,15 @@ public class MessageHelper {
     //check ack send
     if(null != ackSend) {
       //do the acknowledgement
-      receiveMonitor.getReturnValue().acknowledge(new MMXMessage.OnFinishedListener<Void>() {
-        @Override public void onSuccess(Void result) {
+      receiveMonitor.getReturnValue().acknowledge(new ApiCallback<Void>() {
+        @Override public void success(Void result) {
           Log.d(TAG, "ACK sent for message " + message.getId());
           ackSend.invoked(Boolean.TRUE);
         }
 
-        @Override public void onFailure(MMXMessage.FailureCode code, Throwable throwable) {
+        @Override public void failure(ApiError apiError) {
           Log.d(TAG, "ACK sent failed for message " + message.getId());
-          ackSend.failed(new FailureDescription(code, throwable));
+          ackSend.failed(apiError);
         }
       });
       ExecMonitor.Status ackStatus = ackSend.waitFor(TestConstants.TIMEOUT_IN_MILISEC);

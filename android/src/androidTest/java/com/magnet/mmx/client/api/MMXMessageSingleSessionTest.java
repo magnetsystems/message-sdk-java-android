@@ -15,13 +15,13 @@
 package com.magnet.mmx.client.api;
 
 import android.support.test.runner.AndroidJUnit4;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.Attachment;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMXMessage.InvalidRecipientException;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.utils.ExecMonitor;
-import com.magnet.mmx.client.utils.FailureDescription;
 import com.magnet.mmx.client.utils.MaxHelper;
 import com.magnet.mmx.client.utils.MessageHelper;
 import com.magnet.mmx.client.utils.TestCaseTimer;
@@ -30,7 +30,6 @@ import com.magnet.mmx.client.utils.UserHelper;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -80,9 +79,9 @@ public class MMXMessageSingleSessionTest {
             .content(content)
             .build();
 
-    ExecMonitor<String, FailureDescription> sendResult = new ExecMonitor<>("SendMessage");
-    ExecMonitor<MMXMessage, FailureDescription> receivedResult = new ExecMonitor<>("MessageReceive");
-    ExecMonitor<Boolean, FailureDescription> ackSend = new ExecMonitor<>("SendACK");
+    ExecMonitor<String, ApiError> sendResult = new ExecMonitor<>("SendMessage");
+    ExecMonitor<MMXMessage, ApiError> receivedResult = new ExecMonitor<>("MessageReceive");
+    ExecMonitor<Boolean, ApiError> ackSend = new ExecMonitor<>("SendACK");
     ExecMonitor<String, Void> ackResult = new ExecMonitor<>("ACKReceive");
 
     MessageHelper.sendMessage(message, sendResult, ExecMonitor.Status.INVOKED,
@@ -114,9 +113,9 @@ public class MMXMessageSingleSessionTest {
         .attachments(attachment1)
         .build();
 
-    ExecMonitor<String, FailureDescription> sendResult = new ExecMonitor<>("SendMessage");
-    ExecMonitor<MMXMessage, FailureDescription> receivedResult = new ExecMonitor<>("MessageReceive");
-    ExecMonitor<Boolean, FailureDescription> ackSend = new ExecMonitor<>("SendACK");
+    ExecMonitor<String, ApiError> sendResult = new ExecMonitor<>("SendMessage");
+    ExecMonitor<MMXMessage, ApiError> receivedResult = new ExecMonitor<>("MessageReceive");
+    ExecMonitor<Boolean, ApiError> ackSend = new ExecMonitor<>("SendACK");
     ExecMonitor<String, Void> ackResult = new ExecMonitor<>("ACKReceive");
 
     MessageHelper.sendMessage(message, sendResult, ExecMonitor.Status.INVOKED,
@@ -171,21 +170,21 @@ public class MMXMessageSingleSessionTest {
 //    final ExecMonitor<String,MMXChannel.FailureCode> failureMonitor = new ExecMonitor<String,MMXChannel.FailureCode>();
 //    channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
 //      @Override
-//      public void onSuccess(String result) {
+//      public void success(String result) {
 //        failureMonitor.invoked(result);
 //      }
 //
 //      @Override
-//      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-//        com.magnet.mmx.client.common.Log.e(TAG, "testPublishBeforeLogin.onFailure", throwable);
+//      public void failure(MMXChannel.FailureCode code, Throwable throwable) {
+//        com.magnet.mmx.client.common.Log.e(TAG, "testPublishBeforeLogin.failure", throwable);
 //        failureMonitor.failed(code);
 //      }
 //    });
 //    ExecMonitor.Status status = failureMonitor.waitFor(10000);
 //    if (status == ExecMonitor.Status.INVOKED) {
-//      fail("should have called onFailure()");
+//      fail("should have called failure()");
 //    } else if (status == ExecMonitor.Status.FAILED) {
-//      assertEquals(MMX.FailureCode.BAD_REQUEST, failureMonitor.getFailedValue());
+//      assertEquals(ApiError.BAD_REQUEST, failureMonitor.getFailedValue());
 //    } else {
 //      fail("channel.publish() timed out");
 //    }
@@ -207,14 +206,14 @@ public class MMXMessageSingleSessionTest {
             .content(content)
             .build();
 
-    ExecMonitor<String, FailureDescription> sendResult = new ExecMonitor<>("SendMessage");
-    ExecMonitor<MMXMessage, FailureDescription> receivedResult = new ExecMonitor<>("MessageReceive");
+    ExecMonitor<String, ApiError> sendResult = new ExecMonitor<>("SendMessage");
+    ExecMonitor<MMXMessage, ApiError> receivedResult = new ExecMonitor<>("MessageReceive");
 
     MessageHelper.sendMessage(message, sendResult, ExecMonitor.Status.FAILED, receivedResult, ExecMonitor.Status.WAITING, null, null);
-    MMX.FailureCode sendFailure = sendResult.getFailedValue().getCode();
-    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendFailure);
+    ApiError sendFailure = sendResult.getFailedValue();
+    assertEquals(MMXMessage.INVALID_RECIPIENT_CODE, sendFailure.getKind());
 
-    InvalidRecipientException irEx = (InvalidRecipientException) sendResult.getFailedValue().getException();
+    InvalidRecipientException irEx = (InvalidRecipientException) sendResult.getFailedValue().getCause();
     Set<String> invalidUsers = irEx.getUserIds();
     assertEquals(1, invalidUsers.size());
     assertTrue(invalidUsers.contains(fooUser.getUserIdentifier()));
@@ -241,14 +240,14 @@ public class MMXMessageSingleSessionTest {
             .content(content)
             .build();
 
-    ExecMonitor<String, FailureDescription> sendResult = new ExecMonitor<>("SendMessage");
-    ExecMonitor<MMXMessage, FailureDescription> receivedResult = new ExecMonitor<>("MessageReceive");
+    ExecMonitor<String, ApiError> sendResult = new ExecMonitor<>("SendMessage");
+    ExecMonitor<MMXMessage, ApiError> receivedResult = new ExecMonitor<>("MessageReceive");
 
     MessageHelper.sendMessage(message, sendResult, ExecMonitor.Status.FAILED, receivedResult, ExecMonitor.Status.INVOKED, null, null);
-    MMX.FailureCode sendFailure = sendResult.getFailedValue().getCode();
-    assertEquals(MMXMessage.FailureCode.INVALID_RECIPIENT, sendFailure);
+    ApiError sendFailure = sendResult.getFailedValue();
+    assertEquals(MMXMessage.INVALID_RECIPIENT_CODE, sendFailure.getKind());
 
-    InvalidRecipientException irEx = (InvalidRecipientException) sendResult.getFailedValue().getException();
+    InvalidRecipientException irEx = (InvalidRecipientException) sendResult.getFailedValue().getCause();
     Set<String> invalidUsers = irEx.getUserIds();
     assertEquals(2, invalidUsers.size());
     assertTrue(invalidUsers.contains(badRecipient1.getUserIdentifier()));

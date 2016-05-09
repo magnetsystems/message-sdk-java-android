@@ -48,7 +48,6 @@ import com.magnet.mmx.client.internal.channel.PubSubItem;
 import com.magnet.mmx.protocol.MMXChannelId;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
-import com.magnet.mmx.protocol.MMXTopicOptions;
 import com.magnet.mmx.protocol.SearchAction;
 import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.protocol.TopicAction;
@@ -56,7 +55,6 @@ import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
 import com.magnet.mmx.util.TimeUtil;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -80,20 +78,20 @@ import retrofit.Response;
  * <ol>
  *  <li>locate a channel by
  *    <ul>
- *      <li>{@link #create(String, String, boolean, PublishPermission, OnFinishedListener)}</li>
- *      <li>{@link #findPublicChannelsByName(String, Integer, Integer, OnFinishedListener)}</li>
- *      <li>{@link #findPrivateChannelsByName(String, Integer, Integer, OnFinishedListener)}</li>
- *      <li>{@link #findByTags(Set, Integer, Integer, OnFinishedListener)}</li>
- *      <li>{@link #getPublicChannel(String, OnFinishedListener)}</li>
- *      <li>{@link #getPrivateChannel(String, OnFinishedListener)}</li>
+ *      <li>{@link #create(String, String, boolean, PublishPermission, com.magnet.max.android.ApiCallback)}</li>
+ *      <li>{@link #findPublicChannelsByName(String, Integer, Integer, com.magnet.max.android.ApiCallback)}</li>
+ *      <li>{@link #findPrivateChannelsByName(String, Integer, Integer, com.magnet.max.android.ApiCallback)}</li>
+ *      <li>{@link #findByTags(Set, Integer, Integer, com.magnet.max.android.ApiCallback)}</li>
+ *      <li>{@link #getPublicChannel(String, com.magnet.max.android.ApiCallback)}</li>
+ *      <li>{@link #getPrivateChannel(String, com.magnet.max.android.ApiCallback)}</li>
  *    </ul>
- *  <li>subscribe to a channel by {@link #subscribe(OnFinishedListener)}</li>
- *  <li>publish a message to the channel by {@link #publish(Map, OnFinishedListener)}</li>
+ *  <li>subscribe to a channel by {@link #subscribe(com.magnet.max.android.ApiCallback)}</li>
+ *  <li>publish a message to the channel by {@link #publish(Map, com.magnet.max.android.ApiCallback)}</li>
  * </ol>
  * The channel owner may invite people to a channel via
  * <ul>
- * <li>{@link #inviteUser(User, String, OnFinishedListener)}</li>
- * <li>{@link #inviteUsers(Set, String, OnFinishedListener)}</li>
+ * <li>{@link #inviteUser(User, String, com.magnet.max.android.ApiCallback)}</li>
+ * <li>{@link #inviteUsers(Set, String, com.magnet.max.android.ApiCallback)}</li>
  * </ul>
  */
 public class MMXChannel implements Parcelable {
@@ -103,7 +101,7 @@ public class MMXChannel implements Parcelable {
   /**
    * Describes the publishing permissions for this channel.
    *
-   * @see #create(String, String, boolean, PublishPermission, OnFinishedListener)
+   * @see #create(String, String, boolean, PublishPermission, com.magnet.max.android.ApiCallback)
    */
   public enum PublishPermission {
     /**
@@ -141,65 +139,23 @@ public class MMXChannel implements Parcelable {
   /**
    * Failure codes for the MMXChannel class.
    */
-  public static class FailureCode extends MMX.FailureCode {
-    public static final FailureCode CHANNEL_NOT_AUTHORIZED = new FailureCode(401, "CHANNEL_NOT_AUTHROIZED");
-    public static final FailureCode CHANNEL_EXISTS = new FailureCode(409, "CHANNEL_EXISTS");
-    public static final FailureCode CHANNEL_FORBIDDEN = new FailureCode(403, "CHANNEL_FORBIDDEN");
-    public static final FailureCode CHANNEL_NOT_FOUND = new FailureCode(404, "CHANNEL_NOT_FOUND");
-    public static final FailureCode INVALID_INVITEE = new FailureCode(405, "INVALID_INVITEE");
-    public static final FailureCode SUBSCRIPTION_INVALID_ID = new FailureCode(406, "SUBSCRIPTION_INVALID_ID");
-    public static final FailureCode SUBSCRIPTION_NOT_FOUND = new FailureCode(407, "SUBSCRIPTION_NOT_FOUND");
-    public static final FailureCode SUBSCRIPTION_ADD_FAILURE = new FailureCode(408, "SUBSCRIPTION_ADD_FAILURE");
-    public static final FailureCode SUBSCRIPTION_REMOVE_FAILURE = new FailureCode(409, "SUBSCRIPTION_REMOVE_FAILURE");
-    public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
-    public static final FailureCode CONTENT_EMPTY = new FailureCode(414, "CONTENT_IS_EMPTY");
-    public static final FailureCode ATTACHMENT_FAILURE = new FailureCode(430, "ATTACHMENT_FAILURE");
-    public static final FailureCode GENERIC_FAILURE = new FailureCode(500, "GENERIC_FAILURE");
+  public static final ApiError CHANNEL_NOT_AUTHORIZED = new ApiError(401, "CHANNEL_NOT_AUTHROIZED");
+  public static final ApiError CHANNEL_EXISTS = new ApiError(409, "CHANNEL_EXISTS");
+  public static final int CHANNEL_FORBIDDEN_CODE = 403;
+  public static final ApiError CHANNEL_FORBIDDEN = new ApiError(CHANNEL_FORBIDDEN_CODE, "CHANNEL_FORBIDDEN");
+  public static final ApiError CHANNEL_NOT_FOUND = new ApiError(404, "CHANNEL_NOT_FOUND");
+  public static final ApiError INVALID_INVITEE = new ApiError(405, "INVALID_INVITEE");
+  public static final ApiError SUBSCRIPTION_INVALID_ID = new ApiError(406, "SUBSCRIPTION_INVALID_ID");
+  public static final ApiError SUBSCRIPTION_NOT_FOUND = new ApiError(407, "SUBSCRIPTION_NOT_FOUND");
+  public static final int SUBSCRIPTION_ADD_FAILURE_CODE = 408;
+  public static final ApiError SUBSCRIPTION_ADD_FAILURE = new ApiError(SUBSCRIPTION_ADD_FAILURE_CODE, "SUBSCRIPTION_ADD_FAILURE");
+  public static final int SUBSCRIPTION_REMOVE_FAILURE_CODE = 409;
+  public static final ApiError SUBSCRIPTION_REMOVE_FAILURE = new ApiError(SUBSCRIPTION_REMOVE_FAILURE_CODE, "SUBSCRIPTION_REMOVE_FAILURE");
+  public static final ApiError CONTENT_TOO_LARGE = new ApiError(413, "CONTENT_TOO_LARGE");
+  public static final ApiError CONTENT_EMPTY = new ApiError(414, "CONTENT_IS_EMPTY");
+  public static final ApiError ATTACHMENT_FAILURE = new ApiError(430, "ATTACHMENT_FAILURE");
+  public static final ApiError GENERIC_FAILURE = new ApiError(500, "GENERIC_FAILURE");
 
-    FailureCode(int value, String description) {
-      super(value, description);
-    }
-
-    FailureCode(int value, String description, Throwable throwable) {
-      super(value, description, throwable);
-    }
-
-    FailureCode(MMX.FailureCode code) { super(code); }
-
-    static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      if (throwable != null)
-        Log.d(TAG, "fromMMXFailureCode() ex="+throwable.getClass().getName());
-      else
-        Log.d(TAG, "fromMMXFailureCode() ex=null");
-      if (throwable instanceof MMXException) {
-        return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
-      } else {
-        return new FailureCode(code);
-      }
-    }
-  }
-
-  /**
-   * The OnFinishedListener for MMXChannel methods.
-   *
-   * @param <T> The type of the onSuccess result
-   */
-  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
-    /**
-     * Called when the operation completes successfully
-     *
-     * @param result the result of the operation
-     */
-    public abstract void onSuccess(T result);
-
-    /**
-     * Called if the operation fails
-     *
-     * @param code the failure code
-     * @param throwable the throwable associated with this failure (may be null)
-     */
-    public abstract void onFailure(FailureCode code, Throwable throwable);
-  }
 
   /**
    * The builder for a MMXChannel object
@@ -499,11 +455,11 @@ public class MMXChannel implements Parcelable {
 
   /**
    * The tags for this channel.  Possible failure code is:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel.
+   * {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel.
    *
    * @param listener the success/failure listener for this call
    */
-  public void getTags(final OnFinishedListener<HashSet<String>> listener) {
+  public void getTags(final com.magnet.max.android.ApiCallback listener) {
     MMXTask<HashSet<String>> task = new MMXTask<HashSet<String>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public HashSet<String> doRun(MMXClient mmxClient) throws Throwable {
@@ -516,18 +472,14 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        MMX.getCallbackHandler().post(new Runnable() {
-          public void run() {
-            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-          }
-        });
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
       public void onResult(final HashSet<String> result) {
         MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
-            listener.onSuccess(result);
+            listener.success(result);
           }
         });
       }
@@ -537,13 +489,13 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Set the tags for this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#SERVER_ERROR} for server error.
+   * {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link MMX#SERVER_ERROR} for server error.
    *
    * @param tags the tags for this channel or null to remove all tags
    * @param listener the success/failure listener for this call
    */
-  public void setTags(final HashSet<String> tags, final OnFinishedListener<Void> listener) {
+  public void setTags(final HashSet<String> tags, final ApiCallback<Void> listener) {
     MMXTask<MMXStatus> task = new MMXTask<MMXStatus>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
@@ -553,11 +505,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        MMX.getCallbackHandler().post(new Runnable() {
-          public void run() {
-            listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-          }
-        });
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -565,16 +513,13 @@ public class MMXChannel implements Parcelable {
         if (result.getCode() == MMXStatus.SUCCESS) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(null);
+              listener.success(null);
             }
           });
         } else {
-          Log.e(TAG, "setTags(): received bad status from server: " + result);
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
-            }
-          });
+          final String errorMessage = "setTags(): received bad status from server: " + result;
+          Log.e(TAG, errorMessage);
+          handleErrorCallback(listener, null, errorMessage);
         }
       }
     };
@@ -597,8 +542,8 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Retrieve all of the messages for this channel within date range.  Possible
-   * failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
+   * failure codes are: {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link MMXChannel#CHANNEL_FORBIDDEN} for insufficient rights.
    *
    * @param startDate filter based on start date, or null for no filter
    * @param endDate filter based on end date, or null for no filter
@@ -608,7 +553,7 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the results of this operation
    */
   public void getMessages(final Date startDate, final Date endDate, final Integer limit, final Integer offset,
-                          final boolean ascending, final OnFinishedListener<ListResult<MMXMessage>> listener) {
+                          final boolean ascending, final com.magnet.max.android.ApiCallback listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> task =
             new MMXTask<ListResult<com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -628,13 +573,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -654,7 +593,7 @@ public class MMXChannel implements Parcelable {
         }
         MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
-            listener.onSuccess(new ListResult<MMXMessage>(result.totalCount, resultList));
+            listener.success(new ListResult<MMXMessage>(result.totalCount, resultList));
           }
         });
       }
@@ -668,7 +607,7 @@ public class MMXChannel implements Parcelable {
    * @param ids A set of message ID's
    * @param listener the listener for the results of this operation
    */
-  public void getMessages(final Set<String> ids, final OnFinishedListener<Map<String, MMXMessage>> listener) {
+  public void getMessages(final Set<String> ids, final com.magnet.max.android.ApiCallback listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> task =
             new MMXTask<Map<String, com.magnet.mmx.client.common.MMXMessage>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -684,13 +623,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -710,7 +643,7 @@ public class MMXChannel implements Parcelable {
         }
         MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
-            listener.onSuccess(resultMap);
+            listener.success(resultMap);
           }
         });
       }
@@ -727,7 +660,7 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the results of this operation
    */
   public void deleteMessages(final Set<String> ids,
-                              final OnFinishedListener<Map<String, Integer>> listener) {
+                              final com.magnet.max.android.ApiCallback listener) {
     final MMXTopic topic = getMMXTopic();
     MMXTask<Map<String, Integer>> task =
             new MMXTask<Map<String, Integer>> (MMX.getMMXClient(), MMX.getHandler()) {
@@ -742,14 +675,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(
-                      FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -757,7 +683,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -859,7 +785,7 @@ public class MMXChannel implements Parcelable {
    */
   public static void create(final String name, final String summary,
                             final boolean isPublic, final PublishPermission publishPermission,
-                            final OnFinishedListener<MMXChannel> listener) {
+                            final com.magnet.max.android.ApiCallback listener) {
     create(name, summary, isPublic, publishPermission, null, null, listener);
   }
 
@@ -879,15 +805,15 @@ public class MMXChannel implements Parcelable {
   public static void create(final String name, final String summary,
       final boolean isPublic, final PublishPermission publishPermission,
       final Set<String> subscribers,
-      final OnFinishedListener<MMXChannel> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     create(name, summary, isPublic, publishPermission, subscribers, null, listener);
   }
 
   /**
    * Create a channel with predefined subscribers.  Upon successful completion, the current user
    * automatically subscribes to the channel.
-   * Possible failure codes are: {@link FailureCode#BAD_REQUEST} for invalid
-   * channel name, {@value FailureCode#CHANNEL_EXISTS} for existing channel.
+   * Possible failure codes are: {@link MMX#BAD_REQUEST} for invalid
+   * channel name, {@value MMXChannel#CHANNEL_EXISTS} for existing channel.
    *
    * @param name the name of the channel
    * @param summary the channel summary
@@ -901,7 +827,7 @@ public class MMXChannel implements Parcelable {
       final boolean isPublic, final PublishPermission publishPermission,
       final Set<String> subscribers,
       final String pushConfigName,
-      final OnFinishedListener<MMXChannel> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     final String ownerId = User.getCurrentUserId();
     getChannelService().createChannel(
         new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers, pushConfigName),
@@ -920,7 +846,7 @@ public class MMXChannel implements Parcelable {
                   .subscribed(true)
                   .lastTimeActive(currentDate)
                   .build();
-              listener.onSuccess(channel);
+              listener.success(channel);
             } else {
               handleError(response.code(), new Exception(response.message()));
             }
@@ -931,15 +857,15 @@ public class MMXChannel implements Parcelable {
           }
 
           private void handleError(Integer errorCode, Throwable throwable) {
-            FailureCode failureCode = null;
+            ApiError failureCode = null;
             if(null != throwable && throwable.getMessage().contains("Channel already exists")) {
-              failureCode = FailureCode.CHANNEL_EXISTS;
+              failureCode = CHANNEL_EXISTS;
             } else {
-              failureCode = new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage());
+              failureCode = new ApiError(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage(), throwable);
             }
 
             Log.e(TAG, "Failed to create channel ", throwable);
-            listener.onFailure(failureCode, throwable);
+            listener.failure(failureCode);
           }
         }).executeInBackground();
   }
@@ -984,31 +910,31 @@ public class MMXChannel implements Parcelable {
   //                .subscribed(true)
   //                .lastTimeActive(currentDate)
   //                .build();
-  //            listener.onSuccess(channel);
+  //            listener.success(channel);
   //          } else {
   //            handleError(response.code(), new Exception(response.message()));
   //          }
   //        }
   //
-  //        @Override public void onFailure(Throwable throwable) {
+  //        @Override public void failure(Throwable throwable) {
   //          handleError(null, throwable);
   //        }
   //
   //        private void handleError(Integer errorCode, Throwable throwable) {
   //          Log.e(TAG, "Failed to create channel ", throwable);
-  //          listener.onFailure(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
+  //          listener.failure(new FailureCode(null != errorCode ? errorCode : -1, throwable.getLocalizedMessage()), throwable);
   //        }
   //      }).executeInBackground();
   //}
 
   /**
-   * Delete this channel.  Possible failure codes are: {@link FailureCode#CHANNEL_NOT_FOUND}
-   * for no such channel, {@link FailureCode#CHANNEL_FORBIDDEN} for
+   * Delete this channel.  Possible failure codes are: {@link MMXChannel#CHANNEL_NOT_FOUND}
+   * for no such channel, {@link MMXChannel#CHANNEL_FORBIDDEN} for
    * insufficient rights.
    *
    * @param listener the listener for success or failure
    */
-  public void delete(final OnFinishedListener<Void> listener) {
+  public void delete(final com.magnet.max.android.ApiCallback listener) {
     MMXTask<MMXStatus> task = new MMXTask<MMXStatus> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXStatus doRun(MMXClient mmxClient) throws Throwable {
@@ -1018,20 +944,20 @@ public class MMXChannel implements Parcelable {
       }
 
       @Override
-      public void onResult(MMXStatus result) {
+      public void onResult(final MMXStatus result) {
         if (listener == null) {
           return;
         }
         if (result.getCode() == MMXStatus.SUCCESS) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(null);
+              listener.success(null);
             }
           });
         } else {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+              listener.failure(new ApiError(result.getCode(), result.getMessage()));
             }
           });
         }
@@ -1039,14 +965,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
-                      exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
     };
     task.execute();
@@ -1057,7 +976,7 @@ public class MMXChannel implements Parcelable {
    *
    * @param listener the listener for the subscription id
    */
-  public void subscribe(final OnFinishedListener<String> listener) {
+  public void subscribe(final com.magnet.max.android.ApiCallback listener) {
     //TODO : if already subscribed
     //if(isSubscribed()) {
     //
@@ -1072,13 +991,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -1087,7 +1000,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -1101,7 +1014,7 @@ public class MMXChannel implements Parcelable {
    *
    * @param listener the listener for success or failure
    */
-  public void unsubscribe(final OnFinishedListener<Boolean> listener) {
+  public void unsubscribe(final com.magnet.max.android.ApiCallback listener) {
     MMXTask<Boolean> task = new MMXTask<Boolean>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public Boolean doRun(MMXClient mmxClient) throws Throwable {
@@ -1112,13 +1025,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -1127,7 +1034,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -1138,24 +1045,24 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Publishes a message to this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
-   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   * {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link MMXChannel#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link MMXChannel#CONTENT_TOO_LARGE} for content being too large.
    *
    * @param messageContent the message content to publish
    * @param listener the listener for the message id
    * @return the message id for this published message
    */
   public String publish(Map<String, String> messageContent,
-      final OnFinishedListener<String> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     return publish(messageContent, null, listener);
   }
 
   /**
    * Publishes a message to this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
-   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   * {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link MMXChannel#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link MMXChannel#CONTENT_TOO_LARGE} for content being too large.
    *
    * @param messageContent the message content to publish
    * @param pushConfigName the push config name
@@ -1164,7 +1071,7 @@ public class MMXChannel implements Parcelable {
    */
   public String publish(Map<String, String> messageContent,
       final String pushConfigName,
-      final OnFinishedListener<String> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     if(null != messageContent && !messageContent.isEmpty()) {
       MMXMessage message = new MMXMessage.Builder().channel(this).content(messageContent).pushConfigName(pushConfigName).build();
       return message.publish(listener);
@@ -1173,7 +1080,7 @@ public class MMXChannel implements Parcelable {
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
           public void run() {
-            listener.onFailure(FailureCode.CONTENT_EMPTY, null);
+            listener.failure(CONTENT_EMPTY);
           }
         });
       }
@@ -1184,30 +1091,30 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Publishes a message to this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights,
-   * {@link FailureCode#CONTENT_TOO_LARGE} for content being too large.
+   * {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link MMXChannel#CHANNEL_FORBIDDEN} for insufficient rights,
+   * {@link MMXChannel#CONTENT_TOO_LARGE} for content being too large.
    *
    * @param message the message to publish
    * @param listener the listener for the message id
    * @return the message id for this published message
    */
   public String publish(MMXMessage message,
-      final OnFinishedListener<String> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     message.channel(this);
     return message.publish(listener);
   }
 
   /**
    * Sends an invitation to the specified user for this channel.  Possible
-   * failure code is: {@link FailureCode#INVALID_INVITEE}
+   * failure code is: {@link MMXChannel#INVALID_INVITEE}
    *
    * @param invitee the invitee
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
   public void inviteUser(final User invitee, final String invitationText,
-                         final OnFinishedListener<MMXInvite> listener) {
+                         final com.magnet.max.android.ApiCallback listener) {
     Set<User> invitees = new HashSet<User>(1);
     invitees.add(invitee);
     inviteUsers(invitees, invitationText, listener);
@@ -1216,13 +1123,13 @@ public class MMXChannel implements Parcelable {
   /**
    * Sends an invitation to a set of users for this channel. The listener will
    * be invoked one per invitee.  If an invitee is invalid,
-   * the failure code will be {@link FailureCode#INVALID_INVITEE}.
+   * the failure code will be {@link MMXChannel#INVALID_INVITEE}.
    * @param invitees A set of invitees
    * @param invitationText the text to include in the invite
    * @param listener the listener for success/failure of this operation
    */
   public void inviteUsers(final Set<User> invitees, final String invitationText,
-                          final OnFinishedListener<MMXInvite> listener) {
+                          final com.magnet.max.android.ApiCallback listener) {
     MMXInviteInfo inviteInfo = new MMXInviteInfo(invitees, MMX.getCurrentUser(), this, invitationText);
     MMXInvite invite = new MMXInvite(inviteInfo, false);
     invite.send(listener);
@@ -1236,7 +1143,7 @@ public class MMXChannel implements Parcelable {
    * @param newSubscribers
    * @param listener
    */
-  public void addSubscribers(final Set<User> newSubscribers, final OnFinishedListener<List<String>> listener) {
+  public void addSubscribers(final Set<User> newSubscribers, final com.magnet.max.android.ApiCallback listener) {
     if(checkIfAllowedToAddSubscriber(listener)) {
       Set<String> userIds = userSetToIds(newSubscribers, listener);
       if (null != userIds) {
@@ -1245,15 +1152,15 @@ public class MMXChannel implements Parcelable {
               @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
                 if (response.isSuccess()) {
                   if (null != listener) {
-                    listener.onSuccess(getInvalidSubscribes(response.body()));
+                    listener.success(getInvalidSubscribes(response.body()));
                   }
                 } else {
-                  handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, new Exception(response.message()), listener);
+                  handleSubscribeError(new ApiError(SUBSCRIPTION_ADD_FAILURE_CODE, response.message()), listener);
                 }
               }
 
               @Override public void onFailure(Throwable throwable) {
-                handleSubscribeError(FailureCode.SUBSCRIPTION_ADD_FAILURE, throwable, listener);
+                handleSubscribeError(new ApiError(SUBSCRIPTION_ADD_FAILURE_CODE, null, throwable), listener);
               }
             }).executeInBackground();
       }
@@ -1267,7 +1174,7 @@ public class MMXChannel implements Parcelable {
    * @param subscribersToBeRemoved
    * @param listener
    */
-  public void removeSubscribers(final Set<User> subscribersToBeRemoved, final OnFinishedListener<List<String>> listener) {
+  public void removeSubscribers(final Set<User> subscribersToBeRemoved, final com.magnet.max.android.ApiCallback listener) {
     if(checkIfAllowedToRemoveSubscriber(listener)){
       Set<String> userIds = userSetToIds(subscribersToBeRemoved, listener);
       if (null != userIds) {
@@ -1276,25 +1183,25 @@ public class MMXChannel implements Parcelable {
               @Override public void onResponse(Response<ChannelService.ChannelSubscribeResponse> response) {
                 if (response.isSuccess()) {
                   if (null != listener) {
-                    listener.onSuccess(getInvalidSubscribes(response.body()));
+                    listener.success(getInvalidSubscribes(response.body()));
                   }
                 } else {
-                  handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, new Exception(response.message()), listener);
+                  handleSubscribeError(new ApiError(SUBSCRIPTION_REMOVE_FAILURE_CODE, response.message()), listener);
                 }
               }
 
               @Override public void onFailure(Throwable throwable) {
-                handleSubscribeError(FailureCode.SUBSCRIPTION_REMOVE_FAILURE, throwable, listener);
+                handleSubscribeError(new ApiError(SUBSCRIPTION_REMOVE_FAILURE_CODE, null, throwable), listener);
               }
             }).executeInBackground();
       }
     }
   }
 
-  private static Set<String> userSetToIds(Set<User> users, final OnFinishedListener<List<String>> listener) {
+  private static Set<String> userSetToIds(Set<User> users, final com.magnet.max.android.ApiCallback listener) {
     if(null == users || users.isEmpty()) {
       if(null != listener) {
-        listener.onSuccess(Collections.EMPTY_LIST);
+        listener.success(Collections.EMPTY_LIST);
       }
       return null;
     }
@@ -1324,28 +1231,28 @@ public class MMXChannel implements Parcelable {
     return result;
   }
 
-  private void handleSubscribeError(FailureCode failureCode, Throwable throwable, OnFinishedListener<List<String>> listener) {
-    Log.e(TAG, "Failed to manage subscriber " + failureCode.getDescription(), throwable);
+  private void handleSubscribeError(ApiError apiError, com.magnet.max.android.ApiCallback listener) {
+    Log.e(TAG, "Failed to manage subscriber " + apiError);
     if(null != listener) {
-      listener.onFailure(failureCode, throwable);
+      listener.failure(apiError);
     }
   }
 
-  private boolean checkIfAllowedToAddSubscriber(OnFinishedListener<List<String>> listener) {
+  private boolean checkIfAllowedToAddSubscriber(com.magnet.max.android.ApiCallback listener) {
     // Currently only owner is allowed
     boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
     if(mPublic && !mSubscribed) {
       String errorMessage = "Only owner and subscriber is allowed to add subscribers for public channel";
       Log.e(TAG, errorMessage);
       if(null != listener) {
-        listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+        listener.failure(new ApiError(CHANNEL_FORBIDDEN_CODE, errorMessage));
       }
       return false;
     } else if(!mPublic && !isOwner) {
       String errorMessage = "Only owner is allowed to add subscribers for private channel";
       Log.e(TAG, errorMessage);
       if(null != listener) {
-        listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+        listener.failure(new ApiError(CHANNEL_FORBIDDEN_CODE, errorMessage));
       }
       return false;
     }
@@ -1353,13 +1260,13 @@ public class MMXChannel implements Parcelable {
     return true;
   }
 
-  private boolean checkIfAllowedToRemoveSubscriber(OnFinishedListener<List<String>> listener) {
+  private boolean checkIfAllowedToRemoveSubscriber(com.magnet.max.android.ApiCallback listener) {
     // Currently only owner is allowed
     boolean isOwner = StringUtil.isStringValueEqual(getOwnerId(), User.getCurrentUserId());
     if(!isOwner) {
       String errorMessage = "Only owner is allowed to remove subscribers for channel";
       Log.e(TAG, errorMessage);
-      listener.onFailure(FailureCode.CHANNEL_FORBIDDEN, new IllegalStateException(errorMessage));
+      listener.failure(new ApiError(CHANNEL_FORBIDDEN_CODE, errorMessage));
       return false;
     }
 
@@ -1368,13 +1275,13 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Retrieves all the subscribers for this channel.  Possible failure codes are:
-   * {@link FailureCode#CHANNEL_NOT_FOUND} for no such channel,
-   * {@link FailureCode#CHANNEL_FORBIDDEN} for insufficient rights.
+   * {@link MMXChannel#CHANNEL_NOT_FOUND} for no such channel,
+   * {@link MMXChannel#CHANNEL_FORBIDDEN} for insufficient rights.
    * @param limit the maximum number of subscribers to return
    * @param offset the offset of subscribers to return
    * @param listener the listener for the subscribers
    */
-  public void getAllSubscribers(final Integer limit, final Integer offset, final OnFinishedListener<ListResult<User>> listener) {
+  public void getAllSubscribers(final Integer limit, final Integer offset, final com.magnet.max.android.ApiCallback listener) {
     MMXTask<MMXResult<List<UserInfo>>> task =
             new MMXTask<MMXResult<List<UserInfo>>> (MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -1386,13 +1293,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
 
       @Override
@@ -1412,10 +1313,11 @@ public class MMXChannel implements Parcelable {
         for (String userId : usersToRetrieve) {
           User user = userCache.getByUserId(userId);
           if (user == null) {
-            Log.e(TAG, "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + userId);
+            final String errorMessage = "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + userId;
+            Log.e(TAG, errorMessage);
             MMX.getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
+                listener.failure(new ApiError(MMX.SERVER_ERROR_CODE, errorMessage));
               }
             });
             return;
@@ -1424,7 +1326,7 @@ public class MMXChannel implements Parcelable {
         }
         MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
-            listener.onSuccess(new ListResult<User>(result.getTotal(), users));
+            listener.success(new ListResult<User>(result.getTotal(), users));
           }
         });
       }
@@ -1439,7 +1341,7 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for getting the channel.
    */
   public static void getPublicChannel(final String name,
-                            final OnFinishedListener<MMXChannel> listener) {
+                            final com.magnet.max.android.ApiCallback listener) {
     getChannel(name, true, listener);
   }
   
@@ -1450,18 +1352,18 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for getting the channel
    */
   public static void getPrivateChannel(final String name,
-                            final OnFinishedListener<MMXChannel> listener) {
+                            final com.magnet.max.android.ApiCallback listener) {
     getChannel(name, false, listener);
   }
 
   public static void getChannel(final String name, final boolean publicOnly,
-      final OnFinishedListener<MMXChannel> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     getChannel(name, publicOnly, User.getCurrentUserId(), listener);
   }
 
   // Get a public or private channel by its name.
   public static void getChannel(final String name, final boolean publicOnly, final String ownerId,
-                  final OnFinishedListener<MMXChannel> listener) {
+                  final com.magnet.max.android.ApiCallback listener) {
     MMXTask<MMXChannel> task = new MMXTask<MMXChannel>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public MMXChannel doRun(MMXClient mmxClient) throws Throwable {
@@ -1477,7 +1379,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -1485,15 +1387,8 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        } else {
-          Log.e(TAG, "Get channel by name failed", exception);
-        }
+        Log.e(TAG, "Get channel by name failed", exception);
+        handleErrorCallback(listener, exception, null);
       }
     };
     task.execute();
@@ -1506,7 +1401,7 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the query results
    */
   public static void getAllPublicChannels(Integer limit, Integer offset,
-                                          final OnFinishedListener<ListResult<MMXChannel>> listener) {
+                                          final com.magnet.max.android.ApiCallback listener) {
     findChannelsByName("%", limit, offset, ListType.global, listener);
   }
 
@@ -1518,13 +1413,13 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the query results
    */
   public static void getAllPrivateChannels(Integer limit, Integer offset,
-          final OnFinishedListener<ListResult<MMXChannel>> listener) {
+          final com.magnet.max.android.ApiCallback listener) {
     findChannelsByName("%", limit, offset, ListType.personal, listener);
   }
 
   /**
    * Find the public channels that start with the specified text.  If there are
-   * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
+   * no matching names, {@link com.magnet.max.android.ApiCallback#success(Object)} will return
    * an empty list.
    *
    * @param startsWith the search string
@@ -1533,13 +1428,13 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the query results
    */
   public static void findPublicChannelsByName(final String startsWith, final Integer limit,
-      final Integer offset, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+      final Integer offset, final com.magnet.max.android.ApiCallback listener) {
     findChannelsByName(startsWith, limit, offset, ListType.global, listener);
   }
 
   /**
    * Find private channels that start with the specified text.  If there are
-   * no matching names, {@link OnFinishedListener#onSuccess(Object)} will return
+   * no matching names, {@link com.magnet.max.android.ApiCallback#success(Object)} will return
    * an empty list.
    *
    * @param startsWith the search string
@@ -1548,14 +1443,14 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the query results
    */
   public static void findPrivateChannelsByName(final String startsWith, final Integer limit,
-      final Integer offset, final OnFinishedListener<ListResult<MMXChannel>> listener) {
+      final Integer offset, final com.magnet.max.android.ApiCallback listener) {
     findChannelsByName(startsWith, limit, offset, ListType.personal, listener);
   }
 
   // Find public or private channels whose names start with the specified text.
   private static void findChannelsByName(final String startsWith,
                                          final Integer limit, final Integer offset, final ListType listType,
-      final OnFinishedListener<ListResult<MMXChannel>> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -1563,7 +1458,7 @@ public class MMXChannel implements Parcelable {
         validateClient(mmxClient);
         if (startsWith == null || startsWith.isEmpty()) {
           throw new MMXException("Search string cannot be null or empty",
-              FailureCode.BAD_REQUEST.getValue());
+              MMX.BAD_REQUEST_CODE);
         }
         MMXPubSubManager psm = mmxClient.getPubSubManager();
         TopicAction.TopicSearch search = new TopicAction.TopicSearch()
@@ -1580,7 +1475,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -1588,15 +1483,8 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        } else {
-          Log.e(TAG, "Find channel by name failed", exception);
-        }
+        Log.e(TAG, "Find channel by name failed", exception);
+        handleErrorCallback(listener, exception, null);
       }
     };
     task.execute();
@@ -1604,7 +1492,7 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Query for the specified tags (inclusive.)  If there are no matching tags,
-   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
+   * {@link com.magnet.max.android.ApiCallback#success(Object)} will return an empty list.
    *
    * @param tags the tags to match
    * @param limit the maximum number of results to return
@@ -1612,7 +1500,7 @@ public class MMXChannel implements Parcelable {
    * @param listener the listener for the query results
    */
   public static void findByTags(final Set<String> tags, final Integer limit, final Integer offset,
-                                final OnFinishedListener<ListResult<MMXChannel>> listener) {
+                                final com.magnet.max.android.ApiCallback listener) {
     MMXTask<ListResult<MMXChannel>> task = new MMXTask<ListResult<MMXChannel>>(
             MMX.getMMXClient(), MMX.getHandler()) {
       @Override
@@ -1633,7 +1521,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -1641,13 +1529,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
     };
     task.execute();
@@ -1658,7 +1540,7 @@ public class MMXChannel implements Parcelable {
    *
    * @param listener the results listener for this operation
    */
-  public static void getAllSubscriptions(final OnFinishedListener<List<MMXChannel>> listener) {
+  public static void getAllSubscriptions(final com.magnet.max.android.ApiCallback listener) {
     MMXTask<List<MMXChannel>> task = new MMXTask<List<MMXChannel>>(MMX.getMMXClient(), MMX.getHandler()) {
       @Override
       public List<MMXChannel> doRun(MMXClient mmxClient) throws Throwable {
@@ -1672,7 +1554,7 @@ public class MMXChannel implements Parcelable {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }
@@ -1680,13 +1562,7 @@ public class MMXChannel implements Parcelable {
 
       @Override
       public void onException(final Throwable exception) {
-        if (listener != null) {
-          MMX.getCallbackHandler().post(new Runnable() {
-            public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR,exception),exception);
-            }
-          });
-        }
+        handleErrorCallback(listener, exception, null);
       }
     };
     task.execute();
@@ -1694,14 +1570,14 @@ public class MMXChannel implements Parcelable {
 
   /**
    * Find channels that include given subscriber(s). If there is no channel found,
-   * {@link OnFinishedListener#onSuccess(Object)} will return an empty list.
+   * {@link com.magnet.max.android.ApiCallback#success(Object)} will return an empty list.
    *
    * @param subscribers the subscribers
    * @param matchType
    * @param listener the listener for the query results
    */
   public static void findChannelsBySubscribers(final Set<User> subscribers, ChannelMatchType matchType,
-      final OnFinishedListener<ListResult<MMXChannel>> listener) {
+      final com.magnet.max.android.ApiCallback listener) {
     Set<String> userIds = userSetToIds(subscribers, null);
     if(null != userIds) {
       getChannelService().queryChannelsBySubscribers(
@@ -1720,7 +1596,7 @@ public class MMXChannel implements Parcelable {
                 }
 
                 if(null != listener) {
-                  listener.onSuccess(new ListResult<MMXChannel>(items.size(), items));
+                  listener.success(new ListResult<MMXChannel>(items.size(), items));
                 }
               } else {
                 handleError(new Exception(response.message()), listener);
@@ -1731,10 +1607,10 @@ public class MMXChannel implements Parcelable {
               handleError(throwable, listener);
             }
 
-            private void handleError(Throwable throwable, OnFinishedListener listener) {
+            private void handleError(Throwable throwable, ApiCallback listener) {
               Log.e(TAG, "Failed to queryChannelsBySubscribers due to " + throwable.getMessage());
               if(null != listener) {
-                listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+                listener.failure(new ApiError(throwable));
               }
             }
           }).executeInBackground();
@@ -1749,10 +1625,10 @@ public class MMXChannel implements Parcelable {
    * @param options
    * @param listener
    */
-  public static void getChannelDetail(final List<MMXChannel> channels, ChannelDetailOptions options, final OnFinishedListener<List<ChannelDetail>> listener) {
+  public static void getChannelDetail(final List<MMXChannel> channels, ChannelDetailOptions options, final com.magnet.max.android.ApiCallback listener) {
     if(null == channels || channels.isEmpty()) {
       if(null != listener) {
-        listener.onSuccess(Collections.EMPTY_LIST);
+        listener.success(Collections.EMPTY_LIST);
       }
     } else {
 
@@ -1853,27 +1729,20 @@ public class MMXChannel implements Parcelable {
                 public void onResult(final List<ChannelDetail> result) {
                     MMX.getCallbackHandler().post(new Runnable() {
                       public void run() {
-                        listener.onSuccess(result);
+                        listener.success(result);
                       }
                     });
                 }
 
                 @Override
                 public void onException(final Throwable exception) {
-                  if (listener != null) {
-                    MMX.getCallbackHandler().post(new Runnable() {
-                      public void run() {
-                        listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.GENERIC_FAILURE, exception),
-                            exception);
-                      }
-                    });
-                  }
+                  handleErrorCallback(listener, exception, null);
                 }
               };
               task.execute();
             }
           } else {
-            handleError(new ApiError(response.message(), response.code()), listener);
+            handleError(new ApiError(response.code(), response.message()), listener);
           }
         }
 
@@ -1881,10 +1750,10 @@ public class MMXChannel implements Parcelable {
           handleError(throwable, listener);
         }
 
-        private void handleError(Throwable error, OnFinishedListener listener) {
+        private void handleError(Throwable error, com.magnet.max.android.ApiCallback listener) {
           Log.e(TAG, "Failed to getChannelDetail", error);
           if(null != listener) {
-            listener.onFailure(FailureCode.GENERIC_FAILURE, error);
+            listener.failure(new ApiError(error));
           }
         }
       }).executeInBackground();
@@ -1897,7 +1766,7 @@ public class MMXChannel implements Parcelable {
    * @param mimeType
    * @param listener
    */
-  public void setIcon(Bitmap imageBitmap, String mimeType, final ApiCallback<String> listener) {
+  public void setIcon(Bitmap imageBitmap, String mimeType, final com.magnet.max.android.ApiCallback listener) {
     if (null != mimeType) {
       if(StringUtil.isStringValueEqual(mOwnerId, User.getCurrentUserId())) {
         Attachment attachment = new Attachment(mimeType,StringUtil.isNotEmpty(mimeType) ? mimeType : Attachment.getMimeType(null, Attachment.MIME_TYPE_IMAGE));
@@ -1943,7 +1812,7 @@ public class MMXChannel implements Parcelable {
    * Mute push notification from this channel
    * @param listener
    */
-  public void mute(MMXChannel.OnFinishedListener<Void> listener) {
+  public void mute(com.magnet.max.android.ApiCallback listener) {
     mute(0, listener);
   }
 
@@ -1952,7 +1821,7 @@ public class MMXChannel implements Parcelable {
    * @param timeInMinute
    * @param listener
    */
-  public void mute(int timeInMinute, MMXChannel.OnFinishedListener<Void> listener) {
+  public void mute(int timeInMinute, com.magnet.max.android.ApiCallback listener) {
     Date untilDate = null;
     if(timeInMinute > 0) {
       Calendar c = Calendar.getInstance();
@@ -1968,14 +1837,14 @@ public class MMXChannel implements Parcelable {
    * @param utilDate
    * @param listener
    */
-  public void mute(Date utilDate, final MMXChannel.OnFinishedListener<Void> listener) {
+  public void mute(Date utilDate, final com.magnet.max.android.ApiCallback listener) {
     getChannelService().mute(getIdentifier(), new MuteChannelPushRequest(getIdentifier(), utilDate),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {
               mIsMuted = true;
               if (null != listener) {
-                listener.onSuccess(null);
+                listener.success(null);
               }
             } else {
               handleError("Failed to mute channel " + mName, new Exception(response.message()), listener);
@@ -1992,14 +1861,14 @@ public class MMXChannel implements Parcelable {
    * Enable notification from this channel
    * @param listener
    */
-  public void unMute(final MMXChannel.OnFinishedListener<Void> listener) {
+  public void unMute(final com.magnet.max.android.ApiCallback listener) {
     getChannelService().unMute(getIdentifier(),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {
               mIsMuted = false;
               if (null != listener) {
-                listener.onSuccess(null);
+                listener.success(null);
               }
             } else {
               handleError("Failed to unmute channel " + mName, new Exception(response.message()), listener);
@@ -2019,10 +1888,10 @@ public class MMXChannel implements Parcelable {
   //public static void getChannelSummary(String channelId, ChannelSummaryOptions options, final OnFinishedListener<ChannelSummary> listener) {
   //  getChannelService().getChannelSummary(Arrays.asList(channelId), options, new Callback<List<ChannelSummary>>() {
   //    @Override public void onResponse(Response<List<ChannelSummary>> response) {
-  //      listener.onSuccess(response.body().get(0));
+  //      listener.success(response.body().get(0));
   //    }
   //
-  //    @Override public void onFailure(Throwable throwable) {
+  //    @Override public void failure(Throwable throwable) {
   //
   //    }
   //  }).executeInBackground();
@@ -2120,10 +1989,10 @@ public class MMXChannel implements Parcelable {
     return MaxCore.create(ChannelService.class);
   }
 
-  private void handleError(String message, Throwable throwable, OnFinishedListener listener) {
+  private void handleError(String message, Throwable throwable, com.magnet.max.android.ApiCallback listener) {
     Log.e(TAG, message, throwable);
     if(null != listener) {
-      listener.onFailure(FailureCode.GENERIC_FAILURE, throwable);
+      listener.failure(new ApiError(throwable));
     }
   }
 
@@ -2232,7 +2101,7 @@ public class MMXChannel implements Parcelable {
   /**
    * The MMXInvite class is used when sending invites for channels.
    *
-   * @see #inviteUser(User, String, OnFinishedListener)
+   * @see #inviteUser(User, String, com.magnet.max.android.ApiCallback)
    */
   public static class MMXInvite {
     static final String TYPE = "invitation";
@@ -2253,7 +2122,7 @@ public class MMXChannel implements Parcelable {
       return mInviteInfo;
     }
 
-    private void send(final OnFinishedListener<MMXInvite> listener) {
+    private void send(final com.magnet.max.android.ApiCallback listener) {
       if (mIncoming) {
         //coding error
         throw new RuntimeException("Cannot call send on an incoming invitation.");
@@ -2269,22 +2138,22 @@ public class MMXChannel implements Parcelable {
               .content(mInviteInfo.buildMessageContent())
               .type(TYPE)
               .build();
-      message.send(new MMXMessage.OnFinishedListener<String>() {
-        public void onSuccess(String result) {
+      message.send(new ApiCallback<String>() {
+        public void success(String result) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onSuccess(MMXInvite.this);
+                listener.success(MMXInvite.this);
               }
             });
           }
         }
 
-        public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
+        public void failure(final ApiError apiError) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+                listener.failure(apiError);
               }
             });
           }
@@ -2299,34 +2168,34 @@ public class MMXChannel implements Parcelable {
      * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void accept(final String comment, final OnFinishedListener<MMXInvite> listener) {
+    public void accept(final String comment, final com.magnet.max.android.ApiCallback listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't accept an outgoing invite");
       }
 
       MMXChannel channel = mInviteInfo.getChannel();
-      channel.subscribe(new OnFinishedListener<String>() {
+      channel.subscribe(new ApiCallback<String>() {
         @Override
-        public void onSuccess(String result) {
+        public void success(String result) {
           MMXMessage response = buildResponse(true, comment);
-          response.send(new MMXMessage.OnFinishedListener<String>() {
+          response.send(new ApiCallback<String>() {
             @Override
-            public void onSuccess(String result) {
+            public void success(String result) {
               if (listener != null) {
                 MMX.getCallbackHandler().post(new Runnable() {
                   public void run() {
-                    listener.onSuccess(MMXInvite.this);
+                    listener.success(MMXInvite.this);
                   }
                 });
               }
             }
 
             @Override
-            public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
+            public void failure(final ApiError apiError) {
               if (listener != null) {
                 MMX.getCallbackHandler().post(new Runnable() {
                   public void run() {
-                    listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+                    listener.failure(apiError);
                   }
                 });
               }
@@ -2335,11 +2204,11 @@ public class MMXChannel implements Parcelable {
         }
 
         @Override
-        public void onFailure(FailureCode code, final Throwable ex) {
+        public void failure(final ApiError apiError) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+                listener.failure(apiError);
               }
             });
           }
@@ -2353,29 +2222,29 @@ public class MMXChannel implements Parcelable {
      * @param comment comment to include with the response
      * @param listener the listener for success/failure of the operation (optional)
      */
-    public void decline(String comment, final OnFinishedListener<MMXInvite> listener) {
+    public void decline(String comment, final com.magnet.max.android.ApiCallback listener) {
       if (!mIncoming) {
         throw new RuntimeException("Can't reject an outgoing invite");
       }
       MMXMessage response = buildResponse(false, comment);
-      response.send(new MMXMessage.OnFinishedListener<String>() {
+      response.send(new ApiCallback<String>() {
         @Override
-        public void onSuccess(String result) {
+        public void success(String result) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onSuccess(MMXInvite.this);
+                listener.success(MMXInvite.this);
               }
             });
           }
         }
 
         @Override
-        public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
+        public void failure(final ApiError apiError) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
+                listener.failure(apiError);
               }
             });
           }

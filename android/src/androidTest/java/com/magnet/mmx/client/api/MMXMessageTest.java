@@ -15,6 +15,8 @@
 package com.magnet.mmx.client.api;
 
 import android.support.test.runner.AndroidJUnit4;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.utils.ExecMonitor;
@@ -51,13 +53,6 @@ public class MMXMessageTest {
   }
 
   @Test
-  public void testFailureCodes() {
-    assertEquals(MMXMessage.FailureCode.BAD_REQUEST, MMX.FailureCode.BAD_REQUEST);
-    assertEquals(MMXMessage.FailureCode.BAD_REQUEST, 
-        MMXMessage.FailureCode.fromMMXFailureCode(MMX.FailureCode.BAD_REQUEST, null));
-  }
-
-  @Test
   public void testNullContentMessage() {
     testEmptyMessageHelper(null);
   }
@@ -74,24 +69,24 @@ public class MMXMessageTest {
         .recipients(recipients)
         .content(content)
         .build();
-    final ExecMonitor<String,MMXMessage.FailureCode> failureMonitor = new ExecMonitor<String,MMXMessage.FailureCode>();
-    message.send(new MMXMessage.OnFinishedListener<String>() {
+    final ExecMonitor<String, ApiError> failureMonitor = new ExecMonitor<String, ApiError>();
+    message.send(new ApiCallback<String>() {
       @Override
-      public void onSuccess(String result) {
+      public void success(String result) {
         failureMonitor.invoked(result);
       }
 
       @Override
-      public void onFailure(MMXMessage.FailureCode code, Throwable throwable) {
-        Log.e(TAG, "testEmptyMessageHelper.onFailure", throwable);
-        failureMonitor.failed(code);
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "testEmptyMessageHelper.failure", apiError);
+        failureMonitor.failed(apiError);
       }
     });
     ExecMonitor.Status status = failureMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.INVOKED) {
-      fail("should have called onFailure()");
+      fail("should have called failure()");
     } else if (status == ExecMonitor.Status.FAILED) {
-      assertEquals(MMXMessage.FailureCode.CONTENT_EMPTY, failureMonitor.getFailedValue());
+      assertEquals(MMXMessage.CONTENT_EMPTY, failureMonitor.getFailedValue());
     } else {
       fail("message.send() timed out");
     }
@@ -107,24 +102,24 @@ public class MMXMessageTest {
             .recipients(recipients)
             .content(content)
             .build();
-    final ExecMonitor<String,MMXMessage.FailureCode> failureMonitor = new ExecMonitor<String,MMXMessage.FailureCode>();
-    message.send(new MMXMessage.OnFinishedListener<String>() {
+    final ExecMonitor<String,ApiError> failureMonitor = new ExecMonitor<String,ApiError>();
+    message.send(new ApiCallback<String>() {
       @Override
-      public void onSuccess(String result) {
+      public void success(String result) {
         failureMonitor.invoked(result);
       }
 
       @Override
-      public void onFailure(MMXMessage.FailureCode code, Throwable throwable) {
-        Log.e(TAG, "testSendBeforeLogin.onFailure", throwable);
-        failureMonitor.failed(code);
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "testSendBeforeLogin.failure", apiError);
+        failureMonitor.failed(apiError);
       }
     });
     ExecMonitor.Status status = failureMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.INVOKED) {
-      fail("should have called onFailure()");
+      fail("should have called failure()");
     } else if (status == ExecMonitor.Status.FAILED) {
-      assertEquals(MMX.FailureCode.BAD_REQUEST, failureMonitor.getFailedValue());
+      assertEquals(MMX.BAD_REQUEST_CODE, failureMonitor.getFailedValue().getKind());
     } else {
       fail("message.send() timed out");
     }
@@ -139,19 +134,19 @@ public class MMXMessageTest {
 //    final ExecMonitor<String,MMXChannel.FailureCode> failureMonitor = new ExecMonitor<String,MMXChannel.FailureCode>();
 //    channel.publish(content, new MMXChannel.OnFinishedListener<String>() {
 //      @Override
-//      public void onSuccess(String result) {
+//      public void success(String result) {
 //        failureMonitor.invoked(result);
 //      }
 //
 //      @Override
-//      public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-//        com.magnet.mmx.client.common.Log.e(TAG, "testPublishBeforeLogin.onFailure", throwable);
+//      public void failure(MMXChannel.FailureCode code, Throwable throwable) {
+//        com.magnet.mmx.client.common.Log.e(TAG, "testPublishBeforeLogin.failure", throwable);
 //        failureMonitor.failed(code);
 //      }
 //    });
 //    ExecMonitor.Status status = failureMonitor.waitFor(10000);
 //    if (status == ExecMonitor.Status.INVOKED) {
-//      fail("should have called onFailure()");
+//      fail("should have called failure()");
 //    } else if (status == ExecMonitor.Status.FAILED) {
 //      assertEquals(MMX.FailureCode.BAD_REQUEST, failureMonitor.getFailedValue());
 //    } else {

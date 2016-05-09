@@ -14,7 +14,8 @@
  */
 package com.magnet.mmx.client.api;
 
-import com.magnet.mmx.client.common.MMXException;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.mmx.client.cache.CachePolicy;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -31,7 +32,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 
-import com.magnet.max.android.ApiCallback;
 import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.MaxModule;
@@ -57,7 +57,7 @@ import com.magnet.mmx.protocol.MMXid;
  * <li>{@link #init(Context, int)} to initialize MMX with connection info</li>
  * <li>{@link #registerListener(EventListener)} to register a listener for 
  * invitation, incoming messages, connection and authentication events,</li>
- * <li>{@link #login(String, byte[], OnFinishedListener)} to authenticate the user</li>
+ * <li>{@link #login(String, byte[], ApiCallback)} to authenticate the user</li>
  * <li>{@link #start()} to start MMX service</li>
  * </ol>
  * Optionally, the application may invoke<ul>
@@ -68,117 +68,53 @@ import com.magnet.mmx.protocol.MMXid;
  */
 public final class MMX {
   /**
-   * Possible failure codes returned in the OnFinishedListener.onFailure method.
-   * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
+   * Possible failure codes returned in the ApiCallback.failure method.
+   * @see ApiCallback#failure(ApiError)
    */
-  public static class FailureCode {
-    public static final int ILLEGAL_ARGUMENT_CODE = 410;
-    /**
-     * A client error.
-     */
-    public static final FailureCode DEVICE_ERROR = new FailureCode(10, "DEVICE_ERROR");
-    /**
-     * The MMX service is not available due to network issue or server issue.
-     */
-    public static final FailureCode SERVICE_UNAVAILABLE = new FailureCode(11, "SERVICE_UNAVAILABLE");
-    /**
-     * Concurrent logins are attempted.
-     */
-    public static final FailureCode DEVICE_CONCURRENT_LOGIN = new FailureCode(12, "DEVICE_CONCURRENT_LOGIN");
-    /**
-     * Server authentication failure.
-     */
-    public static final FailureCode SERVER_AUTH_FAILED = new FailureCode(20, "SERVER_AUTH_FAILED");
-    /**
-     * Connect not available.
-     */
-    public static final FailureCode CONNECTION_NOT_AVAILABLE = new FailureCode(30, "CONNECTION_NOT_AVAILABLE");
-    /**
-     * A bad request submitted to the server.
-     */
-    public static final FailureCode BAD_REQUEST = new FailureCode(400, "BAD_REQUEST");
+  public static final int ILLEGAL_ARGUMENT_CODE = 410;
 
-    /**
-     * User hasn't login
-     */
-    public static final MMX.FailureCode USER_NOT_LOGIN = new MMX.FailureCode(403, "USER_NOT_LOGIN");
+  public static final int BAD_REQUEST_CODE = 300;
 
-    /**
-     * Illegal argument.
-     */
-    public static final FailureCode ILLEGAL_ARGUMENT = new FailureCode(ILLEGAL_ARGUMENT_CODE, "ILLEGAL_ARGUMENT");
+  public static final int SERVER_ERROR_CODE = 300;
+  /**
+   * A client error.
+   */
+  public static final ApiError DEVICE_ERROR = new ApiError(10, "DEVICE_ERROR");
+  /**
+   * A server error.
+   */
+  public static final ApiError SERVER_ERROR = new ApiError(500, "SERVER_ERROR");
+  /**
+   * The MMX service is not available due to network issue or server issue.
+   */
+  public static final ApiError SERVICE_UNAVAILABLE = new ApiError(11, "SERVICE_UNAVAILABLE");
+  /**
+   * Concurrent logins are attempted.
+   */
+  public static final ApiError DEVICE_CONCURRENT_LOGIN = new ApiError(12, "DEVICE_CONCURRENT_LOGIN");
+  /**
+   * Server authentication failure.
+   */
+  public static final ApiError SERVER_AUTH_FAILED = new ApiError(20, "SERVER_AUTH_FAILED");
+  /**
+   * Connect not available.
+   */
+  public static final ApiError CONNECTION_NOT_AVAILABLE = new ApiError(30, "CONNECTION_NOT_AVAILABLE");
+  /**
+   * A bad request submitted to the server.
+   */
+  public static final ApiError BAD_REQUEST = new ApiError(BAD_REQUEST_CODE, "BAD_REQUEST");
 
-    /**
-     * A server error.
-     */
-    public static final FailureCode SERVER_ERROR = new FailureCode(500, "SERVER_ERROR");
-    protected final int mValue;
-    protected  String mDescription;
-    protected String mToString;
-    protected Throwable mThrowable;
+  /**
+   * User hasn't login
+   */
+  public static final ApiError USER_NOT_LOGIN = new ApiError(403, "USER_NOT_LOGIN");
 
-    public FailureCode(int value, String description) {
-      this(value, description, null);
-    }
+  /**
+   * Illegal argument.
+   */
+  public static final ApiError ILLEGAL_ARGUMENT = new ApiError(ILLEGAL_ARGUMENT_CODE, "ILLEGAL_ARGUMENT");
 
-    public FailureCode(int value, String description, Throwable throwable) {
-      this.mValue = value;
-      this.mThrowable = throwable;
-      if(null != description) {
-        mDescription = description;
-      }
-
-      if(null != throwable) {
-        if(null == mDescription) {
-          mDescription = throwable.getMessage();
-        }
-      }
-    }
-
-    FailureCode(FailureCode code) {
-      this(code, null);
-    }
-
-    FailureCode(FailureCode code, Throwable throwable) {
-      this(code.getValue(), code.getDescription(), throwable);
-    }
-
-    /**
-     * The integer code of this failure
-     * @return the integer code
-     */
-    public final int getValue() {
-      return mValue;
-    }
-
-    /**
-     * The description of this failure
-     * @return the description
-     */
-    public final String getDescription() { return mDescription; }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if ((o == null) || !(o instanceof FailureCode)) return false;
-      FailureCode that = (FailureCode) o;
-      return mValue == that.mValue;
-    }
-
-    @Override
-    public int hashCode() {
-      return mValue;
-    }
-
-    public String toString() {
-      if (mToString == null) {
-        mToString =  new StringBuilder().append("FailureCode { ").append("code = ").append(mValue)
-              .append(", description = ").append(mDescription)
-              .append(", throwable = ").append(mThrowable).toString();
-      }
-      return mToString;
-    }
-  }
 
   /**
    * Possible reasons for EventListener.onLoginRequired
@@ -258,7 +194,7 @@ public final class MMX {
      *
      * @param reason the reason why login is required
      * @return true to consume this event, false for additional listeners to be called
-     * @see #login(String, byte[], OnFinishedListener)
+     * @see #login(String, byte[], ApiCallback)
      */
     public boolean onLoginRequired(LoginReason reason) {
       //default implementation is a no-op
@@ -269,37 +205,15 @@ public final class MMX {
      * Called when there is an error while the server processed the message
      * send request.  The default implementation is to log the error.
      * @param messageId the id of a message that caused the error
-     * @param code a failure code
+     * @param error a failure code
      * @param text an optional diagnostic text message
      * @return true to consume this event, false for additional listeners to be called
      */
-    public boolean onMessageSendError(String messageId, MMXMessage.FailureCode code, String text) {
+    public boolean onMessageSendError(String messageId, ApiError error, String text) {
       //default implementation is to log it
-      Log.e(TAG, "onMessageSendError() message ID="+messageId+", code="+code+", text="+text);
+      Log.e(TAG, "onMessageSendError() message ID="+messageId+", code="+error+", text="+text);
       return false;
     }
-  }
-
-  /**
-   * The listener interface used by the asynchronous calls.
-   *
-   * @param <T> The parameter type with which the onSuccess callback will be invoked
-   */
-  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
-    /**
-     * Invoked if the operation succeeded
-     *
-     * @param result the result of the operation
-     */
-    public abstract void onSuccess(T result);
-
-    /**
-     * Invoked if the operation failed
-     * 
-     * @param code the failure code
-     * @param ex the exception, null if no exception
-     */
-    public abstract void onFailure(FailureCode code, Throwable ex);
   }
 
   public static final String EXTRA_NESTED_INTENT = "extraNestedIntent";
@@ -315,6 +229,7 @@ public final class MMX {
   private static MMX sInstance = null;
   private static SharedPreferences sSharedPrefs = null;
   private static Handler sCallbackHandler = new Handler(Looper.getMainLooper());
+  private static CachePolicy sCachePolicy = null;
 
   // Avoid concurrent logging
   private final AtomicBoolean mLoggingIn = new AtomicBoolean(false);
@@ -409,7 +324,7 @@ public final class MMX {
     }
     
     // There are two possible implementations how a send error can be handled.
-    // One way is to handle some errors in onFailure() and some errors in the
+    // One way is to handle some errors in failure() and some errors in the
     // onMessageSendError(), the other way is to handle all errors in the
     // onMessageSendError().  The implementation is to be handled by
     // onMesasgeSendError(); it will break the backward compatibility.  To use
@@ -418,25 +333,25 @@ public final class MMX {
     public void onErrorReceived(MMXClient mmxClient, MMXErrorMessage error) {
       XMPPError xmppErr;
       MMXError mmxErr;
-      MMXMessage.FailureCode fcode;
+      ApiError fcode;
       if ((mmxErr = error.getMMXError()) != null) {
         String text;
-        if (mmxErr.getCode() == MMXMessage.FailureCode.INVALID_RECIPIENT.getValue()) {
-          fcode = MMXMessage.FailureCode.INVALID_RECIPIENT;
+        if (mmxErr.getCode() == MMXMessage.INVALID_RECIPIENT_CODE) {
+          fcode = MMXMessage.INVALID_RECIPIENT;
           text = (mmxErr.getParams() == null) ? null : (mmxErr.getParams())[0];
           notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
-        } else if (mmxErr.getCode() == MMXMessage.FailureCode.CONTENT_TOO_LARGE.getValue()) {
-          fcode = MMXMessage.FailureCode.CONTENT_TOO_LARGE;
+        } else if (mmxErr.getCode() == MMXMessage.CONTENT_TOO_LARGE_CODE) {
+          fcode = MMXMessage.CONTENT_TOO_LARGE;
           text = mmxErr.getMessage();
           notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         } else {
-          fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
+          fcode = MMX.SERVER_ERROR;
           text = mmxErr.getMessage();
           notifyMessageSendError(mmxErr.getMsgId(), fcode, text);
         }
       } else if ((xmppErr = error.getXMPPError()) != null) {
         Log.e(TAG, "onErrorReceived(): unsupported XMPP error="+xmppErr);
-        fcode = MMXMessage.FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null);
+        fcode = MMX.SERVER_ERROR;
         notifyMessageSendError(error.getId(), fcode, xmppErr.getCondition());
       } else {
         Log.w(TAG, "onErrorReceived(): unsupported custom error="+error.getCustomError());
@@ -498,12 +413,20 @@ public final class MMX {
     MMXClient.registerWakeupListener(context, MMX.MMXWakeupListener.class);
   }
 
+  public static CachePolicy getCachePolicy() {
+    return sCachePolicy;
+  }
+
+  public static void setCachePolicy(CachePolicy cachePolicy) {
+    MMX.sCachePolicy = cachePolicy;
+  }
+
   /**
    * Enable or disable incoming messages.  The default state after login is disabled.
    *
    * @param enable true to receving incoming message, false otherwise
    * @throws IllegalStateException if the user is not logged-in
-   * @see #login(String, byte[], OnFinishedListener)
+   * @see #login(String, byte[], ApiCallback)
    */
   private static void enableIncomingMessages(boolean enable) {
     try {
@@ -550,13 +473,13 @@ public final class MMX {
    * @see #enableIncomingMessages(boolean)
    */
   public static void login(String username, byte[] password,
-                           final OnFinishedListener<Void> listener) {
+                           final ApiCallback<Void> listener) {
     Log.d(TAG, "--------login MMX for user " + username + ", token : " + new String(password));
     if (!sInstance.mLoggingIn.compareAndSet(false, true)) {
       Log.d(TAG, "login() already logging in, returning failure");
       getCallbackHandler().post(new Runnable() {
         public void run() {
-          listener.onFailure(FailureCode.DEVICE_CONCURRENT_LOGIN, null);
+          listener.failure(DEVICE_CONCURRENT_LOGIN);
         }
       });
       return;
@@ -570,7 +493,7 @@ public final class MMX {
           case AUTHENTICATION_FAILURE:
             getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onFailure(MMX.FailureCode.SERVER_AUTH_FAILED, null);
+                listener.failure(MMX.SERVER_AUTH_FAILED);
               }
             });
             unregisterListener = true;
@@ -579,7 +502,7 @@ public final class MMX {
             setCurrentUser(User.getCurrentUser());
             getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onSuccess(null);
+                listener.success(null);
               }
             });
             unregisterListener = true;
@@ -588,7 +511,7 @@ public final class MMX {
             setCurrentUser(null);
             getCallbackHandler().post(new Runnable() {
               public void run() {
-                listener.onFailure(MMX.FailureCode.SERVICE_UNAVAILABLE, null);
+                listener.failure(SERVICE_UNAVAILABLE);
               }
             });
             unregisterListener = true;
@@ -629,7 +552,7 @@ public final class MMX {
    * Stop sending/receiving messages.
    * @throws IllegalStateException {@link #init(Context, int)} is not called yet
    */
-  public static void logout(final OnFinishedListener<Void> listener) {
+  public static void logout(final ApiCallback<Void> listener) {
     Log.d(TAG, "--------logout MMX for user " + (sInstance.mCurrentUser != null ? sInstance.mCurrentUser.getUserName() : ""));
     getGlobalListener().registerListener(new MMXClient.MMXListener() {
       public void onConnectionEvent(MMXClient client, MMXClient.ConnectionEvent event) {
@@ -640,7 +563,7 @@ public final class MMX {
             if (listener != null) {
               getCallbackHandler().post(new Runnable() {
                 public void run() {
-                  listener.onSuccess(null);
+                  listener.success(null);
                 }
               });
             }
@@ -740,8 +663,7 @@ public final class MMX {
     sInstance.mCurrentUser = user;
   }
 
-  private static void notifyMessageSendError(final String msgId,
-                                             final MMXMessage.FailureCode code, final String text) {
+  private static void notifyMessageSendError(final String msgId, final ApiError error, final String text) {
     final EventListener[] listeners = cloneListeners();
     if (listeners.length == 0) {
       throw new IllegalStateException("Error dropped because there were no listeners registered.");
@@ -751,7 +673,7 @@ public final class MMX {
         for (int i=listeners.length; --i>=0;){
           EventListener listener = listeners[i];
           try {
-            if (listener.onMessageSendError(msgId, code, text)) {
+            if (listener.onMessageSendError(msgId, error, text)) {
               //listener returning true means consume the message
               break;
             }
@@ -1048,7 +970,7 @@ public final class MMX {
   public static class MMXModule implements MaxModule {
     private final String TAG = MMXModule.class.getSimpleName();
     private Context mContext;
-    private ApiCallback<Boolean> mCallback;
+    private com.magnet.max.android.ApiCallback mCallback;
 
     private MMXModule() {
     }
@@ -1059,8 +981,7 @@ public final class MMX {
     }
 
     @Override
-    public void onInit(Context context, final Map<String, String> configs,
-                       ApiCallback<Boolean> callback) {
+    public void onInit(Context context, final Map<String, String> configs, ApiCallback<Boolean> callback) {
       Log.d(TAG, "onInit(): start");
       for (Map.Entry<String,String> entry:configs.entrySet()) {
         Log.d(TAG, "onInit(): key=" + entry.getKey() + ", value=" + entry.getValue());
@@ -1074,7 +995,7 @@ public final class MMX {
     }
 
     @Override
-    public void onAppTokenUpdate(String appToken, String appId, String deviceId, ApiCallback<Boolean> callback) {
+    public void onAppTokenUpdate(String appToken, String appId, String deviceId, com.magnet.max.android.ApiCallback callback) {
       //not implemented for now
       Log.d(TAG, "onAppTokenUpdate(): Not implemented for now.  appId=" + appId +
               ", deviceId=" + deviceId + ", appToken=" + appToken);
@@ -1082,7 +1003,7 @@ public final class MMX {
 
     @Override
     public void onUserTokenUpdate(final String userToken, final String userId,
-        final String deviceId, final ApiCallback<Boolean> callback) {
+        final String deviceId, final com.magnet.max.android.ApiCallback callback) {
       Log.d(TAG, "onUserTokenUpdate(): userId=" + userId +
               ", deviceId=" + deviceId + ", userToken=" + userToken);
       //set the deviceId
@@ -1098,14 +1019,14 @@ public final class MMX {
       if (MMX.getCurrentUser() != null) {
         Log.d(TAG, "onUserTokenUpdate(): already logged in, performing logout/login");
         //if already logged in, need to logout/login again
-        MMX.logout(new MMX.OnFinishedListener<Void>() {
-          public void onSuccess(Void result) {
+        MMX.logout(new ApiCallback<Void>() {
+          public void success(Void result) {
             Log.d(TAG, "onUserTokenUpdate(): logout success");
             loginHelper(userId, deviceId, userToken, callback);
           }
 
-          public void onFailure(MMX.FailureCode code, Throwable ex) {
-            Log.e(TAG, "onUserTokenUpdate(): logout failure: " + code, ex);
+          public void failure(ApiError apiError) {
+            Log.e(TAG, "onUserTokenUpdate(): logout failure: " + apiError);
             loginHelper(userId, deviceId, userToken, callback);
           }
         });
@@ -1115,11 +1036,11 @@ public final class MMX {
     }
 
     private void loginHelper(final String userId, final String deviceId,
-                             final String userToken, final ApiCallback<Boolean> callback) {
+                             final String userToken, final com.magnet.max.android.ApiCallback callback) {
       if (userId != null && deviceId != null && userToken != null) {
-        MMX.login(userId, userToken.getBytes(), new MMX.OnFinishedListener<Void>() {
+        MMX.login(userId, userToken.getBytes(), new ApiCallback<Void>() {
           @Override
-          public void onSuccess(Void result) {
+          public void success(Void result) {
             Log.d(TAG, "loginHelper(): success");
             if(null != callback) {
               callback.success(true);
@@ -1129,14 +1050,12 @@ public final class MMX {
           }
 
           @Override
-          public void onFailure(MMX.FailureCode code, Throwable ex) {
-            Log.e(TAG, "loginHelper(): failure=" + code, ex);
-            ApiError error = new ApiError("Unable to login: " +
-                code, ApiError.API_ERROR_UNDEFINED, ex);
+          public void failure(ApiError apiError) {
+            Log.e(TAG, "loginHelper(): failure=" + apiError);
             if(null != callback) {
-              callback.failure(error);
+              callback.failure(apiError);
             } else if (mCallback != null) {
-              mCallback.failure(error);
+              mCallback.failure(apiError);
             }
           }
         });
@@ -1149,26 +1068,26 @@ public final class MMX {
     }
 
     @Override
-    public void onUserTokenInvalidate(final ApiCallback<Boolean> callback) {
+    public void onUserTokenInvalidate(final com.magnet.max.android.ApiCallback callback) {
       logoutHelper();
     }
 
     @Override
-    public void deInitModule(final ApiCallback<Boolean> callback) {
+    public void deInitModule(final com.magnet.max.android.ApiCallback callback) {
       logoutHelper();
     }
 
     private void logoutHelper() {
       if (getCurrentUser() != null) {
-        MMX.logout(new OnFinishedListener<Void>() {
+        MMX.logout(new ApiCallback<Void>() {
                      @Override
-                     public void onSuccess(Void result) {
+                     public void success(Void result) {
                        Log.d(TAG, "logoutHelper(): logout successful");
                      }
 
                      @Override
-                     public void onFailure(FailureCode code, Throwable ex) {
-                       Log.w(TAG, "logoutHelper(): logout failed: " + code, ex);
+                     public void failure(ApiError apiError) {
+                       Log.w(TAG, "logoutHelper(): logout failed: " + apiError);
                      }
                    }
         );
@@ -1281,7 +1200,7 @@ public final class MMX {
    *
    * @return the callback handler
    */
-  static Handler getCallbackHandler() {
+  public static Handler getCallbackHandler() {
     return sCallbackHandler;
   }
 }

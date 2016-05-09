@@ -15,13 +15,14 @@
 package com.magnet.mmx.client.api;
 
 import android.support.test.runner.AndroidJUnit4;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.ext.poll.MMXPoll;
 import com.magnet.mmx.client.ext.poll.MMXPollOption;
 import com.magnet.mmx.client.utils.ChannelHelper;
 import com.magnet.mmx.client.utils.ExecMonitor;
-import com.magnet.mmx.client.utils.FailureDescription;
 import com.magnet.mmx.client.utils.MaxHelper;
 import com.magnet.mmx.client.utils.PollHelper;
 import com.magnet.mmx.client.utils.TestCaseTimer;
@@ -89,7 +90,7 @@ public class MMXPollSingleSessionTest {
     // Received new poll identifier
     MMXPoll retrievedPoll = receivePoll(newPoll);
 
-    ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor = pollMessageReceiver.getNewPollChosenMessageMonitor();
+    ExecMonitor<MMXMessage, ApiError> newPollChosenMessageMonitor = pollMessageReceiver.getNewPollChosenMessageMonitor();
     // Choose first option
     MMXPoll pollAfterChosenFirst = chooseOptions(retrievedPoll, newPollChosenMessageMonitor, 0);
 
@@ -98,20 +99,20 @@ public class MMXPollSingleSessionTest {
     assertThat(pollAfterChosenSecond.getOptions().get(0).getCount()).isEqualTo(0);
 
     // Choose all options failed
-    final ExecMonitor<MMXMessage, FailureDescription> chooseAllResult = new ExecMonitor<>("ChooseAll");
-    retrievedPoll.choose(retrievedPoll.getOptions(), new MMX.OnFinishedListener<MMXMessage>() {
-      @Override public void onSuccess(MMXMessage result) {
+    final ExecMonitor<MMXMessage, ApiError> chooseAllResult = new ExecMonitor<>("ChooseAll");
+    retrievedPoll.choose(retrievedPoll.getOptions(), new ApiCallback<MMXMessage>() {
+      @Override public void success(MMXMessage result) {
         chooseAllResult.invoked(result);
       }
 
-      @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-        chooseAllResult.failed(new FailureDescription(code, ex));
+      @Override public void failure(ApiError apiError) {
+        chooseAllResult.failed(apiError);
       }
     });
     ExecMonitor.Status chooseAllStatus = chooseAllResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(chooseAllResult).isNotNull();
     assertEquals(ExecMonitor.Status.FAILED, chooseAllStatus);
-    assertThat(chooseAllResult.getFailedValue().getException().getMessage()).isEqualTo("Only one option is allowed");
+    assertThat(chooseAllResult.getFailedValue().getMessage()).isEqualTo("Only one option is allowed");
 
     //retrievedPoll.delete(null);
   }
@@ -129,7 +130,7 @@ public class MMXPollSingleSessionTest {
     // Received new poll identifier
     MMXPoll retrievedPoll = receivePoll(newPoll);
 
-    ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor = pollMessageReceiver.getNewPollChosenMessageMonitor();
+    ExecMonitor<MMXMessage, ApiError> newPollChosenMessageMonitor = pollMessageReceiver.getNewPollChosenMessageMonitor();
     // Choose first option
     MMXPoll pollAfterChosenFirst = chooseOptions(retrievedPoll, newPollChosenMessageMonitor, 0);
 
@@ -153,14 +154,14 @@ public class MMXPollSingleSessionTest {
         .extra("key1", "value1")
         .extra("key2", "value2").build();
 
-    final ExecMonitor<MMXMessage, FailureDescription> publishPollResult = new ExecMonitor<>("PublishPoll");
-    newPoll.publish(channel, new MMX.OnFinishedListener<MMXMessage>() {
-      @Override public void onSuccess(MMXMessage result) {
+    final ExecMonitor<MMXMessage, ApiError> publishPollResult = new ExecMonitor<>("PublishPoll");
+    newPoll.publish(channel, new ApiCallback<MMXMessage>() {
+      @Override public void success(MMXMessage result) {
         publishPollResult.invoked(result);
       }
 
-      @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-        publishPollResult.failed(new FailureDescription(code, ex));
+      @Override public void failure(ApiError apiError) {
+        publishPollResult.failed(apiError);
       }
     });
     ExecMonitor.Status createPollStatus = publishPollResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
@@ -179,7 +180,7 @@ public class MMXPollSingleSessionTest {
 
   private MMXPoll receivePoll(MMXPoll pollSent) {
     // Received new poll identifier
-    ExecMonitor<MMXMessage, FailureDescription> newPollMessageMonitor = pollMessageReceiver.getNewPollMessageMonitor();
+    ExecMonitor<MMXMessage, ApiError> newPollMessageMonitor = pollMessageReceiver.getNewPollMessageMonitor();
 
     ExecMonitor.Status newPollMessageStatus = newPollMessageMonitor.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     assertThat(newPollMessageMonitor.getFailedValue()).isNull();
@@ -216,7 +217,7 @@ public class MMXPollSingleSessionTest {
     assertThat(poll2.getExtras()).containsOnly(entry("key1", "value1"), entry("key2", "value2"));
   }
 
-  private MMXPoll chooseOptions(MMXPoll poll, ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor,
+  private MMXPoll chooseOptions(MMXPoll poll, ExecMonitor<MMXMessage, ApiError> newPollChosenMessageMonitor,
       int... optionIndex) {
     List<MMXPollOption> options = new ArrayList<>();
     for(int i : optionIndex) {
@@ -265,8 +266,8 @@ public class MMXPollSingleSessionTest {
   }
 
   private static class PollMessageReceiver {
-    private final ExecMonitor<MMXMessage, FailureDescription> newPollMessageMonitor;
-    private final ExecMonitor<MMXMessage, FailureDescription> newPollChosenMessageMonitor;
+    private final ExecMonitor<MMXMessage, ApiError> newPollMessageMonitor;
+    private final ExecMonitor<MMXMessage, ApiError> newPollChosenMessageMonitor;
     private final MMX.EventListener messageListener;
 
     public PollMessageReceiver() {
@@ -289,10 +290,10 @@ public class MMXPollSingleSessionTest {
         }
 
         @Override
-        public boolean onMessageSendError(String messageId, MMXMessage.FailureCode code, String text) {
+        public boolean onMessageSendError(String messageId, ApiError apiError, String text) {
           Log.d(TAG,
-              "onMessageSendError(): msgId=" + messageId + ", code=" + code + ", text=" + text);
-          //if(null != receiveMonitor)  receiveMonitor.failed(new FailureDescription(code, new Exception(text)));
+              "onMessageSendError(): msgId=" + messageId + ", apiError=" + apiError + ", text=" + text);
+          //if(null != receiveMonitor)  receiveMonitor.failed(new ApiError(code, new Exception(text)));
           return false;
         }
 
@@ -311,11 +312,11 @@ public class MMXPollSingleSessionTest {
       MMX.unregisterListener(messageListener);
     }
 
-    public ExecMonitor<MMXMessage, FailureDescription> getNewPollMessageMonitor() {
+    public ExecMonitor<MMXMessage, ApiError> getNewPollMessageMonitor() {
       return newPollMessageMonitor;
     }
 
-    public ExecMonitor<MMXMessage, FailureDescription> getNewPollChosenMessageMonitor() {
+    public ExecMonitor<MMXMessage, ApiError> getNewPollChosenMessageMonitor() {
       return newPollChosenMessageMonitor;
     }
   }

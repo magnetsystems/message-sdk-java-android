@@ -65,13 +65,13 @@ public class UserHelper {
       //setup the listener for the registration call
       ApiCallback<User> listener = new ApiCallback<User>() {
         public void success(User user) {
-          Log.d(TAG, "register user onSuccess: result=" + user.getUserName());
+          Log.d(TAG, "register user success: result=" + user.getUserName());
           REGISTERED_USERS.put(username, user);
           userReg.invoked(user);
         }
 
         @Override public void failure(ApiError apiError) {
-          Log.e(TAG, "register user onFailure(): code=" + apiError, apiError.getCause());
+          Log.e(TAG, "register user failure(): code=" + apiError, apiError.getCause());
           if (reuseExistingUser && apiError.getKind() == 409) {
             userExist.set(true);
             userReg.invoked(null);

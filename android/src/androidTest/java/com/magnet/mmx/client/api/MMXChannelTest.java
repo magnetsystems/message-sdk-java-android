@@ -16,8 +16,9 @@ package com.magnet.mmx.client.api;
 
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
-import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 import com.magnet.mmx.client.utils.ChannelHelper;
 import com.magnet.mmx.client.utils.ExecMonitor;
 import com.magnet.mmx.client.utils.MaxHelper;
@@ -159,15 +160,15 @@ public class MMXChannelTest {
     }
 
     // getting all private channels
-    final ExecMonitor<ListResult<MMXChannel>, FailureCode> channelsRes = new ExecMonitor<ListResult<MMXChannel>, FailureCode>();
-    MMXChannel.getAllPrivateChannels(null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
-      public void onSuccess(ListResult<MMXChannel> result) {
+    final ExecMonitor<ListResult<MMXChannel>, ApiError> channelsRes = new ExecMonitor<ListResult<MMXChannel>, ApiError>();
+    MMXChannel.getAllPrivateChannels(null, null, new ApiCallback<ListResult<MMXChannel>>() {
+      public void success(ListResult<MMXChannel> result) {
         channelsRes.invoked(result);
       }
 
-      public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
-        Log.d(TAG, "failed to getAllPrivateChannels : " + code, ex);
-        channelsRes.failed(code);
+      public void failure(ApiError apiError) {
+        Log.d(TAG, "failed to getAllPrivateChannels : " + apiError);
+        channelsRes.failed(apiError);
       }
     });
     ExecMonitor.Status status = channelsRes.waitFor(TestConstants.TIMEOUT_IN_MILISEC);

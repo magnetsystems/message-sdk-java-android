@@ -16,11 +16,12 @@ package com.magnet.mmx.client.api;
 
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.Attachment;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.UserProfile;
-import com.magnet.mmx.client.api.MMXChannel.FailureCode;
 import com.magnet.mmx.client.utils.ChannelHelper;
 import com.magnet.mmx.client.utils.ExecMonitor;
 import com.magnet.mmx.client.utils.MaxHelper;
@@ -88,7 +89,7 @@ public class MMXChannelSingleSessionTest {
     String channelName = "channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
     MMXChannel channel = ChannelHelper.create(channelName, channelSummary, true);
-    ChannelHelper.createError(channel, FailureCode.CHANNEL_EXISTS);
+    ChannelHelper.createError(channel, MMXChannel.CHANNEL_EXISTS);
     ChannelHelper.find(channelName, 1);
     ChannelHelper.subscribe(channel, 1);
 
@@ -106,7 +107,7 @@ public class MMXChannelSingleSessionTest {
     String channelName = "private-channel" + System.currentTimeMillis();
     String channelSummary = channelName + " Summary";
     MMXChannel channel = ChannelHelper.create(channelName, channelSummary, false);
-    ChannelHelper.createError(channel, FailureCode.CHANNEL_EXISTS);
+    ChannelHelper.createError(channel, MMXChannel.CHANNEL_EXISTS);
     ChannelHelper.find(channelName, 0); // 0 because private channels should not show up on search
     ChannelHelper.subscribe(channel, 1);
     ChannelHelper.publish(channel);
@@ -220,11 +221,11 @@ public class MMXChannelSingleSessionTest {
 
     //final CountDownLatch unsubscribeLatch = new CountDownLatch(1);
     //channel.unsubscribe(new MMXChannel.OnFinishedListener<Boolean>() {
-    //  @Override public void onSuccess(Boolean result) {
+    //  @Override public void success(Boolean result) {
     //    unsubscribeLatch.countDown();
     //  }
     //
-    //  @Override public void onFailure(FailureCode code, Throwable throwable) {
+    //  @Override public void failure(ApiError code, Throwable throwable) {
     //    fail("Failed to unsbuscribe channle " + channel.getName());
     //  }
     //});
@@ -268,16 +269,16 @@ public class MMXChannelSingleSessionTest {
     MMX.registerListener(inviteListener);
 
     final CountDownLatch inviteSendLatch = new CountDownLatch(1);
-    channel.inviteUser(MMX.getCurrentUser(), INVITE_MESSAGE, new MMXChannel.OnFinishedListener<MMXChannel.MMXInvite>() {
+    channel.inviteUser(MMX.getCurrentUser(), INVITE_MESSAGE, new ApiCallback<MMXChannel.MMXInvite>() {
       @Override
-      public void onSuccess(MMXChannel.MMXInvite result) {
+      public void success(MMXChannel.MMXInvite result) {
         inviteSendLatch.countDown();
       }
 
       @Override
-      public void onFailure(FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        fail("channel.inviteUser failed due to " + ex.getMessage());
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        fail("channel.inviteUser failed due to " + apiError.getMessage());
       }
     });
     try {
@@ -303,12 +304,12 @@ public class MMXChannelSingleSessionTest {
     //final ExecMonitor<Boolean, Boolean> inviteFromCallbackSent = new ExecMonitor<Boolean, Boolean>();
     //channel.inviteUser(MMX.getCurrentUser(), "foobar", new MMXChannel.OnFinishedListener<MMXChannel.MMXInvite>() {
     //  @Override
-    //  public void onSuccess(MMXChannel.MMXInvite result) {
+    //  public void success(MMXChannel.MMXInvite result) {
     //    inviteFromCallbackSent.invoked(true);
     //  }
     //
     //  @Override
-    //  public void onFailure(MMXChannel.FailureCode code, Throwable ex) {
+    //  public void failure(MMXChannel.ApiError code, Throwable ex) {
     //    Log.e(TAG, "Exception caught: " + code, ex);
     //    inviteFromCallbackSent.failed(true);
     //  }
@@ -325,7 +326,7 @@ public class MMXChannelSingleSessionTest {
     String suffix = String.valueOf(System.currentTimeMillis());
     String existChannelName = "exist-channel" + suffix;
     MMXChannel existChannel = ChannelHelper.create(existChannelName, null, true);
-    ChannelHelper.createError(existChannel, FailureCode.CHANNEL_EXISTS);
+    ChannelHelper.createError(existChannel, MMXChannel.CHANNEL_EXISTS);
     ChannelHelper.delete(existChannel);
 
     String noSuchChannelName = "no-such-channel" + suffix;
@@ -334,54 +335,54 @@ public class MMXChannelSingleSessionTest {
             .build();
     ChannelHelper.findError(noSuchChannelName, 0);
     ChannelHelper.getChannelSummaryError(noSuchChannelName, 0);
-    ChannelHelper.subscribeError(noSuchChannel, FailureCode.CHANNEL_NOT_FOUND);
-    ChannelHelper.publishError(noSuchChannel, FailureCode.CHANNEL_NOT_FOUND);
-    ChannelHelper.unsubscribeError(noSuchChannel, FailureCode.CHANNEL_NOT_FOUND);
-    ChannelHelper.deleteError(noSuchChannel, FailureCode.CHANNEL_NOT_FOUND);
+    ChannelHelper.subscribeError(noSuchChannel, MMXChannel.CHANNEL_NOT_FOUND);
+    ChannelHelper.publishError(noSuchChannel, MMXChannel.CHANNEL_NOT_FOUND);
+    ChannelHelper.unsubscribeError(noSuchChannel, MMXChannel.CHANNEL_NOT_FOUND);
+    ChannelHelper.deleteError(noSuchChannel, MMXChannel.CHANNEL_NOT_FOUND);
   }
 
 
   @Test
   public void testFindError() {
     //find public channels
-    final ExecMonitor<Integer, FailureCode> findNullResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findPublicChannelsByName(null, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
-      public void onSuccess(ListResult<MMXChannel> result) {
+    final ExecMonitor<Integer, ApiError> findNullResult = new ExecMonitor<Integer, ApiError>();
+    MMXChannel.findPublicChannelsByName(null, null, null, new ApiCallback<ListResult<MMXChannel>>() {
+      public void success(ListResult<MMXChannel> result) {
         findNullResult.invoked(result.totalCount);
       }
 
       @Override
-      public void onFailure(FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        findNullResult.failed(code);
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        findNullResult.failed(apiError);
       }
     });
     ExecMonitor.Status status = findNullResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.INVOKED)
       fail("Find channel should have failed for findByName(null)");
     else if (status == ExecMonitor.Status.FAILED)
-      assertThat(findNullResult.getFailedValue()).isEqualTo(MMX.FailureCode.BAD_REQUEST);
+      assertThat(findNullResult.getFailedValue().getKind()).isEqualTo(MMX.BAD_REQUEST_CODE);
     else
       fail("Find channel timed out");
 
     //test empty
-    final ExecMonitor<Integer, FailureCode> findEmptyResult = new ExecMonitor<Integer, FailureCode>();
-    MMXChannel.findPublicChannelsByName("", null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
-      public void onSuccess(ListResult<MMXChannel> result) {
+    final ExecMonitor<Integer, ApiError> findEmptyResult = new ExecMonitor<Integer, ApiError>();
+    MMXChannel.findPublicChannelsByName("", null, null, new ApiCallback<ListResult<MMXChannel>>() {
+      public void success(ListResult<MMXChannel> result) {
         findEmptyResult.invoked(result.totalCount);
       }
 
       @Override
-      public void onFailure(FailureCode code, Throwable ex) {
-        Log.e(TAG, "Exception caught: " + code, ex);
-        findEmptyResult.failed(code);
+      public void failure(ApiError apiError) {
+        Log.e(TAG, "Exception caught: " + apiError);
+        findEmptyResult.failed(apiError);
       }
     });
     status = findEmptyResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
     if (status == ExecMonitor.Status.INVOKED)
       fail("Find channel should have failed for findByName(null)");
     else if (status == ExecMonitor.Status.FAILED)
-      assertThat(findNullResult.getFailedValue()).isEqualTo(MMX.FailureCode.BAD_REQUEST);
+      assertThat(findNullResult.getFailedValue().getKind()).isEqualTo(MMX.BAD_REQUEST_CODE);
     else
       fail("Find channel timed out");
   }

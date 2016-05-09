@@ -5,6 +5,8 @@ package com.magnet.mmx.client.ext.poll;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.MaxCore;
 import com.magnet.max.android.User;
 import com.magnet.max.android.util.EqualityUtil;
@@ -73,7 +75,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
    * @param channel
    * @param listener
    */
-  public void publish(final MMXChannel channel, final MMX.OnFinishedListener<MMXMessage> listener) {
+  public void publish(final MMXChannel channel, final ApiCallback<MMXMessage> listener) {
     if(null != pollId) {
       handleParameterError("Poll is already published", listener);
       return;
@@ -111,17 +113,17 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
                   .payload(new MMXPollIdentifier(pollId))
                   .metaData(PollConstants.KEY_QUESTION, PollConstants.DEFAULT_POLL_PUSH_CONFIG_NAME)
                   .build();
-              publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
-                @Override public void onSuccess(String result) {
+              publishChannelMessage(message, new ApiCallback<String>() {
+                @Override public void success(String result) {
                   if (null != listener) {
-                    listener.onSuccess(message);
+                    listener.success(message);
                   }
                 }
 
-                @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-                  Log.e(TAG, "Failed to publish poll to channel due to " + code, throwable);
+                @Override public void failure(ApiError apiError) {
+                  Log.e(TAG, "Failed to publish poll to channel due to " + apiError);
                   if (null != listener) {
-                    listener.onFailure(code, throwable);
+                    listener.failure(apiError);
                   }
                 }
               });
@@ -133,7 +135,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
           @Override public void onFailure(Throwable throwable) {
             Log.e(TAG, "Failed to create survey", throwable);
             if(null != listener) {
-              listener.onFailure(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+              listener.failure(new ApiError(throwable));
             }
           }
         }).executeInBackground();
@@ -144,7 +146,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
    * @param pollId
    * @param listener
    */
-  public static void get(String pollId, final MMX.OnFinishedListener<MMXPoll> listener) {
+  public static void get(String pollId, final ApiCallback<MMXPoll> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
       return;
@@ -155,20 +157,20 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             if(response.isSuccess()) {
               if (null != listener) {
                 SurveyResults surveyResults = response.body();
-                listener.onSuccess(fromSurvey(surveyResults.getSurvey(), surveyResults.getSummary(), surveyResults.getMyAnswers()));
+                listener.success(fromSurvey(surveyResults.getSurvey(), surveyResults.getSummary(), surveyResults.getMyAnswers()));
               }
             } else {
-              handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
+              handleError(new ApiError(response.code(), response.message()));
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
-            handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+            handleError(new ApiError(throwable));
           }
 
-          private void handleError(MMXChannel.FailureCode code, Throwable throwable) {
+          private void handleError(ApiError apiError) {
             if (null != listener) {
-              listener.onFailure(code, throwable);
+              listener.failure(apiError);
             }
           }
         }).executeInBackground();
@@ -178,7 +180,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
    * Delete a poll
    * @param listener
    */
-  private void delete(final MMX.OnFinishedListener<Void> listener) {
+  private void delete(final ApiCallback<Void> listener) {
     if(StringUtil.isEmpty(pollId)) {
       handleParameterError("pollId is required", listener);
       return;
@@ -186,12 +188,12 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     getPollService().deleteSurvey(pollId, new Callback<Void>() {
       @Override public void onResponse(Response<Void> response) {
         if (null != listener) {
-          listener.onSuccess(null);
+          listener.success(null);
         }
       }
 
       @Override public void onFailure(Throwable throwable) {
-        handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable, listener);
+        handleError(new ApiError(throwable), listener);
       }
     }).executeInBackground();
   }
@@ -201,7 +203,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
    * @param option
    * @param listener
    */
-  public void choose(final MMXPollOption option, final MMX.OnFinishedListener<MMXMessage> listener) {
+  public void choose(final MMXPollOption option, final ApiCallback<MMXMessage> listener) {
     choose(Arrays.asList(option), listener);
   }
 
@@ -210,7 +212,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
      * @param chosenOptions
      * @param listener
      */
-  public void choose(final List<MMXPollOption> chosenOptions, final MMX.OnFinishedListener<MMXMessage> listener) {
+  public void choose(final List<MMXPollOption> chosenOptions, final ApiCallback<MMXMessage> listener) {
     //if(null == chosenOptions && chosenOptions.isEmpty()) {
     //  handleParameterError("option is required", listener);
     //  return;
@@ -258,31 +260,31 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
                 .payload(pollAnswer)
                 .metaData(PollConstants.KEY_QUESTION, PollConstants.DEFAULT_POLL_ANSWER_PUSH_CONFIG)
                 .build();
-            publishChannelMessage(message, new MMXChannel.OnFinishedListener<String>() {
-              @Override public void onSuccess(String result) {
+            publishChannelMessage(message, new ApiCallback<String>() {
+              @Override public void success(String result) {
                 if (null != listener) {
-                  listener.onSuccess(message);
+                  listener.success(message);
                 }
               }
 
-              @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-                handleError(code, throwable, listener);
+              @Override public void failure(ApiError apiError) {
+                handleError(apiError, listener);
               }
             });
           } else {
             if (null != listener) {
-              listener.onSuccess(null);
+              listener.success(null);
             }
           }
         } else {
           Log.e(TAG, "Failed to choose option for poll due to " + response.message());
-          handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()), listener);
+          handleError(new ApiError(response.code(), response.message()), listener);
         }
       }
 
       @Override public void onFailure(Throwable throwable) {
         Log.e(TAG, "Failed to choose option for poll due to " + throwable.getMessage());
-        handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable, listener);
+        handleError(new ApiError(throwable), listener);
       }
     }).executeInBackground();
   }
@@ -304,7 +306,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     }
   }
 
-  public void refreshResults(final MMXChannel.OnFinishedListener<Void> listener) {
+  public void refreshResults(final ApiCallback<Void> listener) {
     getPollService().getResults(pollId,
         new Callback<SurveyResults>() {
           @Override public void onResponse(Response<SurveyResults> response) {
@@ -321,20 +323,20 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
                     }
                   }
                 }
-                listener.onSuccess(null);
+                listener.success(null);
               }
             } else {
-              handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
+              handleError(new ApiError(response.code(), response.message()));
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
-            handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+            handleError(new ApiError(throwable));
           }
 
-          private void handleError(MMXChannel.FailureCode code, Throwable throwable) {
+          private void handleError(ApiError apiError) {
             if (null != listener) {
-              listener.onFailure(code, throwable);
+              listener.failure(apiError);
             }
           }
         }).executeInBackground();
@@ -502,50 +504,50 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     return MaxCore.create(SurveyService.class);
   }
 
-  private static void handleParameterError(String message, MMX.OnFinishedListener listener) {
-    handleParameterError(new MMX.FailureCode(MMX.FailureCode.ILLEGAL_ARGUMENT_CODE, message), listener);
+  private static void handleParameterError(String message, ApiCallback listener) {
+    handleParameterError(new ApiError(message), listener);
   }
 
-  private static void handleParameterError(MMX.FailureCode failureCode, MMX.OnFinishedListener listener) {
+  private static void handleParameterError(ApiError failureCode, ApiCallback listener) {
     Log.e(TAG, failureCode.toString());
     if(null != listener) {
-      listener.onFailure(failureCode, new Exception(failureCode.getDescription()));
+      listener.failure(failureCode);
     }
   }
 
-  private static void handleError(MMXChannel.FailureCode code, Throwable throwable, MMX.OnFinishedListener listener) {
+  private static void handleError(ApiError code, ApiCallback listener) {
     if (null != listener) {
-      listener.onFailure(code, throwable);
+      listener.failure(code);
     }
   }
 
-  private void publishChannelMessage(final MMXMessage message, final MMXChannel.OnFinishedListener<String> listener) {
+  private void publishChannelMessage(final MMXMessage message, final ApiCallback<String> listener) {
     if(null != channel) {
       channel.publish(message, listener);
     } else if(StringUtil.isNotEmpty(channelIdentifier)) {
       final MMXChannelId channelId = MMXChannelId.parse(channelIdentifier);
       if(null != channelId) {
-        MMXChannel.getChannel(channelId.getName(), StringUtil.isEmpty(channelId.getUserId()), channelId.getUserId(), new MMXChannel.OnFinishedListener<MMXChannel>() {
-          @Override public void onSuccess(MMXChannel result) {
+        MMXChannel.getChannel(channelId.getName(), StringUtil.isEmpty(channelId.getUserId()), channelId.getUserId(), new ApiCallback<MMXChannel>() {
+          @Override public void success(MMXChannel result) {
             channel = result;
             channel.publish(message, listener);
           }
 
-          @Override public void onFailure(MMXChannel.FailureCode code, Throwable throwable) {
-            handleSendChannelMessageError("Couldn't find channel by identifer " + channelId, throwable, listener);
+          @Override public void failure(ApiError apiError) {
+            handleSendChannelMessageError(apiError, listener);
           }
         });
       }
     } else {
-      handleSendChannelMessageError("Both channel and channelIdentifier are null", null, listener);
+      handleSendChannelMessageError(new ApiError("Both channel and channelIdentifier are null"), listener);
     }
   }
 
-  private void handleSendChannelMessageError(String errorMessage, Throwable throwable, MMXChannel.OnFinishedListener<String> listener) {
+  private void handleSendChannelMessageError(ApiError apiError, ApiCallback<String> listener) {
     if(null != listener) {
-      listener.onFailure(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(errorMessage, throwable));
+      listener.failure(apiError);
     }
-    Log.e(TAG, "Failed to send message to channel due to " + errorMessage);
+    Log.e(TAG, "Failed to send message to channel due to " + apiError);
   }
 
   private static MMXPoll fromSurvey(Survey survey, List<SurveyChoiceResult> results, List<SurveyAnswer> myAnswers) {

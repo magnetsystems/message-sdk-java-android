@@ -3,6 +3,8 @@
  */
 package com.magnet.mmx.client.utils;
 
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.api.MMXUserPreferences;
@@ -15,15 +17,15 @@ public class UserPreferencesHelper {
   private static final String TAG = UserPreferencesHelper.class.getSimpleName();
 
   public static void blockUsers(List<User> users) {
-    final ExecMonitor<Boolean, MMX.FailureCode> execMonitor = new ExecMonitor<>();
-    MMXUserPreferences.blockUsers(new HashSet<User>(users), new MMX.OnFinishedListener<Boolean>() {
-      @Override public void onSuccess(Boolean result) {
+    final ExecMonitor<Boolean, ApiError> execMonitor = new ExecMonitor<>();
+    MMXUserPreferences.blockUsers(new HashSet<User>(users), new ApiCallback<Boolean>() {
+      @Override public void success(Boolean result) {
         execMonitor.invoked(result);
       }
 
-      @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-        Log.e(TAG, code.toString(), ex);
-        execMonitor.failed(code);
+      @Override public void failure(ApiError apiError) {
+        Log.e(TAG, apiError.getMessage(), apiError);
+        execMonitor.failed(apiError);
       }
     });
 
@@ -33,15 +35,15 @@ public class UserPreferencesHelper {
   }
 
   public static void unblockUsers(List<User> users) {
-    final ExecMonitor<Boolean, MMX.FailureCode> execMonitor = new ExecMonitor<>();
-    MMXUserPreferences.unblockUsers(new HashSet<User>(users), new MMX.OnFinishedListener<Boolean>() {
-      @Override public void onSuccess(Boolean result) {
+    final ExecMonitor<Boolean, ApiError> execMonitor = new ExecMonitor<>();
+    MMXUserPreferences.unblockUsers(new HashSet<User>(users), new ApiCallback<Boolean>() {
+      @Override public void success(Boolean result) {
         execMonitor.invoked(result);
       }
 
-      @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-        Log.e(TAG, code.toString(), ex);
-        execMonitor.failed(code);
+      @Override public void failure(ApiError apiError) {
+        Log.e(TAG, apiError.toString(), apiError);
+        execMonitor.failed(apiError);
       }
     });
 
@@ -51,15 +53,15 @@ public class UserPreferencesHelper {
   }
 
   public static List<User> getBlockedUsers() {
-    final ExecMonitor<List<User>, MMX.FailureCode> execMonitor = new ExecMonitor<>();
-    MMXUserPreferences.getBlockedUsers(new MMX.OnFinishedListener<List<User>>() {
-      @Override public void onSuccess(List<User> result) {
+    final ExecMonitor<List<User>, ApiError> execMonitor = new ExecMonitor<>();
+    MMXUserPreferences.getBlockedUsers(new ApiCallback<List<User>>() {
+      @Override public void success(List<User> result) {
         execMonitor.invoked(result);
       }
 
-      @Override public void onFailure(MMX.FailureCode code, Throwable ex) {
-        Log.e(TAG, code.toString(), ex);
-        execMonitor.failed(code);
+      @Override public void failure(ApiError apiError) {
+        Log.e(TAG, apiError.toString(), apiError);
+        execMonitor.failed(apiError);
       }
     });
 

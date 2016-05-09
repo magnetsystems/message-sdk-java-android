@@ -14,14 +14,11 @@
  */
 package com.magnet.mmx.client.api;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.magnet.max.android.User;
 import com.magnet.mmx.client.MMXClient;
 import com.magnet.mmx.client.MMXTask;
@@ -29,7 +26,6 @@ import com.magnet.mmx.client.common.Log;
 import com.magnet.mmx.client.common.MMXException;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.PushResult;
-import com.magnet.mmx.protocol.StatusCode;
 
 /**
  * This class holds the message payload, and operations for the message.  If
@@ -43,50 +39,9 @@ public class MMXPushMessage {
   /**
    * Failure codes for the MMXPushMessage class.
    */
-  public static class FailureCode extends MMX.FailureCode {
-    public static final FailureCode INVALID_RECIPIENT = new FailureCode(404, "INVALID_RECIPIENT");
-    public static final FailureCode CONTENT_TOO_LARGE = new FailureCode(413, "CONTENT_TOO_LARGE");
-    
-    FailureCode(int value, String description) {
-      super(value, description);
-    }
+  public static final ApiError INVALID_RECIPIENT = new ApiError(404, "INVALID_RECIPIENT");
+  public static final ApiError CONTENT_TOO_LARGE = new ApiError(413, "CONTENT_TOO_LARGE");
 
-    FailureCode(MMX.FailureCode code) { super(code); }
-
-    static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      if (throwable != null)
-        Log.d(TAG, "fromMMXFailureCode() ex="+throwable.getClass().getName());
-      else
-        Log.d(TAG, "fromMMXFailureCode() ex=null");
-      if (throwable instanceof MMXException) {
-        return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
-      } else {
-        return new FailureCode(code);
-      }
-    }
-  }
-
-  /**
-   * The OnFinishedListener for MMXPushMessage methods.
-   *
-   * @param <T> The type of the onSuccess result
-   */
-  public static abstract class OnFinishedListener<T> implements IOnFinishedListener<T, FailureCode> {
-    /**
-     * Called when the operation completes successfully
-     *
-     * @param result the result of the operation
-     */
-    public abstract void onSuccess(T result);
-
-    /**
-     * Called if the operation fails
-     *
-     * @param code the failure code
-     * @param throwable the throwable associated with this failure (may be null)
-     */
-    public abstract void onFailure(FailureCode code, Throwable throwable);
-  }
   /**
    * The builder for the MMXPushMessage class
    */
@@ -242,16 +197,16 @@ public class MMXPushMessage {
 
   /**
    * Send the current message to server and deliver via a native push mechanism.
-   * The {@link OnFinishedListener#onSuccess(Object)} will be called
+   * The {@link ApiCallback#success(Object)} will be called
    * with the push result for all active devices of the recipient.  If there are
    * any failure of sending the message to the server, the
-   * {@link OnFinishedListener#onFailure(FailureCode, Throwable)} will be
+   * {@link ApiCallback#failure(FailureCode, Throwable)} will be
    * invoked.  Common failure codes are {@link FailureCode#BAD_REQUEST}, or
    * FailureCode#DEVICE_ERROR.
    *
    * @param listener the listener for this method call
    */
-  public void send(final OnFinishedListener<PushResult> listener) {
+  public void send(final ApiCallback<PushResult> listener) {
     if (MMX.getCurrentUser() == null) {
       //FIXME:  This needs to be done in MMXClient/MMXPushManager.  Do it here for now.
       final Throwable exception = new IllegalStateException("Cannot send message.  " +
@@ -261,8 +216,7 @@ public class MMXPushMessage {
       } else {
         MMX.getCallbackHandler().post(new Runnable() {
           public void run() {
-            listener.onFailure(FailureCode.fromMMXFailureCode(
-                MMX.FailureCode.BAD_REQUEST, exception), exception);
+            listener.failure(new ApiError(MMX.BAD_REQUEST_CODE, null, exception));
           }
         });
       }
@@ -285,8 +239,7 @@ public class MMXPushMessage {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onFailure(FailureCode.fromMMXFailureCode(
-                      MMX.FailureCode.DEVICE_ERROR, exception), exception);
+              listener.failure(new ApiError(exception));
             }
           });
         }
@@ -297,7 +250,7 @@ public class MMXPushMessage {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
             public void run() {
-              listener.onSuccess(result);
+              listener.success(result);
             }
           });
         }

@@ -17,8 +17,12 @@ package com.magnet.mmx.client;
 import android.os.Handler;
 import android.os.HandlerThread;
 
+import com.magnet.max.android.ApiCallback;
+import com.magnet.max.android.ApiError;
+import com.magnet.mmx.client.api.MMX;
 import com.magnet.mmx.client.common.Log;
 
+import com.magnet.mmx.client.common.MMXException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -106,6 +110,32 @@ public class MMXTask<T> implements Runnable {
   public void onException(Throwable exception) {
     //default implementation does nothing
     Log.w(TAG, "onException(): DEFAULT IMPLEMENTATION WAS NOT OVERRIDDEN", exception);
+  }
+
+  protected void handleErrorCallback(final ApiCallback listener, final Throwable exception, final String message) {
+    if (listener != null) {
+      MMX.getCallbackHandler().post(new Runnable() {
+        public void run() {
+          listener.failure(throwableToApiError(exception, message));
+        }
+      });
+    }
+  }
+
+  protected ApiError throwableToApiError(Throwable throwable, String message) {
+    ApiError apiError = null;
+    if(null != throwable) {
+      if (throwable instanceof MMXException) {
+        MMXException mmxException = (MMXException) throwable;
+        apiError = new ApiError(mmxException.getCode(), mmxException.getMessage(), mmxException.getCause());
+      } else {
+        apiError = new ApiError(message, throwable);
+      }
+    } else {
+      apiError = new ApiError(message);
+    }
+
+    return apiError;
   }
 
   private void setResult(T result) {

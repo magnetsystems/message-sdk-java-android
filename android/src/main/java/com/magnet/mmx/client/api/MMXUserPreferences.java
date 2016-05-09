@@ -31,7 +31,7 @@ public class MMXUserPreferences {
    * @param users
    * @param listener
    */
-  public static void blockUsers(final Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
+  public static void blockUsers(final Set<User> users, final ApiCallback<Boolean> listener) {
     if(checkUsers(users, listener) && checkStatus(listener)) {
       new UserBlockingTask(users, true, listener).execute();
     }
@@ -42,7 +42,7 @@ public class MMXUserPreferences {
    * @param users
    * @param listener
    */
-  public static void unblockUsers(final Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
+  public static void unblockUsers(final Set<User> users, final ApiCallback<Boolean> listener) {
     if(checkUsers(users, listener) && checkStatus(listener)) {
       new UserBlockingTask(users, false, listener).execute();
     }
@@ -52,7 +52,7 @@ public class MMXUserPreferences {
    * Get the list of users blocked by current user
    * @param listener
    */
-  public static void getBlockedUsers(final MMX.OnFinishedListener<List<User>> listener) {
+  public static void getBlockedUsers(final ApiCallback<List<User>> listener) {
     if(checkStatus(listener)) {
       new MMXTask<List<User>>(MMX.getMMXClient(), MMX.getHandler()) {
         @Override
@@ -92,8 +92,7 @@ public class MMXUserPreferences {
             MMX.getCallbackHandler().post(new Runnable() {
               @Override
               public void run() {
-                listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
-                    MMXChannel.FailureCode.GENERIC_FAILURE, exception), exception);
+                listener.failure(new ApiError(exception));
               }
             });
           }
@@ -105,7 +104,7 @@ public class MMXUserPreferences {
             MMX.getCallbackHandler().post(new Runnable() {
               @Override
               public void run() {
-                listener.onSuccess(result);
+                listener.success(result);
               }
             });
           }
@@ -115,21 +114,21 @@ public class MMXUserPreferences {
   }
 
 
-  private static boolean checkStatus(final MMX.OnFinishedListener listener) {
-    MMX.FailureCode failureCode = null;
+  private static boolean checkStatus(final ApiCallback listener) {
+    ApiError failureCode = null;
     if(null == User.getCurrentUser()) {
-      failureCode = MMX.FailureCode.USER_NOT_LOGIN;
+      failureCode = MMX.USER_NOT_LOGIN;
     } else if(!MMX.getMMXClient().isConnected()) {
-      failureCode = MMX.FailureCode.CONNECTION_NOT_AVAILABLE;
+      failureCode = MMX.CONNECTION_NOT_AVAILABLE;
     }
 
     if(null != failureCode) {
       if(null != listener) {
-        final MMX.FailureCode failureCodeFinal = failureCode;
+        final ApiError failureCodeFinal = failureCode;
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
           public void run() {
-            listener.onFailure(failureCodeFinal, new IllegalStateException(failureCodeFinal.getDescription()));
+            listener.failure(failureCodeFinal);
           }
         });
       }
@@ -140,13 +139,13 @@ public class MMXUserPreferences {
     return true;
   }
 
-  private static boolean checkUsers(Set<User> users, final MMX.OnFinishedListener<Boolean> listener) {
+  private static boolean checkUsers(Set<User> users, final ApiCallback<Boolean> listener) {
     if(null == users || users.isEmpty()) {
       if(null != listener) {
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
           public void run() {
-            listener.onSuccess(Boolean.TRUE);
+            listener.success(Boolean.TRUE);
           }
         });
       }
@@ -167,11 +166,11 @@ public class MMXUserPreferences {
   }
 
   private static class UserBlockingTask extends MMXTask<Boolean> {
-    private final MMX.OnFinishedListener<Boolean> listener;
+    private final ApiCallback<Boolean> listener;
     private final boolean isAdding;
     private final Set<User> users;
 
-    public UserBlockingTask(Set<User> users, boolean isAdding, MMX.OnFinishedListener<Boolean> listener) {
+    public UserBlockingTask(Set<User> users, boolean isAdding, ApiCallback<Boolean> listener) {
       super(MMX.getMMXClient(), MMX.getHandler());
       this.users = users;
       this.listener = listener;
@@ -215,8 +214,7 @@ public class MMXUserPreferences {
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
           public void run() {
-            listener.onFailure(MMXChannel.FailureCode.fromMMXFailureCode(
-                MMXChannel.FailureCode.GENERIC_FAILURE, exception), exception);
+            listener.failure(new ApiError(exception));
           }
         });
       }
@@ -228,7 +226,7 @@ public class MMXUserPreferences {
         MMX.getCallbackHandler().post(new Runnable() {
           @Override
           public void run() {
-            listener.onSuccess(result);
+            listener.success(result);
           }
         });
       }
