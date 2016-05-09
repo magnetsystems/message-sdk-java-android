@@ -28,6 +28,7 @@ import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.filter.AndFilter;
 import org.jivesoftware.smack.filter.MessageTypeFilter;
+import org.jivesoftware.smack.filter.NotFilter;
 import org.jivesoftware.smack.filter.OrFilter;
 import org.jivesoftware.smack.filter.PacketExtensionFilter;
 import org.jivesoftware.smack.filter.PacketFilter;
@@ -49,6 +50,7 @@ import com.magnet.mmx.protocol.Constants;
 import com.magnet.mmx.protocol.Constants.MessageCommand;
 import com.magnet.mmx.protocol.MMXStatus;
 import com.magnet.mmx.protocol.MMXTopic;
+import com.magnet.mmx.protocol.MMXTopicId;
 import com.magnet.mmx.protocol.MMXid;
 import com.magnet.mmx.protocol.MmxHeaders;
 import com.magnet.mmx.protocol.MsgAck;
@@ -382,11 +384,8 @@ public class MessageManager implements Closeable {
 
   // This must be called prior to the connection to receive messages.
   void initPacketListener() {
-    // Interested in normal or chat messages with MMX extension or
-    // Delivery Receipt.
-    PacketFilter msgFilter = new OrFilter(
-        new MessageTypeFilter(Message.Type.normal),
-        new MessageTypeFilter(Message.Type.chat));
+    // Interested in non-error messages with MMX extension or Delivery Receipt.
+    PacketFilter msgFilter = new NotFilter(new MessageTypeFilter(Message.Type.error));
     PacketFilter extFilter = new OrFilter(
         new PacketExtensionFilter(Constants.MMX, Constants.MMX_NS_MSG_PAYLOAD),
         new PacketExtensionFilter(DeliveryReceipt.ELEMENT, DeliveryReceipt.NAMESPACE));
@@ -432,6 +431,27 @@ public class MessageManager implements Closeable {
                                               mmxMsgFilter);
     mCon.getXMPPConnection().addPacketFailedListener(mMsgPayloadFailedListener,
                                               mmxMsgFilter);
+  }
+
+  /**
+   * Send a message to all subscribers in a topic excluding the sender.  The
+   * message is always fire-and-forget, but the sender may request a delivery
+   * receipt.
+   * @param topic
+   * @param payload
+   * @param options
+   * @return A unique message ID.
+   * @throws MMXException
+   */
+  public String sendPayload(MMXTopic topic, MMXPayload payload, Options options)
+                            throws MMXException {
+    String userId = Constants.MMX_NODE_PREFIX+((MMXTopicId) topic).getId();
+    MMXid[] to = new MMXid[] { new MMXid(userId, null, null) };
+    if (options == null) {
+      options = new Options();
+    }
+    options.setDroppable(true);
+    return sendPayload(to, payload, options);
   }
 
   /**
