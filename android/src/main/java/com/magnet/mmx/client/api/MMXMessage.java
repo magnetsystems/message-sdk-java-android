@@ -281,7 +281,7 @@ public class MMXMessage implements Parcelable {
       return this;
     }
 
-    /**package*/ MMXMessage.Builder pushConfigName(String pushConfigName) {
+    public MMXMessage.Builder pushConfigName(String pushConfigName) {
       mMessage.mPushConfigName = pushConfigName;
       return this;
     }
