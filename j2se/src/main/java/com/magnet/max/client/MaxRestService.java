@@ -22,6 +22,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 
 import com.google.gson.JsonObject;
 import com.magnet.max.common.ApiException;
+import com.magnet.max.common.AppAuthResult;
 import com.magnet.max.common.Client;
 import com.magnet.max.common.ClientRegistrationRequest;
 import com.magnet.max.common.Device;
@@ -130,7 +131,7 @@ public interface MaxRestService {
 //    Call<PaginatedResult> searchUsers(@Query("q") String query, @Query("take") int take, @Query("skip") int skip, @Query("sort") String sort);
 
     @POST("/api/com.magnet.server/applications/session")
-    Call<JsonObject> authenticateApp() throws ApiException;
+    Call<AppAuthResult> authenticateApp() throws ApiException;
 
 //    @GET("/api/com.magnet.server/applications/session")
 //    Call<Client> getClient() throws ApiException;

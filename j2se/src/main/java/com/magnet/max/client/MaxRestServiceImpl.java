@@ -27,6 +27,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 
 import com.google.gson.JsonObject;
+import com.magnet.max.common.AppAuthResult;
 import com.magnet.max.common.Client;
 import com.magnet.max.common.ClientRegistrationRequest;
 import com.magnet.max.common.Device;
@@ -177,7 +178,7 @@ public class MaxRestServiceImpl extends RestService<MaxRestService> {
 //      return response.body();
 //    }
 
-  public String authenticateApp(Client app) throws IOException,
+  public AppAuthResult authenticateApp(Client app) throws IOException,
       MaxServiceException {
     Map<String, String> headers = new HashMap<>();
     String authorization = Base64.encodeBytes((app.getOauthClientId() +
@@ -186,10 +187,9 @@ public class MaxRestServiceImpl extends RestService<MaxRestService> {
 
     MaxRestService maxRestService = getService(
         MaxMediaType.APPLICATION_FORM_URLENCODED, headers);
-    Response<JsonObject> response = maxRestService.authenticateApp().execute();
+    Response<AppAuthResult> response = maxRestService.authenticateApp().execute();
     checkResponseForErrors(response);
-
-    return response.body().get("access_token").getAsString().trim();
+    return response.body();
   }
 
   public User whoAmI(String userToken) throws IOException, MaxServiceException {

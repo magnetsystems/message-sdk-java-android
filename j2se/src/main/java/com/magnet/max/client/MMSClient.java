@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 
+import com.magnet.max.common.AppAuthResult;
 import com.magnet.max.common.Client;
 import com.magnet.max.common.Device;
 import com.magnet.max.common.DeviceStatus;
@@ -237,7 +238,13 @@ public class MMSClient {
     Client client = new Client();
     client.setOauthClientId(mOAuthClientId);
     client.setOauthSecret(mOAuthSecret);
-    mAppToken = mMaxService.authenticateApp(client);
+    AppAuthResult result = mMaxService.authenticateApp(client);
+    mAppToken = result.getAccessToken();
+    mSettings.setString(MMXSettings.PROP_APPID, result.getMmxAppId());
+    mSettings.setString(MMXSettings.PROP_HOST, result.getMmxHost());
+    mSettings.setString(MMXSettings.PROP_PORT, result.getMmxPort());
+    mSettings.setBoolean(MMXSettings.PROP_ENABLE_TLS, result.isMmxTlsEnabled());
+    mSettings.setString(MMXSettings.PROP_SERVICE_NAME, result.getMmxDomain());
     return true;
   }
 
