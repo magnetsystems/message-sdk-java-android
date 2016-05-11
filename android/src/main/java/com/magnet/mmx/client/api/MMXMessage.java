@@ -546,9 +546,8 @@ public class MMXMessage implements Parcelable {
   /**
    * The meta data for this message
    *
-   * @return the content
+   * @return the meta data
    */
-  @Deprecated
   public Map<String, String> getMetaData() {
     return mMeta;
   }
