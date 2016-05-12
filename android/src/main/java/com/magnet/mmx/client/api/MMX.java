@@ -72,6 +72,8 @@ public final class MMX {
    * @see com.magnet.mmx.client.api.MMX.OnFinishedListener#onFailure(FailureCode, Throwable)
    */
   public static class FailureCode {
+    public static final FailureCode GENERIC_FAILURE = new FailureCode(500, "GENERIC_FAILURE");
+
     public static final int ILLEGAL_ARGUMENT_CODE = 410;
     /**
      * A client error.

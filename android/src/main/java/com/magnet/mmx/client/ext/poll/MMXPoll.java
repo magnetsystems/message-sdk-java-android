@@ -158,15 +158,15 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
                 listener.onSuccess(fromSurvey(surveyResults.getSurvey(), surveyResults.getSummary(), surveyResults.getMyAnswers()));
               }
             } else {
-              handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
+              handleError(MMX.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
-            handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+            handleError(MMX.FailureCode.GENERIC_FAILURE, throwable);
           }
 
-          private void handleError(MMXChannel.FailureCode code, Throwable throwable) {
+          private void handleError(MMX.FailureCode code, Throwable throwable) {
             if (null != listener) {
               listener.onFailure(code, throwable);
             }
@@ -191,7 +191,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       }
 
       @Override public void onFailure(Throwable throwable) {
-        handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable, listener);
+        handleError(MMX.FailureCode.GENERIC_FAILURE, throwable, listener);
       }
     }).executeInBackground();
   }
@@ -276,13 +276,13 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
           }
         } else {
           Log.e(TAG, "Failed to choose option for poll due to " + response.message());
-          handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()), listener);
+          handleError(MMX.FailureCode.GENERIC_FAILURE, new Exception(response.message()), listener);
         }
       }
 
       @Override public void onFailure(Throwable throwable) {
         Log.e(TAG, "Failed to choose option for poll due to " + throwable.getMessage());
-        handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable, listener);
+        handleError(MMX.FailureCode.GENERIC_FAILURE, throwable, listener);
       }
     }).executeInBackground();
   }
@@ -304,7 +304,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     }
   }
 
-  public void refreshResults(final MMXChannel.OnFinishedListener<Void> listener) {
+  public void refreshResults(final MMX.OnFinishedListener<Void> listener) {
     getPollService().getResults(pollId,
         new Callback<SurveyResults>() {
           @Override public void onResponse(Response<SurveyResults> response) {
@@ -324,15 +324,15 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
                 listener.onSuccess(null);
               }
             } else {
-              handleError(MMXChannel.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
+              handleError(MMX.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
             }
           }
 
           @Override public void onFailure(Throwable throwable) {
-            handleError(MMXChannel.FailureCode.GENERIC_FAILURE, throwable);
+            handleError(MMX.FailureCode.GENERIC_FAILURE, throwable);
           }
 
-          private void handleError(MMXChannel.FailureCode code, Throwable throwable) {
+          private void handleError(MMX.FailureCode code, Throwable throwable) {
             if (null != listener) {
               listener.onFailure(code, throwable);
             }
@@ -513,7 +513,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     }
   }
 
-  private static void handleError(MMXChannel.FailureCode code, Throwable throwable, MMX.OnFinishedListener listener) {
+  private static void handleError(MMX.FailureCode code, Throwable throwable, MMX.OnFinishedListener listener) {
     if (null != listener) {
       listener.onFailure(code, throwable);
     }
