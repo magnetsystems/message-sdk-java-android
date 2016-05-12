@@ -172,7 +172,7 @@ public class MMXClient implements IMMXClient {
    * Get a lower layer connection object for internal testing only.
    * @return
    */
-  MMXConnection getConnection() {
+  public MMXConnection getConnection() {
     return mCon;
   }
 
