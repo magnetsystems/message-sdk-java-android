@@ -36,8 +36,6 @@ public class MMSClient {
   private String mOAuthSecret;
   private String mDevUser;
   private String mDevPasswd;
-  private String mUserName;
-  private String mUserPasswd;
   private String mUserId;
 
   private String mDevToken;
@@ -146,8 +144,8 @@ public class MMSClient {
       throw new SecurityException("Invalid app credentials", e);
     }
 
-    mUserName = mSettings.getString(MMXSettings.PROP_USER, null);
-    mUserPasswd = mSettings.getString(MMXSettings.PROP_PASSWD, null);
+//    mUserName = mSettings.getString(MMXSettings.PROP_USER, null);
+//    mUserPasswd = mSettings.getString(MMXSettings.PROP_PASSWD, null);
   }
 
   /**
@@ -277,19 +275,17 @@ public class MMSClient {
     mSettings.setString(MMXSettings.PROP_MMSUSERID, mUserId);
     mSettings.save();
 
-    // A workaround for MAX-131: only android or ios devices are supported.
     Device device = new Device();
     device.setClientId(mOAuthClientId);
     device.setDeviceId(deviceId);
     device.setDeviceStatus(DeviceStatus.ACTIVE);
     device.setUserId(mUserId);
     device.setLabel(System.getProperty("os.arch"));
-//    device.setOs(OsType.OTHER);
-    device.setOs(OsType.ANDROID);
+    device.setOs(OsType.OTHER);
+//    device.setOs(OsType.ANDROID);
     device.setOsVersion(System.getProperty("os.version"));
 //    device.setPushAuthority(PushAuthorityType.OTHERS);
-    device.setPushAuthority(PushAuthorityType.GCM);
-    device.setDeviceToken("1111111");
+//    device.setDeviceToken("N/A");
     device.setTags(null);
     mMaxService.registerDevice(mUserToken, device);
 
