@@ -304,7 +304,7 @@ public class MMSClient {
     mMaxService.registerUser(mAppToken, user);
     StringBuilder name = new StringBuilder();
     if (!isEmpty(user.getFirstName())) {
-      name.append(name);
+      name.append(user.getFirstName());
     }
     if (!isEmpty(user.getLastName())) {
       if (name.length() > 0) {
