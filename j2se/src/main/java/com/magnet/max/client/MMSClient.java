@@ -281,12 +281,12 @@ public class MMSClient {
     device.setDeviceStatus(DeviceStatus.ACTIVE);
     device.setUserId(mUserId);
     device.setLabel(System.getProperty("os.arch"));
-    // A workaround for MAX-131: only android or ios devices are supported.
-//    device.setOs(OsType.OTHER);
-    device.setOs(OsType.ANDROID);
     device.setOsVersion(System.getProperty("os.version"));
-//    device.setPushAuthority(PushAuthorityType.OTHERS);
-//    device.setDeviceToken("N/A");
+    // Fix MAX-131 with an unsupported push type: OTHERS.
+    device.setOs(OsType.OTHER);
+    device.setPushAuthority(PushAuthorityType.OTHERS);
+    device.setDeviceToken("");
+
     device.setTags(null);
     mMaxService.registerDevice(mUserToken, device);
 
