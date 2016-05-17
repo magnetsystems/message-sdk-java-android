@@ -281,8 +281,9 @@ public class MMSClient {
     device.setDeviceStatus(DeviceStatus.ACTIVE);
     device.setUserId(mUserId);
     device.setLabel(System.getProperty("os.arch"));
-    device.setOs(OsType.OTHER);
-//    device.setOs(OsType.ANDROID);
+    // A workaround for MAX-131: only android or ios devices are supported.
+//    device.setOs(OsType.OTHER);
+    device.setOs(OsType.ANDROID);
     device.setOsVersion(System.getProperty("os.version"));
 //    device.setPushAuthority(PushAuthorityType.OTHERS);
 //    device.setDeviceToken("N/A");
