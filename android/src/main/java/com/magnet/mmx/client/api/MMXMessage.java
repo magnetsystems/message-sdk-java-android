@@ -281,7 +281,7 @@ public class MMXMessage implements Parcelable {
       return this;
     }
 
-    /**package*/ MMXMessage.Builder pushConfigName(String pushConfigName) {
+    public MMXMessage.Builder pushConfigName(String pushConfigName) {
       mMessage.mPushConfigName = pushConfigName;
       return this;
     }
@@ -546,9 +546,8 @@ public class MMXMessage implements Parcelable {
   /**
    * The meta data for this message
    *
-   * @return the content
+   * @return the meta data
    */
-  @Deprecated
   public Map<String, String> getMetaData() {
     return mMeta;
   }
