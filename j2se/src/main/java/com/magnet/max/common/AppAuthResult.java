@@ -1,3 +1,17 @@
+/*   Copyright (c) 2016 Magnet Systems, Inc.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 package com.magnet.max.common;
 
 import java.util.Map;
@@ -40,18 +54,34 @@ public class AppAuthResult {
     return config.get("mmx-port");
   }
 
+  /**
+   * Get the MMX App ID.
+   */
   public String getMmxAppId() {
     return config.get("mmx_app_id");
   }
 
+  /**
+   * Check if TLS is required by the server.  If the security policy is not
+   * specified or is NONE, TLS is not required.
+   */
   public boolean isMmxTlsEnabled() {
-    return Boolean.parseBoolean(config.get("tls-enabled"));
+    String secPolicy = getMmxSecurityPolicy();
+    return (secPolicy != null) && !("NONE".equals(secPolicy));
   }
 
+  /**
+   * Get the TLS security policy.  NONE means no TLS.  STRICT means
+   * Strict TLS (no-middle-attack), RELAXED means standard TLS.
+   * @return NONE, RELAXED or STRICT
+   */
   public String getMmxSecurityPolicy() {
     return config.get("security-policy");
   }
 
+  /**
+   * Get the mobile configuration.
+   */
   public Map<String, String> getConfig() {
     return config;
   }
