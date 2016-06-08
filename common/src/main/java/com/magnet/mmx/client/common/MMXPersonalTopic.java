@@ -16,7 +16,6 @@
 package com.magnet.mmx.client.common;
 
 import com.magnet.mmx.protocol.MMXTopicId;
-import com.magnet.mmx.util.Utils;
 
 /**
  * A user topic that is under the current user name-space.
@@ -47,22 +46,14 @@ public class MMXPersonalTopic extends MMXTopicId implements MMXVisibleTopic {
    * @return
    */
   MMXPersonalTopic setUserId(String userId) {
-    if (userId.indexOf('@') >= 0) {
-      mUserId = userId;
-      mEscUserId = Utils.escapeNode(userId);
-    } else if (userId.indexOf('\\') >= 0) {
-      mEscUserId = userId;
-      mUserId = Utils.unescapeNode(userId);
-    } else {
-      mEscUserId = mUserId = userId;
-    }
+    mUserId = userId;
     return this;
   }
 
   @Override
   public String toString() {
-    if (mUserId == null) {
-      return "./"+getName();
+    if (mId == null && mUserId == null) {
+      return "{ userId=. name="+mName+" }";
     } else {
       return super.toString();
     }

@@ -34,8 +34,6 @@ import org.jivesoftware.smack.packet.IQ.Type;
 import org.jivesoftware.smack.provider.PacketExtensionProvider;
 import org.jivesoftware.smack.provider.ProviderManager;
 import org.jivesoftware.smack.util.PacketParserUtils;
-import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
-import org.jivesoftware.smackx.disco.packet.DiscoverItems;
 import org.jivesoftware.smackx.pubsub.Affiliation;
 import org.jivesoftware.smackx.pubsub.ConfigureForm;
 import org.jivesoftware.smackx.pubsub.FormType;
@@ -66,6 +64,7 @@ import com.magnet.mmx.protocol.TagSearch;
 import com.magnet.mmx.protocol.TagSearch.Operator;
 import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.CreateRequest;
+import com.magnet.mmx.protocol.TopicAction.CreateResponse;
 import com.magnet.mmx.protocol.TopicAction.DeleteRequest;
 import com.magnet.mmx.protocol.TopicAction.FetchOptions;
 import com.magnet.mmx.protocol.TopicAction.FetchRequest;
@@ -101,12 +100,11 @@ import com.magnet.mmx.util.XIDUtil;
 /**
  * The Pub/Sub Manager allows users to create or delete topics, subscribe or
  * unsubscribe to them, and publishes items to them.  The Pub/Sub Manager
- * provides two levels of hierarchy to minimize topic name collisions:
+ * provides two levels of hierarchy to minimize name collisions:
  * global topics and user topics.  A global topic name has a unique name within
  * the application; a user topic name has a unique name under a user ID
  * within the application.  A <i>personal</i> topic is just a user topic under
- * the current user.  A topic name is in lower case, cannot have embedded "/"
- * character, and has a max length of 64.
+ * the current user.  A topic has a path hierarchy with '/' as the separator.
  * <p/>
  * Technically all topics are in a tree hierarchy and have a path-like syntax
  * with "/" as a separator.  The tree structure is modeled after a file system:
@@ -138,9 +136,7 @@ public class PubSubManager {
   private final static boolean SHOW_USER_TOPIC_SUBSCRIPTIONS = true;
   private final MMXConnection mCon;
   private MappedByteBuffer mBuffer;
-  private final String mAppPrefix;
-  private final String mAppTopic;
-  private final String mMyTopic;
+  private final String mAppId;
   private org.jivesoftware.smackx.pubsub.PubSubManager mPubSubMgr;
   private final static Creator sCreator = new Creator() {
     @Override
@@ -174,11 +170,7 @@ public class PubSubManager {
 
   protected PubSubManager(MMXConnection con) {
     mCon = con;
-    String appId = (mCon.getAppId() == null) ? "*" : mCon.getAppId();
-    mAppPrefix = TopicHelper.TOPIC_DELIM + appId + TopicHelper.TOPIC_DELIM;
-    mAppTopic = mAppPrefix + TopicHelper.TOPIC_FOR_APP + TopicHelper.TOPIC_DELIM;
-    mMyTopic = mAppPrefix + mCon.getUserId() + TopicHelper.TOPIC_DELIM;
-
+    mAppId = (mCon.getAppId() == null) ? "*" : mCon.getAppId();
     PubSubIQHandler<Object, Object> iqHandler = new PubSubIQHandler<Object, Object>();
     iqHandler.registerIQProvider();
   }
@@ -190,13 +182,13 @@ public class PubSubManager {
     return mPubSubMgr;
   }
 
-  private <T extends Node> T getNode(String nodeName, String topicName)
+  private <T extends Node> T getNode(String nodeId, String topicName)
                     throws TopicNotFoundException, MMXException {
     try {
-      return (T) getPubSubManager().getNode(nodeName);
+      return (T) getPubSubManager().getNode(nodeId);
     } catch (XMPPErrorException e) {
       if (XMPPError.Condition.item_not_found.equals(e.getXMPPError().getCondition())) {
-        throw new TopicNotFoundException(topicName);
+        throw new TopicNotFoundException(topicName != null ? topicName : nodeId);
       }
       throw new MMXException(e.getMessage(), e);
     } catch (Throwable e) {
@@ -208,7 +200,7 @@ public class PubSubManager {
    * Publish a payload to a topic. The topic must be existing and be created
    * with {@link PublisherType#anyone} or {@link PublisherType#subscribers} for
    * non-owner; otherwise, TopicPermissionException will be thrown.
-   * @param topic A topic object.
+   * @param topic A topic object with topic ID.
    * @param payload A non-null application specific payload.
    * @return A published item ID.
    * @throws TopicNotFoundException
@@ -227,7 +219,7 @@ public class PubSubManager {
    * with {@link PublisherType#anyone} or {@link PublisherType#subscribers} for
    * non-owner; otherwise, TopicPermissionException will be thrown.
    * @param messageId the message id for the published message
-   * @param topic A topic object.
+   * @param topic A topic object with topic ID.
    * @param payload A non-null application specific payload.
    * @return A published item ID.
    * @throws TopicNotFoundException
@@ -241,10 +233,8 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    String realTopic = (topic.getUserId() != null) ?
-            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
-    return publishToTopic(messageId, realTopic, topicPath, payload);
+    String nodeId = getNodeId(topic);
+    return publishToTopic(messageId, nodeId, topic.getDisplayName(), payload);
   }
 
   /**
@@ -262,42 +252,41 @@ public class PubSubManager {
    */
   public String publish(MMXPersonalTopic topic, MMXPayload payload,
       MMXTopicOptions options) throws TopicPermissionException, MMXException {
-    topic.setUserId(mCon.getUserId());
-    String topicName = TopicHelper.normalizePath(topic.getName());
-    String realTopic = (topic.getUserId() != null) ?
-        makeUserTopic(topic.getUserId(), topicName) : makeAppTopic(topicName);
-    boolean redo;
-    do {
+    String nodeId;
+    if (topic.getId() != null) {
+      nodeId = TopicHelper.toNodeId(mAppId, topic.getId());
+    } else {
       try {
-        redo = false;
-        return publishToTopic(null, realTopic, topicName, payload);
+        topic.setUserId(mCon.getUserId());
+        MMXTopicInfo topicInfo = getTopic(topic);
+        nodeId = TopicHelper.toNodeId(mAppId, topicInfo.getTopic().getId());
       } catch (TopicNotFoundException e) {
         if (options == null) {
           // Use a default option if not specified.
           options = new MMXTopicOptions()
             .setPublisherType(TopicAction.PublisherType.owner)
-            .setMaxItems(100);
+            .setMaxItems(-1);
         }
-        createTopic(topic, options);
-        redo = true;
+        MMXTopic newTopic = createTopic(topic, options);
+        nodeId = TopicHelper.toNodeId(mAppId, newTopic.getId());
       }
-    } while (redo);
-    return null;
+    }
+    return publishToTopic(null, nodeId, topic.getDisplayName(), payload);
   }
 
   /**
    * @hide
    * Publish an item with a publish ID.  This is for internal use.
-   * @param id
-   * @param realTopic
-   * @param topic
+   * @param itemId An optional item ID.
+   * @param nodeId
+   * @param topic Topic display name
    * @param payload
    * @return
    * @throws TopicNotFoundException
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public String publishToTopic(String id, String realTopic, String topic,
+  public String publishToTopic(String itemId, String nodeId, String topic,
       MMXPayload payload) throws TopicNotFoundException,
       TopicPermissionException, MMXException {
     if (payload.getSize() > MMXPayload.getMaxSizeAllowed()) {
@@ -307,7 +296,9 @@ public class PubSubManager {
     }
 
     MMXQueue queue = mCon.getQueue();
-    String itemId = id != null ? id : mCon.genId();
+    if (itemId == null) {
+      itemId = mCon.genId();
+    }
     if (mCon.isConnected()) {
       try {
         // XMPP does not include publisher during delivery; MMX includes the
@@ -316,7 +307,7 @@ public class PubSubManager {
 
         // TODO: smack caches the node.  It returns the node if the node is
         // deleted using custom IQ.  It can be a memory leak.
-        LeafNode node = getNode(realTopic, topic);
+        LeafNode node = getNode(nodeId, topic);
         node.send(new PayloadItem<MMXPayloadMsgHandler.MMXPacketExtension>(itemId,
                 new MMXPayloadMsgHandler.MMXPacketExtension(payload)));
         return itemId;
@@ -336,7 +327,7 @@ public class PubSubManager {
       }
     } else if (queue != null) {
       //Not connected, and queue exists, queue...
-      Item.PubSub item = new Item.PubSub(itemId, realTopic, topic, payload);
+      Item.PubSub item = new Item.PubSub(itemId, nodeId, topic, payload);
       queue.addItem(item);
       return itemId;
     } else {
@@ -358,9 +349,8 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    ItemsByIdsRequest rqt = new ItemsByIdsRequest(Utils.escapeNode(topic.getUserId()),
-        topicPath, itemIds);
+    ItemsByIdsRequest rqt = new ItemsByIdsRequest(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), itemIds);
     PubSubIQHandler<ItemsByIdsRequest, FetchResponse> iqHandler =
         new PubSubIQHandler<ItemsByIdsRequest, FetchResponse>();
     try {
@@ -404,9 +394,8 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    RetractRequest rqt = new RetractRequest(Utils.escapeNode(topic.getUserId()),
-        topicPath, itemIds);
+    RetractRequest rqt = new RetractRequest(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), itemIds);
     PubSubIQHandler<RetractRequest, RetractResponse> iqHandler =
         new PubSubIQHandler<RetractRequest, RetractResponse>();
     try {
@@ -437,11 +426,12 @@ public class PubSubManager {
    */
   public boolean clearAllItems(MMXTopic topic) throws
               TopicNotFoundException, TopicPermissionException, MMXException {
-    if (topic instanceof MMXUserTopic && !mCon.getUserId().equals(topic.getUserId())) {
+    if (topic instanceof MMXUserTopic &&
+        !mCon.getUserId().equals(topic.getUserId())) {
       throw new TopicPermissionException(USER_TOPIC_NOT_ALLOWED);
     }
-    String topicName = TopicHelper.normalizePath(topic.getName());
-    RetractAllRequest rqt = new RetractAllRequest(topicName, topic.isUserTopic());
+    RetractAllRequest rqt = new RetractAllRequest(topic.getId(),
+        topic.getName(), topic.isUserTopic());
     PubSubIQHandler<RetractAllRequest, MMXStatus> iqHandler =
         new PubSubIQHandler<RetractAllRequest, MMXStatus>();
     try {
@@ -477,9 +467,8 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    FetchRequest rqt = new FetchRequest(Utils.escapeNode(topic.getUserId()),
-        topicPath, options);
+    FetchRequest rqt = new FetchRequest(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), options);
     PubSubIQHandler<FetchRequest, FetchResponse> iqHandler =
         new PubSubIQHandler<FetchRequest, FetchResponse>();
     try {
@@ -530,10 +519,9 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
     String devId = thisDeviceOnly ? mCon.getContext().getDeviceId() : null;
-    SubscribeRequest rqt = new SubscribeRequest(Utils.escapeNode(topic.getUserId()),
-        topicPath, devId);
+    SubscribeRequest rqt = new SubscribeRequest(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), devId);
     PubSubIQHandler<SubscribeRequest, SubscribeResponse> iqHandler =
         new PubSubIQHandler<SubscribeRequest, SubscribeResponse>();
     try {
@@ -571,9 +559,8 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    UnsubscribeRequest rqt = new UnsubscribeRequest(Utils.escapeNode(topic.getUserId()),
-        topicPath, subscriptionId);
+    UnsubscribeRequest rqt = new UnsubscribeRequest(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), subscriptionId);
     PubSubIQHandler<UnsubscribeRequest, MMXStatus> iqHandler =
         new PubSubIQHandler<UnsubscribeRequest, MMXStatus>();
     try {
@@ -609,27 +596,24 @@ public class PubSubManager {
   /**
    * List subscriptions in a global topic or all global topics. If
    * <code>topic</code> is null, it is same as {@link #listAllSubscriptions()}
-   * @param topic A topic object.
+   * @param topic A topic object with the topic ID.
    * @return A list of subscriptions, or an empty list.
    * @throws MMXException
    */
   public List<MMXSubscription> listSubscriptions(MMXTopic topic)
                                           throws MMXException {
-    String topicName = null;
-    if (topic != null) {
-      topicName = TopicHelper.normalizePath(topic.getName());
-    }
-    return listSubscriptions(topicName, SHOW_USER_TOPIC_SUBSCRIPTIONS ?
+    String nodeId = (topic == null) ? null : getNodeId(topic);
+    return listSubscriptions(nodeId, SHOW_USER_TOPIC_SUBSCRIPTIONS ?
         ListType.both : ListType.global);
   }
 
-  private List<MMXSubscription> listSubscriptions(String topicName, ListType type)
+  private List<MMXSubscription> listSubscriptions(String nodeId, ListType type)
       throws MMXException {
     ArrayList<MMXSubscription> list = new ArrayList<MMXSubscription>();
     try {
       List<Subscription> subList = getPubSubManager().getSubscriptions();
       for (Subscription sub : subList) {
-        MMXTopic mmxTopic = nodeToTopic(sub.getNode());
+        MMXTopic mmxTopic = TopicHelper.toTopicId(sub.getNode(), null);
         if (mmxTopic == null) {
           continue;
         }
@@ -637,8 +621,7 @@ public class PubSubManager {
             ((type == ListType.personal) ^ mmxTopic.isUserTopic())) {
           continue;
         }
-        String topic = mmxTopic.getName();
-        if (topicName == null || topicName.equalsIgnoreCase(mmxTopic.getName())) {
+        if (nodeId == null || nodeId.equalsIgnoreCase(sub.getNode())) {
           list.add(new MMXSubscription(mmxTopic, sub.getId(),
                                         XIDUtil.getResource(sub.getJid())));
         }
@@ -656,7 +639,7 @@ public class PubSubManager {
 
   /**
    * Get all subscribers to a topic.
-   * @param topic A topic object.
+   * @param topic A topic object with topic ID.
    * @param offset offset of the result to be returned
    * @param limit -1 for unlimited, or > 0.
    * @return A result set.
@@ -666,12 +649,8 @@ public class PubSubManager {
    */
   public MMXResult<List<UserInfo>> getSubscribers(MMXTopic topic, int offset, int limit)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
-    if (topic instanceof MMXPersonalTopic) {
-      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
-    }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    SubscribersRequest rqt = new SubscribersRequest(
-        Utils.escapeNode(topic.getUserId()), topicPath, offset, limit);
+    SubscribersRequest rqt = new SubscribersRequest(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), offset, limit);
     PubSubIQHandler<SubscribersRequest, SubscribersResponse> iqHandler =
         new PubSubIQHandler<SubscribersRequest, SubscribersResponse>();
     try {
@@ -708,19 +687,20 @@ public class PubSubManager {
    * @hide
    * List all (recursively) or one level of personal and/or global
    * topics at a starting topic.  All non-personal user topics are not
-   * discoverable.
-   * @param startingTopic null for root, or a starting topic name.
+   * discoverable.  The <code>type</code> is applicable only if
+   * <code>startingTopicId</code> is null.
+   * @param startingTopicId null for root, or a starting topic ID.
    * @param type Filtering types: global-only, personal-only, or both.
    * @param recursive true to list recursively; otherwise, false.
    * @return A list of topics or an empty list.
    * @throws MMXException
    */
-  public List<MMXTopicInfo> listTopics(String startingTopic, ListType type,
+  public List<MMXTopicInfo> listTopics(String startingTopicId, ListType type,
                                     boolean recursive) throws MMXException {
     try {
       TopicAction.ListRequest rqt = new TopicAction.ListRequest()
                                         .setRecursive(recursive)
-                                        .setStart(startingTopic)
+                                        .setStart(startingTopicId)
                                         .setType(type);
       PubSubIQHandler<TopicAction.ListRequest, TopicAction.ListResponse> iqHandler =
           new PubSubIQHandler<TopicAction.ListRequest, TopicAction.ListResponse>();
@@ -740,57 +720,57 @@ public class PubSubManager {
     }
   }
 
-  /**
-   * @hide
-   * Show all topics is for debugging only.  It must not be exposed to public.
-   * You need a system administrator account to see all topics.
-   * @return
-   * @throws MMXException
-   */
-  List<MMXTopicId> SAT() throws MMXException {
-    ArrayList<MMXTopicId> list = new ArrayList<MMXTopicId>();
-    try {
-      ServiceDiscoveryManager discoMgr = ServiceDiscoveryManager.getInstanceFor(
-          mCon.getXMPPConnection());
-      DiscoverItems items = discoMgr.discoverItems(mCon.getPubSubService());
-      List<DiscoverItems.Item> listOfItem = items.getItems();
-      for (DiscoverItems.Item item : listOfItem) {
-        String nodeId = item.getNode();
-        // TODO: the topic is the full path now; it cannot be used.
-        MMXTopicId topic = new MMXTopicId(null, nodeId);
-        list.add(topic);
-      }
-      return list;
-    } catch (XMPPErrorException e) {
-      if (XMPPError.Condition.item_not_found.equals(e.getXMPPError().getCondition())) {
-        return list;
-      }
-      throw new MMXException(e.getMessage(), e);
-    } catch (Throwable e) {
-      throw new MMXException(e.getMessage(), e);
-    }
-  }
-
-  /**
-   * @hide
-   * Clear all topics is for debugging only.  It must not be exposed to public.
-   * You need a system administrator account to clear all topics.
-   */
-  void CAT() {
-    try {
-      List<MMXTopicId> list = SAT();
-      for (MMXTopicId topic : list) {
-        Log.v(TAG, "deleting topic "+topic.getName());
-        try {
-          getPubSubManager().deleteNode(topic.getName());
-        } catch (Throwable e) {
-          Log.e(TAG, "Delete topic '"+topic.getName()+"' failed: ", e);
-        }
-      }
-    } catch (MMXException e) {
-      e.printStackTrace();
-    }
-  }
+//  /**
+//   * @hide
+//   * Show all topics is for debugging only.  It must not be exposed to public.
+//   * You need a system administrator account to see all topics.
+//   * @return
+//   * @throws MMXException
+//   */
+//  List<MMXTopicId> SAT() throws MMXException {
+//    ArrayList<MMXTopicId> list = new ArrayList<MMXTopicId>();
+//    try {
+//      ServiceDiscoveryManager discoMgr = ServiceDiscoveryManager.getInstanceFor(
+//          mCon.getXMPPConnection());
+//      DiscoverItems items = discoMgr.discoverItems(mCon.getPubSubService());
+//      List<DiscoverItems.Item> listOfItem = items.getItems();
+//      for (DiscoverItems.Item item : listOfItem) {
+//        String nodeId = item.getNode();
+//        // TODO: the topic is the full path now; it cannot be used.
+//        MMXTopicId topic = new MMXTopicId(null, nodeId);
+//        list.add(topic);
+//      }
+//      return list;
+//    } catch (XMPPErrorException e) {
+//      if (XMPPError.Condition.item_not_found.equals(e.getXMPPError().getCondition())) {
+//        return list;
+//      }
+//      throw new MMXException(e.getMessage(), e);
+//    } catch (Throwable e) {
+//      throw new MMXException(e.getMessage(), e);
+//    }
+//  }
+//
+//  /**
+//   * @hide
+//   * Clear all topics is for debugging only.  It must not be exposed to public.
+//   * You need a system administrator account to clear all topics.
+//   */
+//  void CAT() {
+//    try {
+//      List<MMXTopicId> list = SAT();
+//      for (MMXTopicId topic : list) {
+//        Log.v(TAG, "deleting topic "+topic.getName());
+//        try {
+//          getPubSubManager().deleteNode(topic.getName());
+//        } catch (Throwable e) {
+//          Log.e(TAG, "Delete topic '"+topic.getName()+"' failed: ", e);
+//        }
+//      }
+//    } catch (MMXException e) {
+//      e.printStackTrace();
+//    }
+//  }
 
   private ConfigureForm optionsToFormSkipNull(MMXTopicOptions options) {
     ConfigureForm form = new ConfigureForm(FormType.submit);
@@ -849,7 +829,7 @@ public class PubSubManager {
    * Update the configurable options for a global topic or personal topic which
    * must be owned by the current user.  If a field in <code>options</code>
    * is null, its value will remain unchanged.
-   * @param topic A global topic or personal topic.
+   * @param topic The topic object with topic ID.
    * @param options The topic options to be updated.
    * @return MMXStatus
    * @throws TopicNotFoundException
@@ -858,14 +838,16 @@ public class PubSubManager {
    */
   public MMXStatus updateOptions(MMXTopic topic, MMXTopicOptions options)
                     throws TopicNotFoundException, MMXException {
-    if (topic instanceof MMXUserTopic && !mCon.getUserId().equals(topic.getUserId())) {
+    if (topic instanceof MMXPersonalTopic && topic.getUserId() == null) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+    }
+    String nodeId = getNodeId(topic);
+    if (topic instanceof MMXUserTopic &&
+        !mCon.getUserId().equals(TopicHelper.getUserId(nodeId))) {
       throw new TopicPermissionException(USER_TOPIC_NOT_ALLOWED);
     }
-    String topicName = TopicHelper.normalizePath(topic.getName());
-    String realTopic = topic.isUserTopic() ?
-        makeMyTopic(topicName) : makeAppTopic(topicName);
     try {
-      LeafNode leaf = getNode(realTopic, topicName);
+      LeafNode leaf = getNode(nodeId, topic.getDisplayName());
       ConfigureForm form = optionsToFormSkipNull(options);
       leaf.sendConfigurationForm(form);
       return new MMXStatus().setCode(StatusCode.SUCCESS);
@@ -879,21 +861,23 @@ public class PubSubManager {
   /**
    * Get the configurable options of a topic.  The returned options can be
    * updated by calling {@link #updateOptions(MMXTopic, MMXTopicOptions)}.
-   * @param topic A global or personal topic.
+   * @param topic The topic object with topic ID.
    * @return The options of the topic.
    * @throws TopicNotFoundException
    * @throws MMXException
    */
   public MMXTopicOptions getOptions(MMXTopic topic)
       throws TopicNotFoundException, MMXException {
-    if (topic instanceof MMXUserTopic && !mCon.getUserId().equals(topic.getUserId())) {
+    if (topic instanceof MMXPersonalTopic && topic.getUserId() == null) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
+    }
+    String nodeId = getNodeId(topic);
+    if (topic instanceof MMXUserTopic &&
+        !mCon.getUserId().equals(TopicHelper.getUserId(nodeId))) {
       throw new TopicPermissionException(USER_TOPIC_NOT_ALLOWED);
     }
-    String topicName = TopicHelper.normalizePath(topic.getName());
-    String realTopic = topic.isUserTopic() ?
-        makeMyTopic(topicName) : makeAppTopic(topicName);
     try {
-      LeafNode leaf = getNode(realTopic, topicName);
+      LeafNode leaf = getNode(nodeId, topic.getDisplayName());
       ConfigureForm form = leaf.getNodeConfiguration();
       return formToOptions(form);
     } catch (MMXException e) {
@@ -903,20 +887,14 @@ public class PubSubManager {
     }
   }
 
-  // TODO: we need to implement getTopic(MMXTopic topic) using custom IQ.
-//  public MMXTopicInfo getTopic(MMXTopic topic) throws MMXException {
-//    // TODO: not implemented.
-//    return null;
-//  }
-
   /**
    * Create a topic with options.  The topic may be globally visible or hidden
    * under the user name space.  Without specifying the options, the topic is
    * can be searched by anyone, accessible by subscribers, one persisted item,
-   * is publishable by anyone.
+   * can be published by anyone.
    * @param topic A MMXGlobalTopic or MMXPersonalTopic.
    * @param options Topic creation options, or null.
-   * @return MMXTopic object for global topic.
+   * @return MMXTopic object for topic with a unique ID.
    * @throws MMXException
    * @throws TopicExistsException
    * @see com.magnet.mmx.client.common.MMXGlobalTopic
@@ -927,19 +905,22 @@ public class PubSubManager {
     if (topic instanceof MMXUserTopic && !mCon.getUserId().equals(topic.getUserId())) {
       throw new TopicPermissionException(USER_TOPIC_NOT_ALLOWED);
     }
+    if (topic.getId() != null) {
+      throw new MMXException("Cannot create topic with ID");
+    }
     TopicHelper.checkPathAllowed(topic.getName());
     String topicName = TopicHelper.normalizePath(topic.getName());
     CreateRequest rqt = new CreateRequest(topicName, topic.isUserTopic(), options);
-    PubSubIQHandler<CreateRequest, MMXStatus> iqHandler =
-        new PubSubIQHandler<CreateRequest, MMXStatus>();
+    PubSubIQHandler<CreateRequest, CreateResponse> iqHandler =
+        new PubSubIQHandler<CreateRequest, CreateResponse>();
     try {
       iqHandler.sendSetIQ(mCon, Constants.PubSubCommand.createtopic.toString(),
-        rqt, MMXStatus.class, iqHandler);
-      MMXStatus status = iqHandler.getResult();
-      if (status.getCode() == StatusCode.SUCCESS) {
-        return topic;
+        rqt, CreateResponse.class, iqHandler);
+      CreateResponse resp = iqHandler.getResult();
+      if (resp.getCode() == StatusCode.SUCCESS) {
+        return resp.getId();
       }
-      throw new MMXException(status.getMessage(), status.getCode());
+      throw new MMXException(resp.getMessage(), resp.getCode());
     } catch (MMXException e) {
       if (e.getCode() == MMXStatus.CONFLICT) {
         throw new TopicExistsException(e.getMessage());
@@ -979,8 +960,8 @@ public class PubSubManager {
     if (topic instanceof MMXUserTopic && !mCon.getUserId().equals(topic.getUserId())) {
       throw new TopicPermissionException(USER_TOPIC_NOT_ALLOWED);
     }
-    String topicName = TopicHelper.normalizePath(topic.getName());
-    DeleteRequest rqt = new DeleteRequest(topicName, topic.isUserTopic());
+    DeleteRequest rqt = new DeleteRequest(topic.getId(), topic.getName(),
+                                          topic.isUserTopic());
     PubSubIQHandler<DeleteRequest, MMXStatus> iqHandler =
         new PubSubIQHandler<DeleteRequest, MMXStatus>();
     try {
@@ -997,28 +978,6 @@ public class PubSubManager {
       }
       throw e;
     }
-  }
-
-  // Make a personal topic for the current user as "/appId/myUserID/topic"
-  private String makeMyTopic(String topic) {
-    return mMyTopic + ((topic.charAt(0) == '/') ?
-        topic.toLowerCase().substring(1) : topic.toLowerCase());
-  }
-
-  // Make a personal topic of a user as "/appID/userID/topic".  The userID part
-  // will always be escaped and lower case.
-  private String makeUserTopic(String userId, String topic) {
-    if (topic.charAt(0) == '/') {
-      return mAppPrefix+Utils.escapeNode(userId.toLowerCase())+topic.toLowerCase();
-    } else {
-      return mAppPrefix+Utils.escapeNode(userId.toLowerCase())+'/'+topic.toLowerCase();
-    }
-  }
-
-  // Make an app topic "/appId/*/topic".
-  private String makeAppTopic(String topic) {
-    return mAppTopic+ ((topic.charAt(0) == '/') ?
-        topic.toLowerCase().substring(1) : topic.toLowerCase());
   }
 
   /**
@@ -1125,8 +1084,7 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicName = TopicHelper.normalizePath(topic.getName());
-    topic = new MMXTopicId(topic.getUserId(), topicName);
+    topic = new MMXTopicId(topic.getId(), null, topic.getUserId(), topic.getName());
     PubSubIQHandler<MMXTopic, TopicInfo> iqHandler =
         new PubSubIQHandler<MMXTopic, TopicInfo>();
     try {
@@ -1160,8 +1118,7 @@ public class PubSubManager {
       if (topic instanceof MMXPersonalTopic) {
         ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
       }
-      String topicName = TopicHelper.normalizePath(topic.getName());
-      rqt.add(new MMXTopicId(topic.getUserId(), topicName));
+      rqt.add(new MMXTopicId(topic.getId(), null, topic.getUserId(), topic.getName()));
     }
 
     List<MMXTopicInfo> res = new ArrayList<MMXTopicInfo>(topics.size());
@@ -1362,7 +1319,8 @@ public class PubSubManager {
     if (topic instanceof MMXPersonalTopic) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    TopicTags rqt = new TopicTags(Utils.escapeNode(topic.getUserId()), topic.getName(), tags);
+    TopicTags rqt = new TopicTags(topic.getId(),
+        Utils.escapeNode(topic.getUserId()), topic.getName(), tags);
     PubSubIQHandler<TopicTags, MMXStatus> iqHandler =
         new PubSubIQHandler<TopicTags, MMXStatus>();
     iqHandler.sendSetIQ(mCon, cmd.toString(), rqt, MMXStatus.class, iqHandler);
@@ -1416,18 +1374,16 @@ public class PubSubManager {
 
   /**
    * Get the privacy list for a topic.
-   * @param topic
+   * @param topic The topic object with topic ID.
    * @return
    * @throws MMXException
    */
   public List<MMXid> getPrivacyList(MMXTopic topic) throws MMXException {
-    if (topic instanceof MMXPersonalTopic) {
+    if (topic instanceof MMXPersonalTopic && topic.getUserId() == null) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    String realTopic = (topic.getUserId() != null) ?
-            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
-    return PrivacyManager.getInstance(mCon).getPrivacyList(realTopic);
+    String nodeId = getNodeId(topic);
+    return PrivacyManager.getInstance(mCon).getPrivacyList(nodeId);
   }
 
   /**
@@ -1438,16 +1394,14 @@ public class PubSubManager {
    * @throws MMXException
    */
   public void setPrivacyList(MMXTopic topic, List<MMXid> xids) throws MMXException {
-    if (topic instanceof MMXPersonalTopic) {
+    if (topic instanceof MMXPersonalTopic && topic.getUserId() == null) {
       ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    String realTopic = (topic.getUserId() != null) ?
-            makeUserTopic(topic.getUserId(), topicPath) : makeAppTopic(topicPath);
+    String nodeId = getNodeId(topic);
     if (xids == null) {
-      PrivacyManager.getInstance(mCon).deletePrivacyList(realTopic);
+      PrivacyManager.getInstance(mCon).deletePrivacyList(nodeId);
     } else {
-      PrivacyManager.getInstance(mCon).setPrivacyList(realTopic, xids);
+      PrivacyManager.getInstance(mCon).setPrivacyList(nodeId, xids);
     }
   }
 
@@ -1575,11 +1529,13 @@ public class PubSubManager {
    */
   public List<MMXid> getWhitelist(MMXPersonalTopic topic)
         throws TopicNotFoundException, TopicPermissionException, MMXException {
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    String realTopic = makeUserTopic(mCon.getUserId(), topicPath);
+    if (topic.getUserId() == null) {
+      topic.setUserId(mCon.getUserId());
+    }
+    String nodeId = getNodeId(topic);
     try {
       PubSub iq = PubSub.createPubsubPacket("pubsub."+mCon.getDomain(), Type.GET,
-          new AffiliationsPacket(realTopic), PubSubNamespace.OWNER);
+          new AffiliationsPacket(nodeId), PubSubNamespace.OWNER);
       PubSub packet = (PubSub) mCon.getXMPPConnection().createPacketCollectorAndSend(iq).
           nextResultOrThrow();
       AffiliationsPacket affsExt = (AffiliationsPacket) packet.getExtension(
@@ -1633,8 +1589,10 @@ public class PubSubManager {
   private void setAffiliations(MMXPersonalTopic topic, List<MMXid> xids,
                                 Affiliation.Type type)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
-    String topicPath = TopicHelper.normalizePath(topic.getName());
-    String realTopic = makeUserTopic(mCon.getUserId(), topicPath);
+    if (topic.getUserId() == null) {
+      topic.setUserId(mCon.getUserId());
+    }
+    String nodeId = getNodeId(topic);
     try {
       List<AffiliationPacket> affs = new ArrayList<AffiliationPacket>(xids.size());
       for (MMXid xid : xids) {
@@ -1642,7 +1600,7 @@ public class PubSubManager {
             xid, mCon.getAppId(), mCon.getDomain()), type));
       }
       PubSub iq = PubSub.createPubsubPacket("pubsub."+mCon.getDomain(), Type.SET,
-          new AffiliationsPacket(realTopic, affs), PubSubNamespace.OWNER);
+          new AffiliationsPacket(nodeId, affs), PubSubNamespace.OWNER);
       Packet packet = mCon.getXMPPConnection().createPacketCollectorAndSend(iq).
           nextResultOrThrow();
       Log.i(TAG, packet.toString());
@@ -1656,6 +1614,18 @@ public class PubSubManager {
       throw new MMXException("Unable to set subscriber whitelist", e);
     } catch (Throwable e) {
       throw new MMXException("Unable to set subscriber whitelist", e);
+    }
+  }
+
+  // Get the node ID from topic object.  If the topic ID is available, the
+  // node ID will be derived from it.  Otherwise, look up the node ID by the
+  // fully qualified name from the server (it is slower)
+  private String getNodeId(MMXTopic topic) throws MMXException {
+    if (topic.getId() != null) {
+      return TopicHelper.toNodeId(mAppId, topic.getId());
+    } else {
+      MMXTopicInfo topicInfo = getTopic(topic);
+      return TopicHelper.toNodeId(mAppId, topicInfo.getTopic().getId());
     }
   }
 }
