@@ -29,37 +29,13 @@ import com.magnet.mmx.util.XIDUtil;
  */
 public class MMXTopicInfo implements Serializable {
   private static final long serialVersionUID = -5212539242296015590L;
-  private MMXTopic mTopic;
-  private boolean mCollection;
-  private String mDescription;
-  private boolean mPersistent;
-  private int mMaxItems;
-  private int mMaxPayloadSize;
-  private Date mCreationDate;
-  private Date mModifiedDate;
-  private PublisherType mPublisherType;
-  private MMXid mCreator;
-  private boolean mSubscriptionEnabled;
-  private boolean mPushMutedByUser;
-  private Date mPushMutedUntil;
+  private final TopicInfo mTopicInfo;
 
   /**
    * @hide
    */
-  public MMXTopicInfo(MMXTopic topic, TopicInfo topicInfo) {
-    mTopic = topic;
-    mCollection = topicInfo.isCollection();
-    mDescription = topicInfo.getDescription();
-    mPersistent = topicInfo.isPersistent();
-    mMaxItems = topicInfo.getMaxItems();
-    mMaxPayloadSize = topicInfo.getMaxPayloadSize();
-    mCreationDate = topicInfo.getCreationDate();
-    mModifiedDate = topicInfo.getModifiedDate();
-    mPublisherType = topicInfo.getPublisherType();
-    mCreator = XIDUtil.toXid(topicInfo.getCreator(), null);
-    mSubscriptionEnabled = topicInfo.isSubscriptionEnabled();
-    mPushMutedByUser = topicInfo.isPushMutedByUser();
-    mPushMutedUntil = topicInfo.getPushMutedUntil();
+  public MMXTopicInfo(TopicInfo topicInfo) {
+    mTopicInfo = topicInfo;
   }
 
   /**
@@ -67,7 +43,7 @@ public class MMXTopicInfo implements Serializable {
    * @return
    */
   public MMXTopic getTopic() {
-    return mTopic;
+    return mTopicInfo;
   }
 
   /**
@@ -78,7 +54,7 @@ public class MMXTopicInfo implements Serializable {
    * @return true for a collection topic; false for publishing and subscription.
    */
   public boolean isCollection() {
-    return mCollection;
+    return mTopicInfo.isCollection();
   }
 
   /**
@@ -86,7 +62,7 @@ public class MMXTopicInfo implements Serializable {
    * @return The description, or null.
    */
   public String getDescription() {
-    return mDescription;
+    return mTopicInfo.getDescription();
   }
 
   /**
@@ -94,7 +70,7 @@ public class MMXTopicInfo implements Serializable {
    * @return true if this topic holds persistent items; otherwise, false.
    */
   public boolean isPersistent() {
-    return mPersistent;
+    return mTopicInfo.isPersistent();
   }
 
   /**
@@ -102,7 +78,7 @@ public class MMXTopicInfo implements Serializable {
    * @return Maximum number of persisted published items.
    */
   public int getMaxItems() {
-    return mMaxItems;
+    return mTopicInfo.getMaxItems();
   }
 
   /**
@@ -110,7 +86,7 @@ public class MMXTopicInfo implements Serializable {
    * @return The configured maximum payload size.
    */
   public int getMaxPayloadSize() {
-    return mMaxPayloadSize;
+    return mTopicInfo.getMaxPayloadSize();
   }
 
   /**
@@ -118,7 +94,7 @@ public class MMXTopicInfo implements Serializable {
    * @return The topic creation date/time.
    */
   public Date getCreationDate() {
-    return mCreationDate;
+    return mTopicInfo.getCreationDate();
   }
 
   /**
@@ -126,7 +102,7 @@ public class MMXTopicInfo implements Serializable {
    * @return The last modified date/time.
    */
   public Date getModifiedDate() {
-    return mModifiedDate;
+    return mTopicInfo.getModifiedDate();
   }
 
   /**
@@ -134,7 +110,7 @@ public class MMXTopicInfo implements Serializable {
    * @return The publisher type.
    */
   public PublisherType getPublisherType() {
-    return mPublisherType;
+    return mTopicInfo.getPublisherType();
   }
 
   /**
@@ -142,7 +118,7 @@ public class MMXTopicInfo implements Serializable {
    * @return The creator MMX ID.
    */
   public MMXid getCreator() {
-    return mCreator;
+    return XIDUtil.toXid(mTopicInfo.getCreator(), null);
   }
 
   /**
@@ -150,7 +126,7 @@ public class MMXTopicInfo implements Serializable {
    * @return true if subscription is enabled; otherwise, false.
    */
   public boolean isSubscriptionEnabled() {
-    return mSubscriptionEnabled;
+    return mTopicInfo.isSubscriptionEnabled();
   }
 
   /**
@@ -158,7 +134,7 @@ public class MMXTopicInfo implements Serializable {
    * @return
    */
   public boolean isPushMutedByUser() {
-    return mPushMutedByUser;
+    return mTopicInfo.isPushMutedByUser();
   }
 
   /**
@@ -167,17 +143,15 @@ public class MMXTopicInfo implements Serializable {
    */
   @Override
   public String toString() {
-    return "[topic="+mTopic+", desc="+mDescription+", sub="+mSubscriptionEnabled+
-        ", maxItems="+mMaxItems+", maxSize="+mMaxPayloadSize+", pubtype="+mPublisherType+
-        ", create="+mCreationDate+", mod="+mModifiedDate+", creator="+mCreator+ ", isPushMutedByUser="+mPushMutedByUser+"]";
+    return mTopicInfo.toString();
   }
 
   public Date getPushMutedUntil() {
-    return mPushMutedUntil;
+    return mTopicInfo.getPushMutedUntil();
   }
 
-  public MMXTopicInfo setPushMutedUntil(Date mPushMutedUntil) {
-    this.mPushMutedUntil = mPushMutedUntil;
-    return this;
-  }
+//  public MMXTopicInfo setPushMutedUntil(Date mPushMutedUntil) {
+//    this.mPushMutedUntil = mPushMutedUntil;
+//    return this;
+//  }
 }

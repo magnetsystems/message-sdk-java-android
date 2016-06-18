@@ -1327,38 +1327,24 @@ public class PubSubManager {
     return iqHandler.getResult();
   }
 
-  // Convert a nodeID into various topic object.
-  MMXTopic nodeToTopic(String nodeId) {
-    if (nodeId.charAt(0) != TopicHelper.TOPIC_DELIM) {
-      return null;
-    }
-    int index1 = nodeId.indexOf(TopicHelper.TOPIC_DELIM, 1);
-    if (index1 < 0) {
-      return null;
-    }
-    int index2 = nodeId.indexOf(TopicHelper.TOPIC_DELIM, index1+1);
-    if (index2 < 0) {
-      return null;
-    }
-    String userId = nodeId.substring(index1+1, index2);
-    String topicName = nodeId.substring(index2+1);
-    return toTopic(userId, topicName);
-  }
+//  // Convert a nodeID into various topic object.
+//  MMXTopic nodeToTopic(String nodeId) {
+//    return TopicHelper.toTopicId(nodeId, null);
+//  }
 
-  // userId can be null (from custom IQ) or "*" (from nodeID)
-  MMXTopic toTopic(String userId, String topicName) {
-    if (userId == null || userId.charAt(0) == TopicHelper.TOPIC_FOR_APP) {
-      return new MMXGlobalTopic(topicName);
-    } else if (mCon.getUserId().equals(userId)) {
-      return new MMXPersonalTopic(topicName).setUserId(userId);
-    } else {
-      return new MMXUserTopic(userId, topicName);
-    }
-  }
+//  // userId can be null (from custom IQ) or "*" (from nodeID)
+//  MMXTopic toTopic(String userId, String topicName) {
+//    if (userId == null || userId.charAt(0) == TopicHelper.TOPIC_FOR_APP) {
+//      return new MMXGlobalTopic(topicName);
+//    } else if (mCon.getUserId().equals(userId)) {
+//      return new MMXPersonalTopic(topicName).setUserId(userId);
+//    } else {
+//      return new MMXUserTopic(userId, topicName);
+//    }
+//  }
 
   MMXTopicInfo toTopicInfo(TopicInfo info) {
-    MMXTopic topic = toTopic(info.getUserId(), info.getName());
-    return new MMXTopicInfo(topic, info);
+    return new MMXTopicInfo(info);
   }
 
   private void validateTags(List<String> tags) throws MMXException {
@@ -1527,10 +1513,10 @@ public class PubSubManager {
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public List<MMXid> getWhitelist(MMXPersonalTopic topic)
+  public List<MMXid> getWhitelist(MMXTopic topic)
         throws TopicNotFoundException, TopicPermissionException, MMXException {
-    if (topic.getUserId() == null) {
-      topic.setUserId(mCon.getUserId());
+    if (topic instanceof MMXPersonalTopic) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
     String nodeId = getNodeId(topic);
     try {
@@ -1568,7 +1554,7 @@ public class PubSubManager {
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public void setWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
+  public void setWhitelist(MMXTopic topic, List<MMXid> xids)
         throws TopicNotFoundException, TopicPermissionException, MMXException {
     setAffiliations(topic, xids, Affiliation.Type.member);
   }
@@ -1581,16 +1567,16 @@ public class PubSubManager {
    * @throws TopicPermissionException
    * @throws MMXException
    */
-  public void revokeWhitelist(MMXPersonalTopic topic, List<MMXid> xids)
+  public void revokeWhitelist(MMXTopic topic, List<MMXid> xids)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
     setAffiliations(topic, xids, Affiliation.Type.outcast);
   }
 
-  private void setAffiliations(MMXPersonalTopic topic, List<MMXid> xids,
+  private void setAffiliations(MMXTopic topic, List<MMXid> xids,
                                 Affiliation.Type type)
       throws TopicNotFoundException, TopicPermissionException, MMXException {
-    if (topic.getUserId() == null) {
-      topic.setUserId(mCon.getUserId());
+    if (topic instanceof MMXPersonalTopic) {
+      ((MMXPersonalTopic) topic).setUserId(mCon.getUserId());
     }
     String nodeId = getNodeId(topic);
     try {

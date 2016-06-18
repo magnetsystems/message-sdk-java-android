@@ -63,6 +63,7 @@ import com.magnet.mmx.protocol.StatusCode;
 import com.magnet.mmx.util.Converter;
 import com.magnet.mmx.util.QueueExecutor;
 import com.magnet.mmx.util.TagUtil;
+import com.magnet.mmx.util.TopicHelper;
 import com.magnet.mmx.util.XIDUtil;
 
 /**
@@ -92,7 +93,7 @@ public class MessageManager implements Closeable {
         final String to = packet.getTo();
         EventElement event = packet.getExtension("event", PubSubNamespace.EVENT.getXmlns());
         final NodeExtension nodeExt = event.getEvent();
-        final MMXTopic topic = PubSubManager.getInstance(mCon).nodeToTopic(nodeExt.getNode());
+        final MMXTopicId topic = TopicHelper.toTopicId(nodeExt.getNode(), null);
         if (PubSubElementType.ITEMS_EVENT.getElementName().equals(nodeExt.getElementName())) {
           mCon.getExecutor().post(new Runnable() {
             @Override
