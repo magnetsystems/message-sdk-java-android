@@ -29,6 +29,8 @@ import com.magnet.mmx.client.internal.survey.model.SurveyQuestionType;
 import com.magnet.mmx.client.internal.survey.model.SurveyResults;
 import com.magnet.mmx.client.internal.survey.model.SurveyType;
 import com.magnet.mmx.protocol.MMXChannelId;
+import com.magnet.mmx.util.ChannelHelper;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -523,7 +525,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     if(null != channel) {
       channel.publish(message, listener);
     } else if(StringUtil.isNotEmpty(channelIdentifier)) {
-      final MMXChannelId channelId = MMXChannelId.parse(channelIdentifier);
+      final MMXChannelId channelId = ChannelHelper.parseExtId(channelIdentifier);
       if(null != channelId) {
         MMXChannel.getChannel(channelId.getName(), StringUtil.isEmpty(channelId.getUserId()), channelId.getUserId(), new MMXChannel.OnFinishedListener<MMXChannel>() {
           @Override public void onSuccess(MMXChannel result) {
@@ -668,7 +670,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   public static class MMXPollIdentifier implements MMXTypedPayload {
     public static final String TYPE = "MMXPollIdentifier";
 
-    private String pollId;
+    private final String pollId;
 
     public MMXPollIdentifier(String pollId) {
       this.pollId = pollId;
@@ -682,15 +684,15 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   public static class MMXPollAnswer implements MMXTypedPayload {
     public static final String TYPE = "MMXPollAnswer";
 
-    private String pollId;
+    private final String pollId;
 
-    private String name;
+    private final String name;
 
-    private String question;
+    private final String question;
 
-    private List<MMXPollOption> previousSelection;
+    private final List<MMXPollOption> previousSelection;
 
-    private List<MMXPollOption> currentSelection;
+    private final List<MMXPollOption> currentSelection;
 
     public MMXPollAnswer(String pollId, String name, String question, List<MMXPollOption> currentSelection, List<MMXPollOption> previousSelection) {
       this.pollId = pollId;
@@ -738,7 +740,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   }
 
     public static class Builder {
-    private MMXPoll toBuild;
+    private final MMXPoll toBuild;
 
     public Builder() {
       toBuild = new MMXPoll();

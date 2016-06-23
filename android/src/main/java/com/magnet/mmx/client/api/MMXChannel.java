@@ -55,6 +55,7 @@ import com.magnet.mmx.protocol.TopicAction;
 import com.magnet.mmx.protocol.TopicAction.ListType;
 import com.magnet.mmx.protocol.TopicSummary;
 import com.magnet.mmx.protocol.UserInfo;
+import com.magnet.mmx.util.ChannelHelper;
 import com.magnet.mmx.util.TimeUtil;
 import java.io.File;
 import java.util.ArrayList;
@@ -73,7 +74,7 @@ import retrofit.Response;
 /**
  * The MMXChannel class uses the underneath pub/sub technology to provide
  * powerful communication paradigms. Caller uses this class for forum
- * discussions, private one-to-one chat, private group chat, 
+ * discussions, private one-to-one chat, private group chat,
  * one-to-many announcement, or many-to-one personal messaging.  A private
  * channel can also be used as a private persistent storage.  After an
  * {@link MMX.EventListener} is registered to {@link MMX}, caller usually does
@@ -167,10 +168,11 @@ public class MMXChannel implements Parcelable {
     FailureCode(MMX.FailureCode code) { super(code); }
 
     static FailureCode fromMMXFailureCode(MMX.FailureCode code, Throwable throwable) {
-      if (throwable != null)
+      if (throwable != null) {
         Log.d(TAG, "fromMMXFailureCode() ex="+throwable.getClass().getName());
-      else
+      } else {
         Log.d(TAG, "fromMMXFailureCode() ex=null");
+      }
       if (throwable instanceof MMXException) {
         return new FailureCode(((MMXException) throwable).getCode(), throwable.getMessage());
       } else {
@@ -190,6 +192,7 @@ public class MMXChannel implements Parcelable {
      *
      * @param result the result of the operation
      */
+    @Override
     public abstract void onSuccess(T result);
 
     /**
@@ -198,6 +201,7 @@ public class MMXChannel implements Parcelable {
      * @param code the failure code
      * @param throwable the throwable associated with this failure (may be null)
      */
+    @Override
     public abstract void onFailure(FailureCode code, Throwable throwable);
   }
 
@@ -206,7 +210,7 @@ public class MMXChannel implements Parcelable {
    *
    */
   static public final class Builder {
-    private MMXChannel mChannel;
+    private final MMXChannel mChannel;
 
     public Builder() {
       mChannel = new MMXChannel();
@@ -378,7 +382,7 @@ public class MMXChannel implements Parcelable {
       mChannelIdentifier = new MMXChannelId(isPublic() ? null : mOwnerId, mName);
     }
 
-    return mChannelIdentifier.getId();
+    return ChannelHelper.toExtId(mChannelIdentifier);
   }
 
   /**
@@ -517,6 +521,7 @@ public class MMXChannel implements Parcelable {
       @Override
       public void onException(final Throwable exception) {
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
           }
@@ -526,6 +531,7 @@ public class MMXChannel implements Parcelable {
       @Override
       public void onResult(final HashSet<String> result) {
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onSuccess(result);
           }
@@ -554,6 +560,7 @@ public class MMXChannel implements Parcelable {
       @Override
       public void onException(final Throwable exception) {
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
           }
@@ -564,6 +571,7 @@ public class MMXChannel implements Parcelable {
       public void onResult(MMXStatus result) {
         if (result.getCode() == MMXStatus.SUCCESS) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(null);
             }
@@ -571,6 +579,7 @@ public class MMXChannel implements Parcelable {
         } else {
           Log.e(TAG, "setTags(): received bad status from server: " + result);
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
             }
@@ -630,6 +639,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -653,6 +663,7 @@ public class MMXChannel implements Parcelable {
           }
         }
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onSuccess(new ListResult<MMXMessage>(result.totalCount, resultList));
           }
@@ -661,7 +672,7 @@ public class MMXChannel implements Parcelable {
     };
     task.execute();
   }
-  
+
   /**
    * @hide
    * Retrieve the messages from this channel by message ID.
@@ -686,6 +697,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -709,6 +721,7 @@ public class MMXChannel implements Parcelable {
           }
         }
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onSuccess(resultMap);
           }
@@ -717,7 +730,7 @@ public class MMXChannel implements Parcelable {
     };
     task.execute();
   }
-  
+
   /**
    * @hide
    * Delete the messages from this channel by the message ID.  Only the publisher
@@ -744,6 +757,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(
                       FailureCode.DEVICE_ERROR, exception), exception);
@@ -756,6 +770,7 @@ public class MMXChannel implements Parcelable {
       public void onResult(final Map<String, Integer> result) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1024,12 +1039,14 @@ public class MMXChannel implements Parcelable {
         }
         if (result.getCode() == MMXStatus.SUCCESS) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(null);
             }
           });
         } else {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
             }
@@ -1041,6 +1058,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception),
                       exception);
@@ -1074,6 +1092,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -1086,6 +1105,7 @@ public class MMXChannel implements Parcelable {
         MMXChannel.this.subscribed(true);
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1114,6 +1134,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -1126,6 +1147,7 @@ public class MMXChannel implements Parcelable {
         MMXChannel.this.subscribed(false);
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1388,6 +1410,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -1414,6 +1437,7 @@ public class MMXChannel implements Parcelable {
           if (user == null) {
             Log.e(TAG, "getAllSubscribers(): failing because unable to retrieve user info for subscriber: " + userId);
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.SERVER_ERROR, null), null);
               }
@@ -1423,6 +1447,7 @@ public class MMXChannel implements Parcelable {
           users.add(user);
         }
         MMX.getCallbackHandler().post(new Runnable() {
+          @Override
           public void run() {
             listener.onSuccess(new ListResult<User>(result.getTotal(), users));
           }
@@ -1442,7 +1467,7 @@ public class MMXChannel implements Parcelable {
                             final OnFinishedListener<MMXChannel> listener) {
     getChannel(name, true, listener);
   }
-  
+
   /**
    * Get a private channel with an exact name.  Only the channels created by
    * the current user can be retrieved.  The channel name is case insensitive.
@@ -1476,6 +1501,7 @@ public class MMXChannel implements Parcelable {
       public void onResult(final MMXChannel result) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1487,6 +1513,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -1498,7 +1525,7 @@ public class MMXChannel implements Parcelable {
     };
     task.execute();
   }
-  
+
   /**
    * Get all public channels with pagination.
    * @param limit the maximum number of results to return
@@ -1579,6 +1606,7 @@ public class MMXChannel implements Parcelable {
         //build the query result
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1590,6 +1618,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -1632,6 +1661,7 @@ public class MMXChannel implements Parcelable {
         //build the query result
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1643,6 +1673,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, exception), exception);
             }
@@ -1671,6 +1702,7 @@ public class MMXChannel implements Parcelable {
       public void onResult(final List<MMXChannel> result) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onSuccess(result);
             }
@@ -1682,6 +1714,7 @@ public class MMXChannel implements Parcelable {
       public void onException(final Throwable exception) {
         if (listener != null) {
           MMX.getCallbackHandler().post(new Runnable() {
+            @Override
             public void run() {
               listener.onFailure(FailureCode.fromMMXFailureCode(MMX.FailureCode.DEVICE_ERROR,exception),exception);
             }
@@ -1852,6 +1885,7 @@ public class MMXChannel implements Parcelable {
                 @Override
                 public void onResult(final List<ChannelDetail> result) {
                     MMX.getCallbackHandler().post(new Runnable() {
+                      @Override
                       public void run() {
                         listener.onSuccess(result);
                       }
@@ -1862,6 +1896,7 @@ public class MMXChannel implements Parcelable {
                 public void onException(final Throwable exception) {
                   if (listener != null) {
                     MMX.getCallbackHandler().post(new Runnable() {
+                      @Override
                       public void run() {
                         listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.GENERIC_FAILURE, exception),
                             exception);
@@ -2110,10 +2145,11 @@ public class MMXChannel implements Parcelable {
     }
     return channels;
   }
-  
+
   private static void validateClient(MMXClient mmxClient) throws MMXException {
-    if (!mmxClient.isConnected())
+    if (!mmxClient.isConnected()) {
       throw new MMXException("Current user is not logged in", StatusCode.UNAUTHORIZED);
+    }
   }
 
   private static ChannelService getChannelService() {
@@ -2142,10 +2178,10 @@ public class MMXChannel implements Parcelable {
     private static final String KEY_CHANNEL_OWNER_ID = "channelOwnerId";
     private static final String KEY_CHANNEL_CREATION_DATE = "channelCreationDate";
     private static final String KEY_CHANNEL_PUBLISH_PERMISSIONS = "channelPublishPermissions";
-    private MMXChannel mChannel;
-    private Set<User> mInvitees;
-    private User mInviter;
-    private String mComment;
+    private final MMXChannel mChannel;
+    private final Set<User> mInvitees;
+    private final User mInviter;
+    private final String mComment;
 
     private MMXInviteInfo(Set<User> invitees, User inviter, MMXChannel channel, String comment) {
       mInvitees = invitees;
@@ -2153,7 +2189,7 @@ public class MMXChannel implements Parcelable {
       mChannel = channel;
       mComment = comment;
     }
-    
+
     /**
      * The users who are being invited.
      *
@@ -2236,8 +2272,8 @@ public class MMXChannel implements Parcelable {
    */
   public static class MMXInvite {
     static final String TYPE = "invitation";
-    private MMXInviteInfo mInviteInfo;
-    private boolean mIncoming;
+    private final MMXInviteInfo mInviteInfo;
+    private final boolean mIncoming;
 
     private MMXInvite(MMXInviteInfo inviteInfo, boolean incoming) {
       mInviteInfo = inviteInfo;
@@ -2270,9 +2306,11 @@ public class MMXChannel implements Parcelable {
               .type(TYPE)
               .build();
       message.send(new MMXMessage.OnFinishedListener<String>() {
+        @Override
         public void onSuccess(String result) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onSuccess(MMXInvite.this);
               }
@@ -2280,9 +2318,11 @@ public class MMXChannel implements Parcelable {
           }
         }
 
+        @Override
         public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
               }
@@ -2314,6 +2354,7 @@ public class MMXChannel implements Parcelable {
             public void onSuccess(String result) {
               if (listener != null) {
                 MMX.getCallbackHandler().post(new Runnable() {
+                  @Override
                   public void run() {
                     listener.onSuccess(MMXInvite.this);
                   }
@@ -2325,6 +2366,7 @@ public class MMXChannel implements Parcelable {
             public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
               if (listener != null) {
                 MMX.getCallbackHandler().post(new Runnable() {
+                  @Override
                   public void run() {
                     listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
                   }
@@ -2338,6 +2380,7 @@ public class MMXChannel implements Parcelable {
         public void onFailure(FailureCode code, final Throwable ex) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
               }
@@ -2363,6 +2406,7 @@ public class MMXChannel implements Parcelable {
         public void onSuccess(String result) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onSuccess(MMXInvite.this);
               }
@@ -2374,6 +2418,7 @@ public class MMXChannel implements Parcelable {
         public void onFailure(MMXMessage.FailureCode code, final Throwable ex) {
           if (listener != null) {
             MMX.getCallbackHandler().post(new Runnable() {
+              @Override
               public void run() {
                 listener.onFailure(FailureCode.fromMMXFailureCode(FailureCode.DEVICE_ERROR, ex), ex);
               }
@@ -2414,7 +2459,7 @@ public class MMXChannel implements Parcelable {
     static final String TYPE = "invitationResponse";
     private static final String KEY_IS_ACCEPTED = "inviteIsAccepted";
     private static final String KEY_RESPONSE_TEXT = "inviteResponseText";
-    private MMXInviteInfo mInviteInfo;
+    private final MMXInviteInfo mInviteInfo;
     private boolean mAccepted;
     private String mResponseText;
 
@@ -2546,10 +2591,12 @@ public class MMXChannel implements Parcelable {
 
   public static final Parcelable.Creator<MMXChannel> CREATOR =
       new Parcelable.Creator<MMXChannel>() {
+        @Override
         public MMXChannel createFromParcel(Parcel source) {
           return new MMXChannel(source);
         }
 
+        @Override
         public MMXChannel[] newArray(int size) {
           return new MMXChannel[size];
         }
