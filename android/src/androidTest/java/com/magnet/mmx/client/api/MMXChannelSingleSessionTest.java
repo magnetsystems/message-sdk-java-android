@@ -131,16 +131,19 @@ public class MMXChannelSingleSessionTest {
 
     String suffix = String.valueOf(System.currentTimeMillis());
 
-    User user2 = UserHelper.registerUser(UserHelper.MMX_TEST_USER_2 + suffix, UserHelper.MMX_TEST_USER_2, UserHelper.MMX_TEST_USER_2, null, false);
+    User user2 = UserHelper.registerUser(UserHelper.MMX_TEST_USER_2 + suffix,
+        UserHelper.MMX_TEST_USER_2, UserHelper.MMX_TEST_USER_2, null, false);
 
     //helpLogin(MMX_TEST_USER_1);
 
-    Set<User> subscribers = new HashSet<>();
+    Set<User> subscribers = new HashSet<User>();
     subscribers.add(user2);
 
     String channelName = "Chat_channel_" + suffix;
     String channelSummary = channelName + " Summary";
     final MMXChannel channel = ChannelHelper.create(channelName, channelSummary, false, subscribers);
+    assertNotNull(channel);
+    assertNotNull(channel.getId());
 
     subscribers.add(User.getCurrentUser());
 
@@ -252,6 +255,7 @@ public class MMXChannelSingleSessionTest {
         return false;
       }
 
+      @Override
       public boolean onInviteReceived(MMXChannel.MMXInvite invite) {
         assertThat(invite.getInviteInfo().getComment()).isEqualTo(INVITE_MESSAGE);
         invite.accept(INVITE_RESPONSE_MESSAGE, null);
@@ -259,6 +263,7 @@ public class MMXChannelSingleSessionTest {
         return true;
       }
 
+      @Override
       public boolean onInviteResponseReceived(MMXChannel.MMXInviteResponse inviteResponse) {
         assertThat(inviteResponse.getResponseText()).isEqualTo(INVITE_RESPONSE_MESSAGE);
         inviteResponseReceiveLatch.countDown();
@@ -346,6 +351,7 @@ public class MMXChannelSingleSessionTest {
     //find public channels
     final ExecMonitor<Integer, FailureCode> findNullResult = new ExecMonitor<Integer, FailureCode>();
     MMXChannel.findPublicChannelsByName(null, null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         findNullResult.invoked(result.totalCount);
       }
@@ -357,16 +363,18 @@ public class MMXChannelSingleSessionTest {
       }
     });
     ExecMonitor.Status status = findNullResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.INVOKED)
+    if (status == ExecMonitor.Status.INVOKED) {
       fail("Find channel should have failed for findByName(null)");
-    else if (status == ExecMonitor.Status.FAILED)
+    } else if (status == ExecMonitor.Status.FAILED) {
       assertThat(findNullResult.getFailedValue()).isEqualTo(MMX.FailureCode.BAD_REQUEST);
-    else
+    } else {
       fail("Find channel timed out");
+    }
 
     //test empty
     final ExecMonitor<Integer, FailureCode> findEmptyResult = new ExecMonitor<Integer, FailureCode>();
     MMXChannel.findPublicChannelsByName("", null, null, new MMXChannel.OnFinishedListener<ListResult<MMXChannel>>() {
+      @Override
       public void onSuccess(ListResult<MMXChannel> result) {
         findEmptyResult.invoked(result.totalCount);
       }
@@ -378,11 +386,12 @@ public class MMXChannelSingleSessionTest {
       }
     });
     status = findEmptyResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.INVOKED)
+    if (status == ExecMonitor.Status.INVOKED) {
       fail("Find channel should have failed for findByName(null)");
-    else if (status == ExecMonitor.Status.FAILED)
+    } else if (status == ExecMonitor.Status.FAILED) {
       assertThat(findNullResult.getFailedValue()).isEqualTo(MMX.FailureCode.BAD_REQUEST);
-    else
+    } else {
       fail("Find channel timed out");
+    }
   }
 }

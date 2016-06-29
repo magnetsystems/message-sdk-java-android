@@ -20,10 +20,12 @@ import retrofit.http.Path;
 
 public interface ChannelService {
   @POST("/api/com.magnet.server/channel/create")
-  MagnetCall<Void> createChannel(@Body ChannelInfo channelInfo, Callback<Void> callback);
+  MagnetCall<ChannelCreateResponse> createChannel(@Body ChannelInfo channelInfo,
+      Callback<ChannelCreateResponse> callback);
 
   @POST("/api/com.magnet.server/channel/summary")
-  MagnetCall<List<ChannelSummaryResponse>> getChannelSummary(@Body ChannelSummaryRequest request, Callback<List<ChannelSummaryResponse>> callback);
+  MagnetCall<List<ChannelSummaryResponse>> getChannelSummary(@Body ChannelSummaryRequest request,
+      Callback<List<ChannelSummaryResponse>> callback);
 
   /**
    *
@@ -43,9 +45,9 @@ public interface ChannelService {
    * @param body style:Body optional:false
    * @param callback asynchronous callback
    */
-  @POST("com.magnet.server/channel/{channelName}/subscribers/add")
+  @POST("com.magnet.server/channel/{channelId}/subscribers/add")
   MagnetCall<ChannelSubscribeResponse> addSubscriberToChannel(
-      @Path("channelName") String channelName,
+      @Path("channelId") String channelId,
       @Body ChannelSubscribeRequest body,
       retrofit.Callback<ChannelSubscribeResponse> callback
   );
@@ -56,9 +58,9 @@ public interface ChannelService {
    * @param body style:Body optional:false
    * @param callback asynchronous callback
    */
-  @POST("com.magnet.server/channel/{channelName}/subscribers/remove")
+  @POST("com.magnet.server/channel/{channelId}/subscribers/remove")
   MagnetCall<ChannelSubscribeResponse> removeSubscriberFromChannel(
-      @Path("channelName") String channelName,
+      @Path("channelId") String channelId,
       @Body ChannelSubscribeRequest body,
       retrofit.Callback<ChannelSubscribeResponse> callback
   );
@@ -117,7 +119,7 @@ public interface ChannelService {
   }
 
   class ChannelSubscribeResponse extends BaseMMXResponse {
-    private Map<String, SubscribeResult> subscribeResponse;
+    private final Map<String, SubscribeResult> subscribeResponse;
 
     public ChannelSubscribeResponse(int code, String message,
         Map<String, SubscribeResult> subscribeResponse) {
@@ -130,7 +132,7 @@ public interface ChannelService {
     }
 
     public static class SubscribeResult extends BaseMMXResponse {
-      private String subId;
+      private final String subId;
 
       public SubscribeResult(int code, String message, String subId) {
         super(code, message);
@@ -209,7 +211,7 @@ public interface ChannelService {
   }
 
   class ChannelQueryResponse extends BaseMMXResponse {
-    private List<ChannelInfoResponse> channels;
+    private final List<ChannelInfoResponse> channels;
 
     public ChannelQueryResponse(int code, String message, List<ChannelInfoResponse> channels) {
       super(code, message);
@@ -221,18 +223,31 @@ public interface ChannelService {
     }
   }
 
+  public static class ChannelCreateResponse extends BaseMMXResponse {
+    private final String channelId;
+
+    public ChannelCreateResponse(int code, String message, String channelId) {
+      super(code, message);
+      this.channelId = channelId;
+    }
+
+    public String getChannelId() {
+      return channelId;
+    }
+  }
+
   class ChannelInfo extends ChannelSubscribeRequest {
-    private String channelName;
+    private final String channelName;
 
-    private String description;
+    private final String description;
 
-    private String pushConfigName;
+    private final String pushConfigName;
 
     //Who can publish to the channels.
     //anyone ( default)
     //owner
     //subscribers
-    private String publishPermission;
+    private final String publishPermission;
 
     public ChannelInfo(String channelName, String description, boolean privateChannel,
         String publishPermission, Set<String> subscribers, String pushConfigName) {
@@ -261,8 +276,8 @@ public interface ChannelService {
   }
 
   class ChannelBySubscriberRequest {
-    private ChannelMatchType matchFilter;
-    private Set<String> subscribers;
+    private final ChannelMatchType matchFilter;
+    private final Set<String> subscribers;
 
     public ChannelBySubscriberRequest(Set<String> subscribers,
         ChannelMatchType matchFilter) {

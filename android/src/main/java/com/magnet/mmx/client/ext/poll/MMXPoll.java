@@ -157,7 +157,8 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
             if(response.isSuccess()) {
               if (null != listener) {
                 SurveyResults surveyResults = response.body();
-                listener.onSuccess(fromSurvey(surveyResults.getSurvey(), surveyResults.getSummary(), surveyResults.getMyAnswers()));
+                listener.onSuccess(fromSurvey(surveyResults.getSurvey(),
+                    surveyResults.getSummary(), surveyResults.getMyAnswers()));
               }
             } else {
               handleError(MMX.FailureCode.GENERIC_FAILURE, new Exception(response.message()));
@@ -225,7 +226,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     List<SurveyAnswer> answers = null;
     if(null != chosenOptions) {
-      answers = new ArrayList<>(chosenOptions.size());
+      answers = new ArrayList<SurveyAnswer>(chosenOptions.size());
       for (MMXPollOption option : chosenOptions) {
         answers.add(new SurveyAnswer.SurveyAnswerBuilder().questionId(questionId)
             .selectedOptionId(option.getOptionId())
@@ -346,8 +347,8 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
     if(null == myVotes || myVotes.isEmpty()) {
       return new MMXPollAnswer(pollId, name, question, chosenOptions, null);
     } else {
-      List<MMXPollOption> selected = new ArrayList<>();
-      List<MMXPollOption> deselected = new ArrayList<>();
+      List<MMXPollOption> selected = new ArrayList<MMXPollOption>();
+      List<MMXPollOption> deselected = new ArrayList<MMXPollOption>();
       for(MMXPollOption option : chosenOptions) {
         if(!myVotes.contains(option)) {
           selected.add(option);
@@ -497,7 +498,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   }
 
   private String getChannelIdentifier() {
-    return null != channelIdentifier ? channelIdentifier : (null != channel ? channel.getIdentifier() : null);
+    return null != channelIdentifier ? channelIdentifier : (null != channel ? channel.getId() : null);
   }
 
   private static SurveyService getPollService() {
@@ -560,15 +561,15 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       Log.w(TAG, "Only one question is supported");
     }
 
-    Set<String> myAnswerOptionIds = new HashSet<>();
+    Set<String> myAnswerOptionIds = new HashSet<String>();
     if(null != myAnswers && !myAnswers.isEmpty()) {
       for(SurveyAnswer sa : myAnswers) {
         myAnswerOptionIds.add(sa.getSelectedOptionId());
       }
     }
 
-    List<MMXPollOption> pollOptions = new ArrayList<>(survey.getSurveyDefinition().getQuestions().get(0).getChoices().size());
-    List<MMXPollOption> myAnswerOptions = new ArrayList<>(myAnswerOptionIds.size());
+    List<MMXPollOption> pollOptions = new ArrayList<MMXPollOption>(survey.getSurveyDefinition().getQuestions().get(0).getChoices().size());
+    List<MMXPollOption> myAnswerOptions = new ArrayList<MMXPollOption>(myAnswerOptionIds.size());
     for(int i = 0; i < survey.getSurveyDefinition().getQuestions().get(0).getChoices().size(); i++) {
       pollOptions.add(MMXPollOption.fromSurveyOption(
           survey.getId(), survey.getSurveyDefinition().getQuestions().get(0).getChoices().get(i),
@@ -578,11 +579,13 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
       }
     }
 
-    MMXPoll newPoll = new MMXPoll(survey.getId(), null, survey.getName(), survey.getOwners().get(0), survey.getSurveyDefinition().getQuestions().get(0).getText(),
+    MMXPoll newPoll = new MMXPoll(survey.getId(), null, survey.getName(),
+        survey.getOwners().get(0), survey.getSurveyDefinition().getQuestions().get(0).getText(),
         pollOptions, survey.getSurveyDefinition().getEndDate(),
-        SurveyParticipantModel.PRIVATE == survey.getSurveyDefinition().getResultAccessModel() ? true : false,
+        (SurveyParticipantModel.PRIVATE == survey.getSurveyDefinition().getResultAccessModel()),
         survey.getMetaData());
-    newPoll.allowMultiChoices = survey.getSurveyDefinition().getQuestions().get(0).getType() == SurveyQuestionType.MULTI_CHOICE;
+    newPoll.allowMultiChoices =
+        survey.getSurveyDefinition().getQuestions().get(0).getType() == SurveyQuestionType.MULTI_CHOICE;
     newPoll.questionId = survey.getSurveyDefinition().getQuestions().get(0).getQuestionId();
     newPoll.channelIdentifier = survey.getSurveyDefinition().getNotificationChannelId();
     if(!myAnswerOptions.isEmpty()) {
@@ -593,8 +596,8 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
   }
 
   private static Survey createSurvey(final MMXPoll poll) {
-    List<SurveyQuestion> surveyQuestions = new ArrayList<>(1);
-    List<SurveyOption> surveyOptions = new ArrayList<>(poll.options.size());
+    List<SurveyQuestion> surveyQuestions = new ArrayList<SurveyQuestion>(1);
+    List<SurveyOption> surveyOptions = new ArrayList<SurveyOption>(poll.options.size());
     for(int i = 0; i < poll.options.size(); i++) {
       surveyOptions.add(new SurveyOption.SurveyOptionBuilder().value(poll.options.get(i).getText())
                             .metaData(poll.options.get(i).getExtras()).displayOrder(i).build());
@@ -607,9 +610,10 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     return new Survey.SurveyBuilder().name(poll.name).owners(Arrays.asList(User.getCurrentUserId()))
         .surveyDefinition(new SurveyDefinition.SurveyDefinitionBuilder().endDate(poll.endDate)
-            .notificationChannelId(poll.channel.getIdentifier())
+            .notificationChannelId(poll.channel.getId())
             .participantModel(SurveyParticipantModel.PUBLIC)
-            .resultAccessModel(poll.hideResultsFromOthers ? SurveyParticipantModel.PRIVATE : SurveyParticipantModel.PUBLIC)
+            .resultAccessModel(poll.hideResultsFromOthers ?
+                SurveyParticipantModel.PRIVATE : SurveyParticipantModel.PUBLIC)
             .questions(surveyQuestions)
             .type(SurveyType.POLL)
             .build())
@@ -694,11 +698,13 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     private final List<MMXPollOption> currentSelection;
 
-    public MMXPollAnswer(String pollId, String name, String question, List<MMXPollOption> currentSelection, List<MMXPollOption> previousSelection) {
+    public MMXPollAnswer(String pollId, String name, String question,
+        List<MMXPollOption> currentSelection, List<MMXPollOption> previousSelection) {
       this.pollId = pollId;
       this.name = name;
       this.question = question;
-      this.previousSelection = null != previousSelection ? new ArrayList<>(previousSelection) : Collections.EMPTY_LIST;
+      this.previousSelection = null != previousSelection ?
+          new ArrayList<MMXPollOption>(previousSelection) : Collections.EMPTY_LIST;
       this.currentSelection = currentSelection;
     }
 
@@ -763,7 +769,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     public Builder option(MMXPollOption option) {
       if(null == toBuild.options) {
-        toBuild.options = new ArrayList<>();
+        toBuild.options = new ArrayList<MMXPollOption>();
       }
       toBuild.options.add(option);
       return this;
@@ -771,7 +777,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     public Builder option(String option) {
       if(null == toBuild.options) {
-        toBuild.options = new ArrayList<>();
+        toBuild.options = new ArrayList<MMXPollOption>();
       }
       toBuild.options.add(new MMXPollOption(option));
       return this;
@@ -799,7 +805,7 @@ public class MMXPoll implements MMXTypedPayload, Parcelable {
 
     public Builder extra(String key, String value) {
       if(null == toBuild.extras) {
-        toBuild.extras = new HashMap<>();
+        toBuild.extras = new HashMap<String, String>();
       }
       toBuild.extras.put(key, value);
       return this;

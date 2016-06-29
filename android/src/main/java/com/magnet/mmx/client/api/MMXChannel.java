@@ -217,6 +217,17 @@ public class MMXChannel implements Parcelable {
     }
 
     /**
+     * Set the id of this channel.  It is a required property.
+     *
+     * @param id
+     * @return
+     */
+    public Builder id(String id) {
+      mChannel.id(id);
+      return this;
+    }
+
+    /**
      * Set the name of this channel. It is a required property.
      *
      * @param name the non-null name
@@ -337,10 +348,10 @@ public class MMXChannel implements Parcelable {
     }
   }
 
+  private String mId;
   private String mName;
   private String mSummary;
   private String mOwnerId;
-  private MMXChannelId mChannelIdentifier;
   private Integer mNumberOfMessages;
   private Date mLastTimeActive;
   private boolean mPublic;
@@ -355,6 +366,17 @@ public class MMXChannel implements Parcelable {
    */
   private MMXChannel() {
 
+  }
+
+  /**
+   * Set the id of this channel
+   *
+   * @param id the channel ID.
+   * @return this MMXChannel object
+   */
+  MMXChannel id(String id) {
+    this.mId = id;
+    return this;
   }
 
   /**
@@ -377,12 +399,13 @@ public class MMXChannel implements Parcelable {
     return mName;
   }
 
-  public String getIdentifier() {
-    if(null == mChannelIdentifier) {
-      mChannelIdentifier = new MMXChannelId(isPublic() ? null : mOwnerId, mName);
-    }
-
-    return ChannelHelper.toExtId(mChannelIdentifier);
+  /**
+   * The ID of this channel
+   *
+   * @return the ID.
+   */
+  public String getId() {
+    return mId;
   }
 
   /**
@@ -710,7 +733,7 @@ public class MMXChannel implements Parcelable {
         if (listener == null) {
           return;
         }
-        final Map<String, MMXMessage> resultMap = new HashMap<>();
+        final Map<String, MMXMessage> resultMap = new HashMap<String, MMXMessage>();
         if (result != null && result.size() > 0) {
           //convert MMXMessages
           for (Map.Entry<String, com.magnet.mmx.client.common.MMXMessage> entry : result.entrySet()) {
@@ -920,11 +943,12 @@ public class MMXChannel implements Parcelable {
     final String ownerId = User.getCurrentUserId();
     getChannelService().createChannel(
         new ChannelService.ChannelInfo(name, summary, !isPublic, publishPermission.type.name(), subscribers, pushConfigName),
-        new Callback<Void>() {
-          @Override public void onResponse(Response<Void> response) {
+        new Callback<ChannelService.ChannelCreateResponse>() {
+          @Override public void onResponse(Response<ChannelService.ChannelCreateResponse> response) {
             if(response.isSuccess()) {
               Date currentDate = new Date();
               MMXChannel channel = new MMXChannel.Builder()
+                  .id(response.body().getChannelId())
                   .name(name)
                   .summary(summary)
                   .ownerId(ownerId)
@@ -1321,7 +1345,7 @@ public class MMXChannel implements Parcelable {
       return null;
     }
 
-    Set<String> userIds = new HashSet<>();
+    Set<String> userIds = new HashSet<String>();
     for(User u : users) {
       userIds.add(u.getUserIdentifier());
     }
@@ -1333,7 +1357,7 @@ public class MMXChannel implements Parcelable {
     List<String> result = null;
     if(null != subscribeResponse && null != subscribeResponse.getSubscribeResponse() &&
         !subscribeResponse.getSubscribeResponse().isEmpty()) {
-      result = new ArrayList<>(subscribeResponse.getSubscribeResponse().size());
+      result = new ArrayList<String>(subscribeResponse.getSubscribeResponse().size());
       for(Map.Entry<String, ChannelService.ChannelSubscribeResponse.SubscribeResult> e : subscribeResponse.getSubscribeResponse().entrySet()) {
         if(!e.getValue().isSuccess()) {
           result.add(e.getKey());
@@ -1804,7 +1828,7 @@ public class MMXChannel implements Parcelable {
                     channelDetails = new ArrayList<ChannelDetail>(summaryResponses.size());
 
                     //Pre-populate user cache using batch api
-                    Set<String> userIds = new HashSet<>();
+                    Set<String> userIds = new HashSet<String>();
                     for(ChannelSummaryResponse cr : summaryResponses) {
                       if(null != cr.getMessages()) {
                         for (PubSubItem item : cr.getMessages()) {
@@ -2004,7 +2028,7 @@ public class MMXChannel implements Parcelable {
    * @param listener
    */
   public void mute(Date utilDate, final MMXChannel.OnFinishedListener<Void> listener) {
-    getChannelService().mute(getIdentifier(), new MuteChannelPushRequest(getIdentifier(), utilDate),
+    getChannelService().mute(getId(), new MuteChannelPushRequest(getId(), utilDate),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {
@@ -2028,7 +2052,7 @@ public class MMXChannel implements Parcelable {
    * @param listener
    */
   public void unMute(final MMXChannel.OnFinishedListener<Void> listener) {
-    getChannelService().unMute(getIdentifier(),
+    getChannelService().unMute(getId(),
         new Callback<Void>() {
           @Override public void onResponse(Response<Void> response) {
             if(response.isSuccess()) {

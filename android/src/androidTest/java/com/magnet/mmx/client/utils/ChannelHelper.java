@@ -95,10 +95,11 @@ public class ChannelHelper {
             obj.invoked(code);
           }
         });
-    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
+    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else
+    } else {
       assertThat(obj.getReturnValue()).isEqualTo(expected);
+    }
   }
 
 
@@ -117,12 +118,13 @@ public class ChannelHelper {
       }
     });
     ExecMonitor.Status status = findResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.INVOKED)
+    if (status == ExecMonitor.Status.INVOKED) {
       assertThat(findResult.getReturnValue().intValue()).isEqualTo(expectedCount);
-    else if (status == ExecMonitor.Status.FAILED)
+    } else if (status == ExecMonitor.Status.FAILED) {
       fail("Find channel failed: " + findResult.getFailedValue());
-    else
+    } else {
       fail("Find channel timed out");
+    }
   }
 
   public static void findError(String channelName, final int expected) {
@@ -139,12 +141,13 @@ public class ChannelHelper {
       }
     });
     ExecMonitor.Status status = obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.FAILED)
+    if (status == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else if (status == ExecMonitor.Status.INVOKED)
+    } else if (status == ExecMonitor.Status.INVOKED) {
       assertThat(obj.getReturnValue().totalCount).isEqualTo(expected);
-    else
+    } else {
       fail("Find non-existing channel timeout");
+    }
   }
 
   public static void subscribe(MMXChannel channel, final int expectedSubscriberCount) {
@@ -206,10 +209,11 @@ public class ChannelHelper {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
+    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else
+    } else {
       assertThat(obj.getReturnValue()).isEqualTo(expected);
+    }
   }
 
   public static MMXMessage publish(MMXChannel channel) {
@@ -303,10 +307,11 @@ public class ChannelHelper {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
+    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else
+    } else {
       assertThat(obj.getReturnValue()).isEqualTo(expected);
+    }
   }
 
   public static void getChannelSummary(String channelName, final int expectedChannelCount, final int expectedItemCount) {
@@ -361,12 +366,13 @@ public class ChannelHelper {
       }
     });
     ExecMonitor.Status status = obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.FAILED)
+    if (status == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else if (status == ExecMonitor.Status.INVOKED)
+    } else if (status == ExecMonitor.Status.INVOKED) {
       assertThat(obj.getReturnValue().totalCount).isEqualTo(expected);
-    else
+    } else {
       fail("Getting channel summary timed out");
+    }
   }
 
 
@@ -386,12 +392,13 @@ public class ChannelHelper {
       }
     });
     ExecMonitor.Status status = unsubResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC);
-    if (status == ExecMonitor.Status.INVOKED)
+    if (status == ExecMonitor.Status.INVOKED) {
       assertThat(unsubResult.getReturnValue()).isTrue();
-    else if (status == ExecMonitor.Status.FAILED)
+    } else if (status == ExecMonitor.Status.FAILED) {
       fail("Channel unsubscription failed: "+unsubResult.getFailedValue());
-    else
+    } else {
       fail("Channel unsubscription timed out");
+    }
     //make sure the flag is set to false
     assertThat(channel.isSubscribed()).isFalse();
   }
@@ -409,10 +416,11 @@ public class ChannelHelper {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
+    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else
+    } else {
       assertThat(obj.getReturnValue()).isEqualTo(expected);
+    }
   }
 
 
@@ -431,10 +439,11 @@ public class ChannelHelper {
         deleteResult.invoked(false);
       }
     });
-    if (deleteResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.INVOKED)
+    if (deleteResult.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.INVOKED) {
       assertThat(deleteResult.getReturnValue()).isTrue();
-    else
+    } else {
       fail("Channel deletion timed out");
+    }
   }
 
   public static void deleteError(MMXChannel channel, final MMXChannel.FailureCode expected) {
@@ -450,10 +459,11 @@ public class ChannelHelper {
         obj.invoked(code);
       }
     });
-    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED)
+    if (obj.waitFor(TestConstants.TIMEOUT_IN_MILISEC) == ExecMonitor.Status.FAILED) {
       fail(obj.getFailedValue());
-    else
+    } else {
       assertThat(obj.getReturnValue()).isEqualTo(expected);
+    }
   }
 
   public static void fetch(MMXChannel channel, final int expectedCount) {
@@ -753,12 +763,12 @@ public class ChannelHelper {
       return null;
     }
 
-    Set<String> userIds = new HashSet<>();
+    Set<String> userIds = new HashSet<String>();
     for(User u : users) {
       userIds.add(u.getUserIdentifier());
     }
 
     return userIds;
   }
-  
+
 }
